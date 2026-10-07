@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-07 skill=speckit-implement repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Research: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Date**: 2026-10-07 | **Branch**: `001-kill-test-mvp` | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
@@ -108,7 +108,7 @@ A slice with fewer than 3 intersection points gives `NaN` and flags the sample.
 ## R9. Determinism and reproducibility (FR-024, FR-025, SC-005)
 
 **Decision**:
-- `seeding.py` derives every generator from `numpy.random.SeedSequence([seed, stage_id, shard, body])`, so shards are independent and identical on any machine; PCG64 output is platform-independent.
+- `seeding.py` derives every generator from `numpy.random.SeedSequence([seed, stage_id, shard, body])`, so shards are independent and identical on any machine; PCG64 output is platform-independent. Implementation note (T007): a bare list lets distinct keys collide (`SeedSequence([1, 2])` and `SeedSequence([1, 2, 0])` give the same stream), so `rng_for(seed, *path)` encodes the path length first and each value as its 32-bit word count followed by its words; streams therefore differ from a literal reading of the list above, and no two (seed, path) keys share a stream.
 - Generation is NumPy plus integer rasterization (R1): manifests and shards are byte-identical across machines.
 - Splits are contiguous body-index ranges (train, then calibration, then test) written into the manifest; `tests/test_splits.py` asserts disjointness by body id; the last 5% of the train range is a loss-monitoring slice that takes no gradient step, and no model selection reads the calibration or test splits.
 - Training sets `torch.manual_seed`, `torch.use_deterministic_algorithms(True, warn_only=True)`, cuDNN deterministic mode, `CUBLAS_WORKSPACE_CONFIG=:4096:8` in the environment, and a single-process data loader with a seeded sampler; the tolerance in SC-005 covers residual kernel differences across hardware classes.

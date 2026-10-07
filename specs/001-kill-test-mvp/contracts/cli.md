@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: `sap` command line
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md)
@@ -25,7 +25,7 @@ One entry point, `sap`, installed by `pyproject.toml`. Every subcommand reads on
 | `sap evaluate --config C --out O` | `predict/` (test split), `calibrate/` | `evaluate/` | `results.csv` with band flags (FR-012, FR-013) |
 | `sap verdict --config C --out O` | `evaluate/` | `verdict/` | FR-014 rule with its constants held in code; prints the verdict line; a band miss is KILL with exit 0; exit 4 only on a non-finite ratio, a missing compared cell, or an SC-004 violation, after writing the verdict files; exit 2 when the configuration differs from FR-014 |
 | `sap report --config C --out O` | `evaluate/`, `verdict/`, `real/` when present | `report/` | `results.md` and plots (FR-015, FR-016) |
-| `sap run --config C --out O [--resume] [--time-budget T] [--seed-check O_ref]` | as above | all of the above | stages in order; a KILL (exit 0 from `verdict`) continues to `report`; an exit 4 stops the run after the verdict files are written; `--seed-check` makes this run the second run and compares its manifests byte for byte and its metrics within SC-005 tolerance against a reference output |
+| `sap run --config C --out O [--resume] [--time-budget T] [--seed-check O_ref]` | as above | all of the above | stages in order; a KILL (exit 0 from `verdict`) continues to `report`; an exit 4 from `verdict` stops the run after the verdict files are written, and an exit 4 from an earlier stage stops the run at that stage; `--seed-check` makes this run the second run and compares its manifests byte for byte and its metrics within SC-005 tolerance against a reference output |
 | `sap real-eval --config C --out O --dataset {bodym,ssp3d} [--mask-source {provided,sam2}]` | `train/`, `calibrate/`, dataset assets, SAM 2 checkpoint when `sam2` | `real/<dataset>/` | reported only (FR-020) |
 | `sap verify --out O` | `predict/`, `evaluate/`, `verdict/` | stdout | recomputes evaluate and verdict from predict outputs; exit 6 on any difference (SC-003) |
 

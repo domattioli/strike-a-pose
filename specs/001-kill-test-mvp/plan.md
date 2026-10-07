@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Implementation Plan: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md)
@@ -67,7 +67,7 @@ configs/
 ├── tiny.yaml                  # CPU end-to-end smoke configuration (stand-in body, limits poses, 64 px)
 └── full.yaml                  # Kaggle full run (SMPL-X, AMASS poses, 128 px, 20k/2.5k/2.5k)
 notebooks/
-└── kaggle_run.ipynb           # thin wrapper: versions, install from private dataset, env, resume copy, `sap run`
+└── kaggle_run.ipynb           # thin wrapper: versions, install from private dataset, env, GPU extrapolation gate on the first session, resume copy, `sap run`
 scripts/
 ├── cpu_smoke.sh               # ruff, pytest, tiny end-to-end run as a script step, opt-in --seed-check; fails when a part exceeds 10 minutes
 ├── check_tiny_run.py          # FR-027 assertions on a tiny-run output directory; exit 1 names the failed assertion

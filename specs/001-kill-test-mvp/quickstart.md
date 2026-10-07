@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Quickstart: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [plan.md](plan.md) | **CLI**: [contracts/cli.md](contracts/cli.md)
@@ -14,7 +14,7 @@ sap info                       # prints versions, device (cpu), asset root statu
 bash scripts/cpu_smoke.sh      # ruff, pytest, tiny end-to-end run; fails when a part exceeds 10 minutes
 ```
 
-`scripts/cpu_smoke.sh` is the pre-commit gate of constitution Principle VI. The suite runs with the network blocked and `SAP_ASSET_ROOT` unset; a test that needs either is a defect. `pytest` runs every test, each under 60 seconds (`timeout = 60`). The script adds the tiny end-to-end run as its own timed part: `sap run` on `configs/tiny.yaml`, then `scripts/check_tiny_run.py` on its output. `bash scripts/cpu_smoke.sh --seed-check` adds the opt-in second tiny run (`sap run --seed-check`), about 10 more minutes.
+`scripts/cpu_smoke.sh` is the pre-commit gate of constitution Principle VI. The suite runs with the network blocked and `SAP_ASSET_ROOT` unset; a test that needs either is a defect. `pytest` runs every test, each under 60 seconds (`timeout = 60`). The script adds the tiny end-to-end run as its own timed part: `sap run` on `configs/tiny.yaml`, then `scripts/check_tiny_run.py` on its output. `bash scripts/cpu_smoke.sh --seed-check` adds the opt-in second tiny run (`sap run --seed-check`) under its own 600 s budget, so up to 10 more minutes.
 
 ## 2. Tiny end-to-end run (FR-027)
 

@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Data Model: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
@@ -113,7 +113,7 @@ Per (body, cell, measurement).
 | threshold | 0.70 | constant in `verdict.py`; a configuration that differs exits 2 |
 | cells_in_band | bool | true when all eight compared cells (v1 and v4, four circumferences, 0 degrees) have `in_band = true`. `false` is a legitimate KILL, not an error: `out_of_band_cells` lists the failing compared cells, the verdict line ends with `; comparison invalid for cells <ids>`, the command exits 0, and `sap run` continues to `report` |
 | out_of_band_cells | list of string | compared cells with `in_band = false`, written as `<cell_id>:<measurement>` (for example `v4_n0:waist`); empty when `cells_in_band` is true |
-| verdict | enum PASS, KILL | PASS iff `median_ratio <= threshold and cells_in_band and not invalid_comparison` |
+| verdict | enum PASS, KILL | PASS iff `median_ratio <= threshold and cells_in_band and not invalid_comparison and sc004_violations == 0`; an SC-004 violation therefore never leaves a PASS on disk |
 | invalid_comparison | bool | true only when one of the four width ratios is non-finite or a compared cell is missing from `results.csv`; the verdict is then KILL, and the command writes `verdict.json` and `verdict.md` first, then exits 4. A compared cell outside the band does not set this field; it sets `cells_in_band = false` |
 | sc004_violations | int | count from `evaluate/sc004.json`; above 0, the command writes `verdict.json` and `verdict.md` first, then exits 4 |
 | reported_only | height row and the 2 and 5 degree rows | shown next to the verdict, never used in it |
@@ -163,7 +163,7 @@ Stage order and inputs: generate (none) -> train (generate) -> predict (generate
 - Calibration refuses `n_cal < calibrate.min_cal` with a message that names the minimum (FR-011).
 - The verdict read back from `verdict.json` equals the verdict recomputed from the predict outputs (SC-003).
 - Every table and record carries `config_hash`, `seed`, `code_version`, `hardware_class` (FR-025).
-- Every body id yielded by the training sampler lies in `[0, n_train)`; calibration refuses a predict file whose `split` is not `cal`; evaluation refuses one whose `split` is not `test`.
+- Every body id yielded by the training sampler lies in `[0, n_train - n_monitor)` (the monitor slice takes no gradient step); calibration refuses a predict file whose `split` is not `cal`; evaluation refuses one whose `split` is not `test`.
 - On run outputs, per test body and noise level, `latent_var_mean` never increases over the view counts of `evaluate.views` in ascending order (`v4 <= v2 <= v1` by default), within a relative tolerance of 1e-5 of the fewer-view value (SC-004). Per-view posteriors are encoded once and reused across the view-count cells, so a correct run has no violation in floating point. Violations are counted in `evaluate/sc004.json`; the verdict command writes the verdict files, then exits 4.
 - A compared cell outside the band gives KILL with `cells_in_band = false` and exit 0; only a non-finite ratio or a missing compared cell sets `invalid_comparison` (exit 4 after the verdict files are written).
 - Generation exits 4 when fewer than `data.min_unflagged` unflagged calibration or test bodies remain, and names both counts.

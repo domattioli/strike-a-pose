@@ -1,0 +1,112 @@
+# Tiny configuration: the CPU end-to-end smoke run (FR-027).
+# Keys and values follow specs/001-kill-test-mvp/contracts/config.md, tiny column.
+# Stand-in body, joint-limit poses, 64 px images, CPU only.
+# Floats are written in decimal form, for example 0.001 rather than 1e-3,
+# because PyYAML reads 1e-3 as text.
+
+seed: 1                         # one integer seed for the whole run (FR-024)
+device: cpu                     # auto, cpu or cuda (FR-028)
+
+assets:
+  root: null                    # null means the SAP_ASSET_ROOT environment variable
+
+body:
+  model: standin                # procedural capsule mannequin (research R4)
+  n_betas: 10                   # shape coefficients used
+  beta_clip: 3.0                # standard normal draws clipped to plus or minus this value
+
+pose:                           # FR-001
+  source: limits                # joint-limit sampler; needs no licensed asset
+  amass_subsets: []             # folder names under the asset root's amass folder
+  limits_deg:                   # joint-angle limit per joint group, in degrees
+    spine: 35.0
+    neck: 50.0
+    head: 50.0
+    collar: 20.0
+    shoulder: 150.0
+    elbow: 150.0
+    wrist: 60.0
+    hip: 120.0
+    knee: 150.0
+    ankle: 45.0
+  capsule_overlap_cm: 1.0       # self-intersection tolerance
+  max_rejections: 100           # rejected pose draws per body; more is a stage failure (exit 4)
+
+camera:                         # FR-002, FR-005
+  # focal_px equals image_size, so the field of view stays at 53 degrees.
+  n_cameras: 4                  # cameras per rig, always rendered
+  image_size: 64                # square mask, in pixels
+  focal_px: 64.0                # pinhole focal length in pixels
+  distance_m: [2.5, 4.0]        # camera distance, uniform
+  height_m: [0.8, 1.8]          # camera height, uniform
+  min_separation_deg: 20.0      # smallest azimuth gap between the cameras of one rig
+  lookat_jitter_m: 0.05         # per axis, uniform
+
+data:                           # FR-003, FR-024
+  # Each split is generated so that at least min_unflagged bodies remain after flagged
+  # bodies are excluded (SC-002). Generation exits 4 when fewer unflagged calibration or
+  # test bodies remain, naming both counts. n_cal must also reach calibrate.min_cal.
+  n_train: 256                  # training bodies; contiguous split ranges
+  n_cal: 64                     # calibration bodies
+  n_test: 64                    # test bodies
+  min_unflagged: 32             # unflagged bodies required per calibration and test split
+  shard_size: 64                # bodies per shard; the resume unit
+
+measure:                        # FR-004
+  # Search step of the research R6 slice searches, for ground truth and predictions alike.
+  step_cm: 0.5
+
+model:                          # FR-006 to FR-009
+  latent_dim: 8
+  channels: [8, 16, 32, 32, 32] # one entry per strided block
+  camera_embed_dim: 16
+
+train:                          # FR-006 to FR-009, FR-029
+  epochs: 2
+  batch_size: 32
+  # AdamW learning rate, in decimal form (see the header).
+  lr: 0.001
+  kl_weight: 0.001              # applied after warm-up over the first 20% of steps
+  views_train: [1, 2, 3, 4]     # view count drawn uniformly per sample
+  noise_train_deg: [0.0, 5.0]   # placement noise drawn uniformly per view
+  checkpoint_every: 10          # steps; a checkpoint is also written at every epoch end
+
+predict:                        # FR-010 to FR-014
+  n_samples: 8                  # latent samples per body
+  # exact measures every sample's mesh. linearized is the research R13 mitigation.
+  measure_mode: exact
+
+calibrate:                      # FR-010 to FR-014
+  alpha: 0.10                   # nominal miscoverage, so 90% nominal coverage
+  min_cal: 32                   # refusal threshold (FR-011)
+  spread_floor_cm: 0.1
+
+evaluate:                       # FR-010 to FR-014
+  views: [1, 2, 4]              # view-count cells
+  noise_deg: [0.0, 2.0, 5.0]    # placement-noise cells
+  # band is fixed by FR-014: inclusive, compared as integers (100 * covered >= 87 * n_test
+  # and 100 * covered <= 93 * n_test). Any other value exits 2.
+  band: [0.87, 0.93]
+  measurements: [height, chest, waist, hip, thigh]   # fixed order
+
+verdict:                        # FR-014: every key is fixed; any other value exits 2
+  threshold: 0.70
+  measurements: [chest, waist, hip, thigh]
+  noise_deg: 0.0
+  compare_views: [1, 4]
+
+real:                           # FR-017 to FR-020; the paths are null in tiny
+  bodym:
+    path: null
+    side_azimuth_deg: 90.0      # side view azimuth in degrees; sign confirmed at implementation
+  ssp3d:
+    path: null
+    mask_source: provided       # provided (dataset silhouettes) or sam2 (needs extra [real])
+  sam2:
+    checkpoint: null
+  nominal_camera:
+    distance_m: 3.0
+    height_m: 1.2
+    lookat_height_m: 0.9        # look-at point above the floor, matching the synthetic rigs
+  mask_min_area_fraction: 0.02      # usability rule
+  mask_min_component_fraction: 0.90 # usability rule

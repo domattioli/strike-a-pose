@@ -218,3 +218,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# strike-a-pose (feature 001): licensed assets, generated data, run outputs, and weights
+assets/
+# Anchored to the repository root so that src/strike_a_pose/data/ (source code) stays tracked.
+/data/
+out/
+dist/
+.ipynb_checkpoints/
+*.pkl
+*.npz
+*.pt
+*.pth
+*.ckpt

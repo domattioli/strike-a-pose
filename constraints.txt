@@ -1,0 +1,21 @@
+# Exact dependency pins for strike_a_pose (research R11). The development container and the
+# Kaggle notebook image both run Python 3.13.
+
+# Runtime dependencies (pyproject.toml [project] dependencies).
+numpy==2.5.3
+# Kept at the venv version until the first Kaggle full run records the image's version (R11).
+torch==2.14.1
+opencv-python-headless==4.14.0.94
+pyyaml==6.0.3
+matplotlib==3.11.2
+
+# Extra [body]. Not installed in the development venv; pinned from research R11.
+smplx==0.1.28
+
+# Extra [real]. Not installed in the development venv; pinned from research R11.
+sam2==1.1.0
+
+# Extra [dev].
+pytest==9.1.1
+pytest-timeout==2.4.0
+ruff==0.16.10

@@ -7,7 +7,7 @@ Each entry gives the decision, the rationale, the alternatives considered, and t
 
 ## R1. Silhouette renderer: polygon-fill union with OpenCV, headless
 
-**Decision**: `render.py` projects every triangle of the posed mesh with the pinhole camera and fills all projected triangles in one `cv2.fillPoly` call on a `uint8` canvas, with fixed-point sub-pixel coordinates (`shift=4`). Triangles with a vertex behind the camera are dropped. A mask that touches the image border marks the sample "partly outside the frame" (spec edge case).
+**Decision**: `render.py` projects every triangle of the posed mesh with the pinhole camera and fills all projected triangles in one `cv2.fillPoly` call on a `uint8` canvas, with fixed-point sub-pixel coordinates (`shift=4`). Triangles with a vertex behind the camera are dropped. A mask that touches the image border marks the sample "partly outside the frame" (spec edge case). **Amendment (T011 finding, verified)**: a single `cv2.fillPoly` call over many polygons uses an even-odd fill, so overlapping triangles cancel (two overlapping squares leave the overlap empty; a unit cube's 12 triangles give 199 px instead of about 1,600). The renderer therefore fills each projected triangle with `cv2.fillConvexPoly(..., shift=4)` into the same canvas (a true union). Measured cost: about 10 ms per view for the stand-in's 8,448 triangles; SMPL-X has about 20,900, so R13's generation estimate scales by about 2.5.
 
 **Rationale**: the silhouette of an opaque mesh is the union of the projections of all its triangles, so no depth test is needed. The call runs on CPU and on a Kaggle GPU node with no display, no OpenGL, no EGL, and no OSMesa. Integer rasterization is bit-identical across machines (constitution Principle V). Cost is about 5 ms per 20k-triangle body at 128 by 128 pixels `[inferred]`; the tiny-config test measures it.
 
@@ -31,7 +31,7 @@ Each entry gives the decision, the rationale, the alternatives considered, and t
 
 ## R3. Pose filters (FR-001): joint-angle magnitude limits and a capsule self-intersection proxy
 
-**Decision**: a pose is rejected and redrawn when (a) any joint's rotation angle (the norm of its axis-angle vector) exceeds the limit table in the configuration (degrees: spine joints 35, neck 50, head 50, collars 20, shoulders 150, elbows 150, wrists 60, hips 120, knees 150, ankles 45), or (b) two non-adjacent bone capsules overlap by more than 1 cm. A capsule is one bone (joint to child joint) with radius equal to the median distance of the bone's vertices to the bone axis in the canonical pose. Adjacent pairs (bones that share a joint, and the pelvis or spine bones with the upper arms and thighs) are exempt. The rejection count per shard goes to the manifest summary.
+**Decision**: a pose is rejected and redrawn when (a) any joint's rotation angle (the norm of its axis-angle vector) exceeds the limit table in the configuration (degrees: spine joints 35, neck 50, head 50, collars 20, shoulders 150, elbows 150, wrists 60, hips 120, knees 150, ankles 45), or (b) two non-adjacent bone capsules overlap by more than 1 cm. A capsule is one bone (joint to child joint) with radius equal to the median distance of the bone's vertices to the bone axis in the canonical pose. Adjacent pairs (bones that share a joint, and the pelvis or spine bones with the upper arms and thighs) are exempt. **Amendment (T011 finding, verified)**: torso capsules are wide relative to joint spacing, so non-adjacent trunk pairs (pelvis, spine1 to spine3, neck, head, collars) overlap by 5 to 20 cm in the canonical pose. Every pair of capsules within the trunk chain is therefore exempt as well; the self-intersection test applies to pairs that involve a limb capsule. The rejection count per shard goes to the manifest summary.
 
 **Rationale**: exact triangle-triangle tests over 20k faces per draw are too slow for 25,000 bodies. Capsules are deterministic, cheap, and catch the arm-through-torso and leg-through-leg cases that made the 2022 setup implausible.
 
@@ -71,7 +71,7 @@ Each entry gives the decision, the rationale, the alternatives considered, and t
 | hip | `max` of `P(h, torso + left_hip + right_hip)` for `h` in `[y(pelvis) - 0.10 height, y(pelvis)]` |
 | thigh | `P(h_t, left_hip part)` with `h_t = y(left_hip) - 0.30 (y(left_hip) - y(left_knee))` |
 
-A slice with fewer than 3 intersection points gives `NaN` and flags the sample.
+A slice with fewer than 3 intersection points gives `NaN` and flags the sample. **Amendment (T011 finding)**: mesh vertex rings can sit exactly at a slice height (search ranges start and end at joint heights), so the plane test is half-open: a vertex counts as above the plane when `y > h` and below otherwise, and an edge is cut only when its two vertices fall on different sides; a vertex exactly on the plane never produces a duplicate or missing intersection point.
 
 **Rationale**: a tape measure spans concavities, so the convex-hull perimeter is closer to a tape reading than the exact slice perimeter. Joint-anchored search ranges make the rule independent of the mesh topology (SMPL-X, SMPL, mannequin). The hip rule's hull of both thighs matches a tape wrapped around the buttocks and both legs.
 

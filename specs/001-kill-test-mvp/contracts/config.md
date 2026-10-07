@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: configuration schema
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md)
@@ -48,9 +48,16 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 | Key | Type | tiny | full | Rule |
 |---|---|---|---|---|
 | `data.n_train` | int | 256 | 20000 | contiguous split ranges |
-| `data.n_cal` | int | 64 | 2200 | at least `calibrate.min_cal`; 2,200 keeps at least 2,000 bodies after flagged ones are excluded (SC-002) |
-| `data.n_test` | int | 64 | 2200 | 2,200 keeps at least 2,000 bodies after flagged ones are excluded (SC-002) |
+| `data.n_cal` | int | 64 | 2500 | at least `calibrate.min_cal`; 2,500 generated so that at least `data.min_unflagged` (2,000) remain after flagged bodies are excluded (SC-002) |
+| `data.n_test` | int | 64 | 2500 | 2,500 generated so that at least `data.min_unflagged` (2,000) remain after flagged bodies are excluded (SC-002) |
+| `data.min_unflagged` | int | 32 | 2000 | generation exits 4 when fewer unflagged calibration or test bodies remain, naming both counts (SC-002) |
 | `data.shard_size` | int | 64 | 500 | bodies per shard; resume unit |
+
+## measure (FR-004)
+
+| Key | Type | tiny | full | Rule |
+|---|---|---|---|---|
+| `measure.step_cm` | float | 0.5 | 0.5 | search step of the research R6 slice searches, for ground truth and predictions alike; 1.0 is a research R13 mitigation, and a change re-runs generation |
 
 ## model and train (FR-006 to FR-009, FR-029)
 
@@ -71,7 +78,8 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 
 | Key | Type | tiny | full | Rule |
 |---|---|---|---|---|
-| `predict.n_samples` | int | 8 | 32 | latent samples per body |
+| `predict.n_samples` | int | 8 | 32 | latent samples per body; 16 is a research R13 mitigation |
+| `predict.measure_mode` | enum exact, linearized | exact | exact | `exact`: every latent sample's mesh is measured; `linearized`: a first-order expansion of the measurement map around each body's median sample, 11 mesh evaluations per body and cell; a research R13 mitigation; ground truth always uses `exact` |
 | `calibrate.alpha` | float | 0.10 | 0.10 | nominal miscoverage |
 | `calibrate.min_cal` | int | 32 | 200 | refusal threshold (FR-011) |
 | `calibrate.spread_floor_cm` | float | 0.1 | 0.1 | |
@@ -95,9 +103,24 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 | `real.sam2.checkpoint` | path or null | null | `<root>/sam2/sam2.1_hiera_base_plus.pt` | extra `[real]` |
 | `real.nominal_camera.distance_m` | float | 3.0 | 3.0 | |
 | `real.nominal_camera.height_m` | float | 1.2 | 1.2 | |
+| `real.nominal_camera.lookat_height_m` | float | 0.9 | 0.9 | look-at point above the floor, about the bounding-box center of an average upright body, matching the synthetic rigs |
 | `real.mask_min_area_fraction` | float | 0.02 | 0.02 | usability rule |
 | `real.mask_min_component_fraction` | float | 0.90 | 0.90 | usability rule |
 
 ## Overrides
 
-`--set key.path=value` on any subcommand overrides one key; the override enters the canonical dump, so it changes `config_hash`. An override of a key fixed by FR-014 (`verdict.*`, `evaluate.band`) is a configuration error (exit 2): the constants live in `verdict.py`, and the configuration only restates them.
+`--set key.path=value` on any subcommand overrides one key. It is repeatable, one key per `--set`, and the value is parsed as YAML, so `--set evaluate.views=[1,4]` sets a list. The override enters the canonical dump, so it changes `config_hash`. An override of a key fixed by FR-014 (`verdict.*`, `evaluate.band`) is a configuration error (exit 2): the constants live in `verdict.py`, and the configuration only restates them.
+
+## Test overrides (`small_config`)
+
+Every pytest test that runs a pipeline stage uses `configs/tiny.yaml` with these overrides, provided by the `small_config` fixture of `tests/conftest.py`, so it finishes within 60 seconds (constitution Principle VI). No FR-014 fixed key is touched.
+
+| Key | Value | Reason |
+|---|---|---|
+| `data.n_train`, `data.n_cal`, `data.n_test` | 64, 32, 32 | smaller splits |
+| `data.shard_size` | 32 | four shards, so resume is exercised |
+| `data.min_unflagged`, `calibrate.min_cal` | 16, 16 | a few flagged bodies cannot stop generation or calibration; 16 keeps the 90% quantile index inside the calibration set |
+| `train.epochs` | 1 | |
+| `predict.n_samples` | 4 | |
+| `camera.image_size`, `camera.focal_px` | 32, 32 | the focal length moves with the image size, so the field of view stays 53 degrees and bodies stay in frame |
+| `evaluate.views`, `evaluate.noise_deg` | [1, 4], [0] | only the two compared cells, so the verdict still computes |

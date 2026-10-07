@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-checklist repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Kill-Test Validity Checklist: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Purpose**: Unit tests for the requirements that make the kill verdict scientifically valid and reproducible: split integrity and leakage, calibration correctness, a verdict computed from saved outputs, and determinism. Each item asks whether the requirement is written well enough, not whether the code works.
@@ -20,7 +20,7 @@
 - [ ] CHK006 Is the conformal score (absolute error normalized by predicted spread, with a floor) specified precisely enough that two implementers compute identical quantiles? [Clarity, Spec §FR-010, §Assumptions "Calibration score"]
 - [ ] CHK007 Is the finite-sample quantile rule (`ceil((n + 1)(1 - alpha))`-th smallest score) a requirement, or only a plan decision in research R8? [Gap, Spec §FR-010]
 - [ ] CHK008 Are the exchangeability conditions of the coverage guarantee stated: calibration and test bodies from the same generator, the same per-cell view subset rule, and the same noise draw process? [Completeness, Spec §FR-010, §FR-005, §FR-012]
-- [ ] CHK009 Is the 87 to 93% band consistent with the calibration and test set sizes (2,000 each), so that a correct implementation cannot fail SC-002 by sampling chance alone? [Consistency, Spec §SC-002, §Assumptions "Tolerance band", §FR-011]
+- [ ] CHK009 Is the 87 to 93% band consistent with the calibration and test set sizes (at least 2,000 unflagged each, from 2,500 generated), so that a correct implementation cannot fail SC-002 by sampling chance alone? [Consistency, Spec §SC-002, §Assumptions "Tolerance band", §FR-011]
 - [ ] CHK010 Is the treatment of flagged or skipped bodies in the calibration set specified (excluded before the quantile; counted in `n_cal` or not)? [Gap, Spec §Edge Cases, §FR-011]
 - [ ] CHK011 Is the interval behaviour at the clipping boundary (lower bound 0 cm) defined for coverage counting and for width? [Edge Case, Spec §Edge Cases "lower bound below 0 cm"]
 - [ ] CHK012 Is the refusal below the minimum calibration size tied to a stated rationale (the quantile index needs `n + 1 >= 1/alpha`), so that the tiny configuration's lower minimum is justified? [Clarity, Spec §FR-011, Contracts config.md]

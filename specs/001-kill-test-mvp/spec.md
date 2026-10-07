@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Feature Specification: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Feature Branch**: `001-kill-test-mvp`  
@@ -193,7 +193,7 @@ Reproducibility and tests
 - Camera model: pinhole cameras with fixed intrinsic parameters. Distance and height are sampled within documented ranges; azimuth is uniform around the body; cameras of one rig are at least 20° apart.
 - Noise model: placement noise is a rotation by the cell's angle about a uniformly random axis, applied per view to the placement given to the model. Renders use the true placement. Position error is out of scope.
 - Training: one model trained with view counts drawn uniformly from 1 to 4 per sample and placement noise drawn uniformly from 0° to 5°, so that every evaluation cell lies inside the training distribution. `configs/full.yaml` is frozen before the first full run; a later change is a new run whose verdict is recorded next to the first, never instead of it.
-- Data split: training, calibration, and test sets are disjoint by body (default sizes 20,000; 2,200; 2,200, so that SC-002 holds after flagged bodies are excluded). Calibration and test bodies are reused across cells with cell-specific view subsets and noise draws.
+- Data split: training, calibration, and test sets are disjoint by body (default sizes 20,000; 2,500; 2,500, so that at least 2,000 calibration and 2,000 test bodies remain after flagged bodies are excluded, as SC-002 requires; generation stops when fewer remain). Calibration and test bodies are reused across cells with cell-specific view subsets and noise draws.
 - Calibration score: the absolute error normalized by the model's predicted spread, so that calibrated widths follow the fused posterior and shrink when it shrinks.
 - Tolerance band: 87% to 93% at 90% nominal (plus or minus 3 percentage points), given the default calibration and test set sizes.
 - Real data: BodyM silhouettes are used as provided; the mask step applies to SSP-3D photographs. BodyM front and side views are treated as nominal 0° and 90° placements at a fixed default distance with no placement noise.

@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Quickstart: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [plan.md](plan.md) | **CLI**: [contracts/cli.md](contracts/cli.md)
@@ -14,7 +14,7 @@ sap info                       # prints versions, device (cpu), asset root statu
 bash scripts/cpu_smoke.sh      # ruff, pytest with timing, tiny end-to-end run; fails over 10 minutes
 ```
 
-`scripts/cpu_smoke.sh` is the pre-commit gate of constitution Principle VI. The suite runs with the network blocked and `SAP_ASSET_ROOT` unset; a test that needs either is a defect.
+`scripts/cpu_smoke.sh` is the pre-commit gate of constitution Principle VI. The suite runs with the network blocked and `SAP_ASSET_ROOT` unset; a test that needs either is a defect. `pytest` alone runs the default selection (every test under 60 seconds; the `e2e` marker is deselected); the script adds the tiny end-to-end run and the `--seed-check` comparison as separate timed parts.
 
 ## 2. Tiny end-to-end run (FR-027)
 
@@ -43,8 +43,9 @@ Place the files under one directory and point `SAP_ASSET_ROOT` (or `assets.root`
 
 ## 4. Full run on Kaggle (FR-029, SC-010)
 
+0. Extrapolation gate: from the tiny run's `run_record.json`, compute `timings.predict` times (full meshes / tiny meshes) times (SMPL-X faces / stand-in faces); with the full configuration the mesh ratio is 1,267,200 / 9,216. The result must be under 12 hours; otherwise apply a research R13 mitigation first and record it in the run record.
 1. Build the bundle on any machine: `bash scripts/build_kaggle_bundle.sh` writes `dist/kaggle-bundle/` with the wheel, `constraints.txt`, and `configs/`.
-2. Create two private, owner-only Kaggle datasets: `sap-src` from `dist/kaggle-bundle/` and `sap-assets` from `<asset_root>` (the asset licenses forbid public datasets).
+2. Create two private, owner-only Kaggle datasets: `sap-src` from `dist/kaggle-bundle/` and `sap-assets` from `<asset_root>` (the asset licenses forbid public datasets). Before uploading, the operator confirms that each asset licence permits private cloud storage; the datasets are deleted after the run.
 3. Create a notebook from `notebooks/kaggle_run.ipynb`, attach both datasets, enable a GPU, and run. The notebook prints `python --version`, `torch.__version__`, and the GPU name, installs the wheel with `-c constraints.txt`, sets `SAP_ASSET_ROOT=/kaggle/input/sap-assets` and `SAP_OUTPUT_DIR=/kaggle/working/out`, and runs `sap run --config configs/full.yaml --out $SAP_OUTPUT_DIR --resume --time-budget 8.5h`.
 4. The run stops at a checkpoint before the budget ends. For the next session, add the previous notebook version's output as an input (Add Input, Your Work), and run again: the notebook copies `out/` from that input to `/kaggle/working/out` and `--resume` continues from the last shard, epoch, or cell. Fallback when output chaining is unavailable: save `out/` to a private dataset from inside the notebook and attach it.
 5. Repeat until `report/results.md` and `verdict/verdict.md` exist. Expected: generation about 20 minutes, training under 2 hours, prediction 1 to 3 hours (research R13); three sessions at most.
@@ -65,6 +66,8 @@ Each call writes `real/<dataset>/results.csv` (aggregate; committed) and `real/<
 sap verify --out <out>          # recomputes evaluate and verdict from predict outputs; fails on any difference
 sap run --config configs/full.yaml --out <out2> --seed-check <out>   # second run; compares manifests byte for byte and metrics within tolerance
 ```
+
+The tiny-configuration `--seed-check` run by `scripts/cpu_smoke.sh` is the routine check. The full-size second run costs another 24 GPU-hours and is optional, quota permitting; SC-005 at full size is claimed only when it has run.
 
 ## 7. Record the gate decision
 

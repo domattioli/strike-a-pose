@@ -1,9 +1,9 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: output artifacts
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md) | **Entities**: [../data-model.md](../data-model.md)
 
-Everything lives under the `--out` directory, outside version control. Every CSV has a header row; every JSON file carries the run record fields `config_hash`, `seed`, `code_version`, `hardware_class` (FR-025). Each stage directory ends with `DONE.json` (FR-029). Files marked "committed" are copied to `specs/001-kill-test-mvp/results/` for the gate decision; nothing else is committed.
+Everything lives under the `--out` directory, outside version control. Every CSV has a header row; every JSON file carries the run record fields `config_hash`, `seed`, `code_version`, `hardware_class` (FR-025). Each stage directory ends with `DONE.json` (FR-029). Files marked "committed" are copied to `specs/001-kill-test-mvp/results/` for the gate decision; nothing else is committed. `run_record.json` and `verdict/verdict.json` are the run record that constitution Principle V requires next to every results table, so they are committed with the tables.
 
 ```text
 <out>/
@@ -27,6 +27,7 @@ Everything lives under the `--out` directory, outside version control. Every CSV
 ├── evaluate/
 │   ├── results.csv                      # ResultCell rows (committed)
 │   ├── per_sample/test_v1_n0.csv ...    # intervals per body (not committed)
+│   ├── sc004.json                       # SC-004 monotonicity check on run outputs (committed)
 │   └── DONE.json
 ├── verdict/
 │   ├── verdict.json                     # KillVerdict (committed)
@@ -51,22 +52,25 @@ Everything lives under the `--out` directory, outside version control. Every CSV
 `body_id (n,) int64`, `masks (n, 4, H*W/8) uint8` bit-packed, `K (3, 3) float64`, `R_true (n, 4, 3, 3) float64`, `t_true (n, 4, 3) float64`, `noise_axis (n, 4, 3) float64`, `betas (n, 10) float64`, `pose_root (n, 3)`, `pose_body (n, 63)`, `measurements (n, 5) float64`, `flags (n,) int64` bit field. Written to a temporary name and renamed, so a partial shard never exists.
 
 ### `predict/<split>_<cell>.npz`
-`body_id (n,)`, `m_true (n, 5)`, `m_median (n, 5)`, `spread (n, 5)`, `latent_var_mean (n,)` (mean fused variance over latent dimensions, for SC-004), `samples (n, K, 5) float32` (kept for recomputation), `views`, `noise_deg`.
+`body_id (n,)`, `m_true (n, 5)`, `m_median (n, 5)`, `spread (n, 5)`, `latent_var_mean (n,)` (mean fused variance over latent dimensions, for SC-004), `samples (n, K, 5) float32` (kept for recomputation), `views`, `noise_deg`, `split` (`cal` or `test`; calibrate refuses any value but `cal`, evaluate any value but `test`).
 
 ### `calibrate/quantiles.csv`
 `cell_id, views, noise_deg, measurement, n_cal, alpha, q_hat, spread_floor_cm`.
 
 ### `evaluate/results.csv` (committed)
-`cell_id, views, noise_deg, measurement, nominal_level, n_cal, n_test, coverage, median_width_cm, mae_cm, mean_signed_error_cm, clipped_count, in_band, q_hat, seed, config_hash`. 45 rows in cell order then measurement order.
+`cell_id, views, noise_deg, measurement, nominal_level, n_cal, n_test, coverage, median_width_cm, mae_cm, mean_signed_error_cm, clipped_count, in_band, q_hat, seed, config_hash, code_version, hardware_class`. 45 rows in cell order then measurement order; the last four columns are copied from the run record (FR-025).
 
 ### `verdict/verdict.json` (committed)
-`verdict, median_ratio, threshold, cells_in_band, ratios {chest, waist, hip, thigh}, widths {v1: {...}, v4: {...}}, noise_deg, compare_views, reported_only {height_ratio, rows_2deg, rows_5deg}, config_hash, seed, code_version, hardware_class`.
+`verdict, median_ratio, threshold, cells_in_band, invalid_comparison, sc004_violations, ratios {chest, waist, hip, thigh}, widths {v1: {...}, v4: {...}}, noise_deg, compare_views, reported_only {height_ratio, rows_2deg, rows_5deg}, config_hash, seed, code_version, hardware_class`. `median_ratio` is `numpy.median` of the four ratios (the mean of the 2nd and 3rd smallest); `invalid_comparison` is true when a ratio is non-finite or a compared cell is missing, and the verdict is then KILL.
 
 ### `real/<dataset>/results.csv` (committed)
-`dataset, split, mask_source, cell_id, measurement, nominal_level, n_subjects, n_skipped, coverage, median_width_cm, mae_cm, mean_signed_error_cm, clipped_count, q_hat, seed, config_hash`.
+`dataset, split, mask_source, cell_id, measurement, nominal_level, n_subjects, n_skipped, n_cal, coverage, median_width_cm, mae_cm, mean_signed_error_cm, clipped_count, q_hat, seed, config_hash, code_version, hardware_class`. `n_cal` is the calibration count of the matching synthetic cell; the last four columns are copied from the run record (FR-025).
 
 ### `real/<dataset>/subjects.csv` (not committed)
 `dataset, split, subject_id, mask_source, mask_status, m_true_*, m_median_*, lower_*, upper_*, covered_*` for the five measurements.
+
+### `evaluate/sc004.json` (committed)
+`n_bodies, noise_levels, pairs {v2_vs_v1, v4_vs_v2}, violations, max_excess, tolerance, config_hash, seed, code_version, hardware_class`. A violation is one test body and noise level where the mean fused latent variance with more views exceeds the one with fewer views by more than `tolerance` (1e-6); SC-004.
 
 ### `run_record.json` (committed)
 `config_hash, seed, code_version, hardware_class, device_name, versions {python, numpy, torch, opencv, smplx, sam2}, started_at, finished_at, timings {generate, train, predict, calibrate, evaluate, verdict, report, real_eval}`.

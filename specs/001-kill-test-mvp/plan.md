@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Implementation Plan: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md)
@@ -15,12 +15,12 @@ Build a clean-room Python package, `strike_a_pose` with the `sap` command line, 
 **Language/Version**: Python 3.10 or newer (FR-030); the development container runs 3.13.16 and the Kaggle image pins 3.13 (research R10).  
 **Primary Dependencies**: numpy, torch (2.6 or newer, cp313 wheels), opencv-python-headless (4.x line), pyyaml, matplotlib. Optional extras: `[body]` smplx (SMPL-X and SMPL meshes from the asset root), `[real]` sam2 (SSP-3D masks). Dev: pytest, pytest-timeout, ruff. Exact pins in `constraints.txt` (research R11).  
 **Storage**: files only. Dataset shards as `.npz`, manifests and results as CSV, records and verdicts as JSON, plots as PNG, under an output directory outside version control.  
-**Testing**: pytest, CPU only, no network, no licensed asset; stand-in body model (research R4); tiny end-to-end configuration (FR-027).  
+**Testing**: pytest, CPU only, no network, no licensed asset; stand-in body model (research R4); tiny end-to-end configuration (FR-027); the tiny end-to-end run is a script step outside the default pytest selection (marker `e2e`, run by `scripts/cpu_smoke.sh`), and every test in the default selection finishes within 60 seconds.  
 **Target Platform**: Linux CPU container for development and CI (4 cores, 15 GB RAM); Kaggle GPU notebook (T4 or P100) for the full run.
 **Project Type**: single project: importable library plus one command-line entry point.  
 **Performance Goals**: full run within 24 GPU-hours in sessions of at most 8.5 hours (SC-010, research R10 and R13); test suite and tiny end-to-end run within 10 minutes each on the reference CPU machine (SC-006).  
 **Constraints**: no GPU in development; no network and no licensed asset in tests; no licensed asset or derived artifact in the repository; deterministic generation and splits; checkpoint and resume for every long stage; 10-minute CPU budgets.  
-**Scale/Scope**: 24,000 synthetic bodies by 4 views at 128 by 128 pixels (20,000 train, 2,000 calibration, 2,000 test); 9 cells by 5 measurements; BodyM (2,505 subjects, 8,978 silhouettes) and SSP-3D (311 images) for the real-image rows.
+**Scale/Scope**: 24,400 synthetic bodies by 4 views at 128 by 128 pixels (20,000 train, 2,200 calibration, 2,200 test; 2,200 keeps at least 2,000 after flagged bodies are excluded, SC-002); 9 cells by 5 measurements; BodyM (2,505 subjects, 8,978 silhouettes) and SSP-3D (311 images) for the real-image rows.
 
 ## Constitution Check
 
@@ -31,10 +31,10 @@ Build a clean-room Python package, `strike_a_pose` with the `sap` command line, 
 | I. Clean-Room Provenance | No material from the excluded sources; public source named per module; PR statement | Every algorithm cites a public source (research R14); module docstrings name it (task T050); the PR template carries the statement (task T051); the excluded local checkout was never opened | PASS |
 | II. Public Data and License Compliance | No licensed asset, derived render, per-subject table, or weight in the repository; assets read from a configured path; third-party licenses recorded | `assets.py` resolves `SAP_ASSET_ROOT` and fails with asset and key names; `.gitignore` plus `tests/test_repo_hygiene.py` (FR-022); committed results are aggregate tables; dependency licenses in research R11; `smplx` and `sam2` are install-time extras, never vendored | PASS |
 | III. Coverage-First Evaluation | Coverage and width primary; MAE secondary; nominal level, set sizes, seed in every table; band flags; no unreproducible metric | `results.csv` carries nominal level, `n_cal`, `n_test`, seed, coverage, median width, then MAE; `in_band` flag per cell; every table comes from saved per-sample outputs | PASS |
-| IV. Kill-Test Gate Before Scope Grows | Criterion fixed in the spec before training; computed by code; no scope growth; no README | `verdict.py` implements FR-014 only; no extra datasets, models, UI, packaging, or README in this feature | PASS |
+| IV. Kill-Test Gate Before Scope Grows | Criterion fixed in the spec before training; computed by code; no scope growth; no README | `verdict.py` holds the FR-014 constants and refuses a configuration that differs (exit 2); `configs/full.yaml` is frozen before the first full run, and a later change is a new run recorded next to the first; no extra datasets, models, UI, packaging, or README in this feature | PASS |
 | V. Reproducibility | Config plus seed determine a run; deterministic generation; pinned dependencies; run record; code-generated tables | `seeding.py` SeedSequence tree; integer rasterization; `constraints.txt` shared by CPU and Kaggle; `run_record.json`; `sap verify` recomputation (research R9) | PASS |
 | VI. CPU-Runnable Tests | Smoke test per module; no GPU, network, or asset in tests; suite within 10 minutes; device fallback | Every module task pairs the module with its test; stand-in body (R4); network blocked in `conftest.py`; `device.py` falls back to CPU; `scripts/cpu_smoke.sh` times the suite; per-test 60 s timeout | PASS |
-| Assets, Data, Compute (section) | Python package with CLI; asset key; no downloads; fixtures at most 100 kB; outputs outside VCS; results tables under the spec directory | `sap` CLI; `assets.root` or `SAP_ASSET_ROOT`; no download code path; fixtures generated inside tests; `--out` outside the repo; `specs/001-kill-test-mvp/results/` receives the tables | PASS |
+| Assets, Data, Compute (section) | Python package with CLI; asset key; no downloads; fixtures at most 100 kB; outputs outside VCS; results tables under the spec directory | `sap` CLI; `assets.root` or `SAP_ASSET_ROOT`; no download code path; fixtures generated inside tests; `--out` outside the repo; `specs/001-kill-test-mvp/results/` receives the tables and plots together with `run_record.json` and `verdict/verdict.json`, the run record that Principle V requires next to every table | PASS |
 | Workflow and Quality Gates (section) | Numbered feature branch; CPU suite passes; clean-room statement; no asset; code-generated tables; docstring summaries | Branch `001-kill-test-mvp`; PR gate tasks in the Polish phase | PASS |
 
 Re-check after Phase 1 design (data model, contracts, quickstart): no principle is violated. The three body-model implementations (SMPL-X, SMPL, stand-in) are required by Principle VI and FR-018 and are one interface, not added complexity. Complexity Tracking stays empty.
@@ -65,7 +65,7 @@ pyproject.toml                 # metadata, dependencies, extras [body] [real] [d
 constraints.txt                # exact pins shared by the CPU environment and the Kaggle notebook
 configs/
 ├── tiny.yaml                  # CPU end-to-end smoke configuration (stand-in body, limits poses, 64 px)
-└── full.yaml                  # Kaggle full run (SMPL-X, AMASS poses, 128 px, 20k/2k/2k)
+└── full.yaml                  # Kaggle full run (SMPL-X, AMASS poses, 128 px, 20k/2.2k/2.2k)
 notebooks/
 └── kaggle_run.ipynb           # thin wrapper: versions, install from private dataset, env, resume copy, `sap run`
 scripts/
@@ -122,11 +122,11 @@ tests/
 ├── conftest.py                # tiny config, temporary output dir, stand-in fixtures, network blocker
 ├── test_<module>.py           # one smoke test file per module above
 ├── test_repo_hygiene.py       # FR-022 automated repository check
-├── test_e2e_tiny.py           # FR-027 tiny end-to-end run on CPU
+├── test_e2e_tiny.py           # FR-027 tiny end-to-end run on CPU (marker e2e; run by scripts/cpu_smoke.sh)
 └── test_determinism.py        # SC-005 two-run comparison
 ```
 
-**Structure Decision**: single project. The package root is `src/strike_a_pose/` with one sub-package per stage group (`body`, `pose`, `data`, `model`, `report`, `real`) and flat modules for cross-cutting services. `tests/` mirrors the module list one to one, so constitution Principle VI (one CPU smoke test per module) is checkable by file name.
+**Structure Decision**: single project. The package root is `src/strike_a_pose/` with one sub-package per stage group (`body`, `pose`, `data`, `model`, `report`, `real`) and flat modules for cross-cutting services. `tests/` mirrors the module list one to one (every module except `__init__.py` has `tests/test_<module>.py`), so constitution Principle VI (one CPU smoke test per module) is checkable by file name.
 
 ## Complexity Tracking
 

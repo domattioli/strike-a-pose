@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: configuration schema
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md)
@@ -48,8 +48,8 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 | Key | Type | tiny | full | Rule |
 |---|---|---|---|---|
 | `data.n_train` | int | 256 | 20000 | contiguous split ranges |
-| `data.n_cal` | int | 64 | 2000 | at least `calibrate.min_cal` |
-| `data.n_test` | int | 64 | 2000 | |
+| `data.n_cal` | int | 64 | 2200 | at least `calibrate.min_cal`; 2,200 keeps at least 2,000 bodies after flagged ones are excluded (SC-002) |
+| `data.n_test` | int | 64 | 2200 | 2,200 keeps at least 2,000 bodies after flagged ones are excluded (SC-002) |
 | `data.shard_size` | int | 64 | 500 | bodies per shard; resume unit |
 
 ## model and train (FR-006 to FR-009, FR-029)
@@ -77,12 +77,12 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 | `calibrate.spread_floor_cm` | float | 0.1 | 0.1 | |
 | `evaluate.views` | list of int | [1, 2, 4] | [1, 2, 4] | cells |
 | `evaluate.noise_deg` | list of float | [0, 2, 5] | [0, 2, 5] | cells |
-| `evaluate.band` | [low, high] | [0.87, 0.93] | [0.87, 0.93] | inclusive (FR-013) |
+| `evaluate.band` | [low, high] | [0.87, 0.93] | [0.87, 0.93] | fixed by FR-014; inclusive, compared as integers (`100 * covered >= 87 * n_test` and `100 * covered <= 93 * n_test`); any other value is a configuration error (exit 2) |
 | `evaluate.measurements` | list | [height, chest, waist, hip, thigh] | same | fixed order |
-| `verdict.threshold` | float | 0.70 | 0.70 | FR-014 |
-| `verdict.measurements` | list | [chest, waist, hip, thigh] | same | circumferences entering the median ratio |
-| `verdict.noise_deg` | float | 0 | 0 | |
-| `verdict.compare_views` | [low, high] | [1, 4] | [1, 4] | |
+| `verdict.threshold` | float | 0.70 | 0.70 | fixed by FR-014; any other value is a configuration error (exit 2) |
+| `verdict.measurements` | list | [chest, waist, hip, thigh] | same | fixed by FR-014; any other value is a configuration error (exit 2) |
+| `verdict.noise_deg` | float | 0 | 0 | fixed by FR-014; any other value is a configuration error (exit 2) |
+| `verdict.compare_views` | [low, high] | [1, 4] | [1, 4] | fixed by FR-014; any other value is a configuration error (exit 2) |
 
 ## real (FR-017 to FR-020)
 
@@ -100,4 +100,4 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 
 ## Overrides
 
-`--set key.path=value` on any subcommand overrides one key; the override enters the canonical dump, so it changes `config_hash`.
+`--set key.path=value` on any subcommand overrides one key; the override enters the canonical dump, so it changes `config_hash`. An override of a key fixed by FR-014 (`verdict.*`, `evaluate.band`) is a configuration error (exit 2): the constants live in `verdict.py`, and the configuration only restates them.

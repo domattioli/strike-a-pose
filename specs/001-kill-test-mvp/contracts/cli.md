@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: `sap` command line
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md)
@@ -23,13 +23,13 @@ One entry point, `sap`, installed by `pyproject.toml`. Every subcommand reads on
 | `sap predict --config C --out O [--resume]` | `data/`, `train/` | `predict/` | one file per cell and split (cal, test) |
 | `sap calibrate --config C --out O` | `predict/` (cal split) | `calibrate/` | refuses `n_cal < calibrate.min_cal` with exit 4 and a message naming the minimum (FR-011) |
 | `sap evaluate --config C --out O` | `predict/` (test split), `calibrate/` | `evaluate/` | `results.csv` with band flags (FR-012, FR-013) |
-| `sap verdict --config C --out O` | `evaluate/` | `verdict/` | FR-014 rule; prints the verdict line |
+| `sap verdict --config C --out O` | `evaluate/` | `verdict/` | FR-014 rule with its constants held in code; prints the verdict line; exit 4 on `invalid_comparison` or an SC-004 violation; exit 2 when the configuration differs from FR-014 |
 | `sap report --config C --out O` | `evaluate/`, `verdict/`, `real/` when present | `report/` | `results.md` and plots (FR-015, FR-016) |
 | `sap run --config C --out O [--resume] [--time-budget T] [--seed-check O_ref]` | as above | all of the above | stages in order; `--seed-check` compares manifests byte for byte and metrics within SC-005 tolerance against a reference output |
 | `sap real-eval --config C --out O --dataset {bodym,ssp3d} [--mask-source {provided,sam2}]` | `train/`, `calibrate/`, dataset assets, SAM 2 checkpoint when `sam2` | `real/<dataset>/` | reported only (FR-020) |
 | `sap verify --out O` | `predict/`, `evaluate/`, `verdict/` | stdout | recomputes evaluate and verdict from predict outputs; exit 6 on any difference (SC-003) |
 
-Common options: `--device {auto,cpu,cuda}`, `--log-level`, `--time-budget` as `<hours>h` or `<minutes>m` (the run stops cleanly at the next checkpoint when the budget would be exceeded by the next unit of work; the partial stage is resumable).
+Common options: `--device {auto,cpu,cuda}`, `--log-level`, `--time-budget` as `<hours>h` or `<minutes>m` (the run stops cleanly at the next checkpoint when the budget would be exceeded by the next unit of work; the partial stage is resumable). `--set key=value` overrides one configuration key; an override of an FR-014 fixed key (`verdict.*`, `evaluate.band`) exits 2.
 
 ## Exit codes
 
@@ -45,4 +45,4 @@ Common options: `--device {auto,cpu,cuda}`, `--log-level`, `--time-budget` as `<
 
 ## Stdout and stderr
 
-Progress and the verdict line go to stdout. The verdict line format is fixed: `VERDICT: PASS|KILL median_ratio=<x.xxx> threshold=0.700 cells_in_band=<true|false> (chest=<r> waist=<r> hip=<r> thigh=<r>) config=<hash12> seed=<n>`. Errors go to stderr as one line that starts with `sap: error:`.
+Progress and the verdict line go to stdout. The verdict line format is fixed: `VERDICT: PASS|KILL median_ratio=<x.xxx> threshold=0.700 cells_in_band=<true|false> invalid=<true|false> sc004_violations=<n> (chest=<r> waist=<r> hip=<r> thigh=<r>) config=<hash12> seed=<n>`. Errors go to stderr as one line that starts with `sap: error:`.

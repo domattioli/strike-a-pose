@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Research: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Date**: 2026-10-07 | **Branch**: `001-kill-test-mvp` | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
@@ -61,12 +61,12 @@ Each entry gives the decision, the rationale, the alternatives considered, and t
 
 ## R6. Measurement definitions (FR-004), one rule set for synthetic and real meshes
 
-**Decision**: all measurements are computed on the canonical-pose mesh for the sample's shape coefficients, in centimetres, with the vertical axis `y`. `P(h, S)` is the perimeter of the 2D convex hull of the intersection of the plane `y = h` with the triangles that have at least one vertex in part set `S`. Part sets use the skinning argmax. Searches over `h` step 0.5 cm. Joint heights `y(j)` come from the canonical-pose joints.
+**Decision**: all measurements are computed on the canonical-pose mesh for the sample's shape coefficients, in centimetres, with the vertical axis `y`. `P(h, S)` is the perimeter of the 2D convex hull of the intersection of the plane `y = h` with the triangles that have at least one vertex in part set `S`. Part sets use the skinning argmax. Searches over `h` step 0.5 cm. Joint heights `y(j)` come from the canonical-pose joints. The implementation is batched: `measure_batch` vectorizes the intersection over meshes and heights (torch, device-aware, chunked for memory) and computes each hull perimeter by the Cauchy projection formula over 64 directions (error under 0.1%).
 
 | Measurement | Definition |
 |---|---|
 | height | `max_y(V) - min_y(V)` over all vertices |
-| chest | `max` of `P(h, torso + collars)` for `h` in `[y(spine2), y(neck))`, torso = pelvis, spine1, spine2, spine3 parts |
+| chest | `max` of `P(h, torso)` for `h` in `[y(spine2), y(spine3)]`, torso = pelvis, spine1, spine2, spine3 parts; collar parts are excluded and the range stops at spine3, because collar vertices sit at shoulder level and would move the maximum to the shoulders |
 | waist | `min` of `P(h, torso)` for `h` in `[y(pelvis), y(spine2)]` |
 | hip | `max` of `P(h, torso + left_hip + right_hip)` for `h` in `[y(pelvis) - 0.10 height, y(pelvis)]` |
 | thigh | `P(h_t, left_hip part)` with `h_t = y(left_hip) - 0.30 (y(left_hip) - y(left_knee))` |
@@ -75,7 +75,7 @@ A slice with fewer than 3 intersection points gives `NaN` and flags the sample.
 
 **Rationale**: a tape measure spans concavities, so the convex-hull perimeter is closer to a tape reading than the exact slice perimeter. Joint-anchored search ranges make the rule independent of the mesh topology (SMPL-X, SMPL, mannequin). The hip rule's hull of both thighs matches a tape wrapped around the buttocks and both legs.
 
-**Alternatives considered**: fixed landmark vertex ids (topology-specific; needs a table per body model); exact slice perimeter (over-counts concavities); a linear map from shape coefficients to measurements for speed (rejected for the MVP: the exact rule applies to ground truth and to predictions alike; R13 shows the cost fits).
+**Alternatives considered**: fixed landmark vertex ids (topology-specific; needs a table per body model); exact slice perimeter (over-counts concavities); a linear map from shape coefficients to measurements for speed (not the default: the exact rule applies to ground truth and to predictions alike; R13 keeps a per-body linearization as the last mitigation).
 
 **Known offset**: BodyM tape measurements follow a measurement protocol that differs from these rules; the real-image tables report mean signed error next to coverage (spec edge case).
 
@@ -83,7 +83,7 @@ A slice with fewer than 3 intersection points gives `NaN` and flags the sample.
 
 **Decision**:
 - Encoder (FR-006): a 5-block strided CNN (128 to 4 pixels, channels 32 to 256) on the silhouette, concatenated with a 64-d embedding of the camera placement given to the model (6D rotation representation plus translation scaled by 1/5 m), then an MLP to `mu_v` and `logvar_v` in a 16-d latent.
-- Fusion (FR-007): product of experts with a `N(0, I)` prior expert: precision `T = 1 + sum_v exp(-logvar_v)`, mean `mu = (sum_v mu_v exp(-logvar_v)) / T`. Precision adds positive terms, so the fused variance never exceeds any contributing view's variance, and adding a view never widens it (SC-004).
+- Fusion (FR-007): product of experts with a `N(0, I)` prior expert: precision `T = 1 + sum_v exp(-logvar_v)`, mean `mu = (sum_v mu_v exp(-logvar_v)) / T`. Precision adds positive terms, so the fused variance never exceeds any contributing view's variance, and adding a view never widens it (SC-004). The per-view posterior is itself the product of the prior expert and the encoder expert of that view, so with one view the fused posterior equals the per-view posterior exactly (spec edge case).
 - Decoder (FR-008): an MLP from `z` to the 10 shape coefficients with a heteroscedastic Gaussian head (mean and log-scale).
 - Loss: Gaussian negative log-likelihood of the true shape coefficients under the decoded distribution for the joint posterior plus the mean of the same term over each single-view posterior (the MVAE sub-sampled objective), plus a KL term with a linear warm-up over the first 20% of steps and weight `kl_weight`.
 - Training draw (FR-009): per sample, view count uniform in {1, 2, 3, 4} and placement noise uniform in [0, 5] degrees per view, so every evaluation cell is in-distribution.
@@ -110,8 +110,8 @@ A slice with fewer than 3 intersection points gives `NaN` and flags the sample.
 **Decision**:
 - `seeding.py` derives every generator from `numpy.random.SeedSequence([seed, stage_id, shard, body])`, so shards are independent and identical on any machine; PCG64 output is platform-independent.
 - Generation is NumPy plus integer rasterization (R1): manifests and shards are byte-identical across machines.
-- Splits are contiguous body-index ranges (train, then calibration, then test) written into the manifest; `tests/test_splits.py` asserts disjointness by body id.
-- Training sets `torch.manual_seed`, `torch.use_deterministic_algorithms(True, warn_only=True)`, cuDNN deterministic mode, and a single-process data loader with a seeded sampler; the tolerance in SC-005 covers residual kernel differences across hardware classes.
+- Splits are contiguous body-index ranges (train, then calibration, then test) written into the manifest; `tests/test_splits.py` asserts disjointness by body id; the last 5% of the train range is a loss-monitoring slice that takes no gradient step, and no model selection reads the calibration or test splits.
+- Training sets `torch.manual_seed`, `torch.use_deterministic_algorithms(True, warn_only=True)`, cuDNN deterministic mode, `CUBLAS_WORKSPACE_CONFIG=:4096:8` in the environment, and a single-process data loader with a seeded sampler; the tolerance in SC-005 covers residual kernel differences across hardware classes.
 - The run record stores the configuration hash (SHA-256 of the canonical YAML dump), seed, package version plus git commit when available, hardware class and device name, and library versions.
 - `sap verify` recomputes evaluation and verdict from the saved per-sample outputs and compares them with the stored tables (SC-003).
 
@@ -145,7 +145,7 @@ Versions available to Python 3.13 on 2026-10-07 `[verified: pip index versions o
 | pyyaml | 6.0.3 | MIT | configuration |
 | matplotlib | 3.11.2 | PSF-based | plots (Agg backend) |
 | smplx | 0.1.28 | SMPL-X research license | optional extra `[body]`: SMPL-X and SMPL meshes |
-| sam2 | 1.1.0 listed on PyPI `[assumed: the PyPI name may not be Meta's distribution; T042 installs from `git+https://github.com/facebookresearch/sam2.git` when the PyPI package is not it]`; needs python >= 3.10, torch >= 2.5.1 | Apache-2.0, checkpoints Apache-2.0 | optional extra `[real]`: SSP-3D masks |
+| sam2 | 1.1.0 on PyPI, Meta's distribution `[verified by the cycle-1 analyzer on PyPI, 2026-10-07]`; needs python >= 3.10, torch >= 2.5.1 | Apache-2.0, checkpoints Apache-2.0 | optional extra `[real]`: SSP-3D masks |
 | pytest | 9.1.1 | MIT | tests |
 | ruff | current | MIT | lint |
 
@@ -159,7 +159,7 @@ Versions available to Python 3.13 on 2026-10-07 `[verified: pip index versions o
 
 **SSP-3D** `[verified: https://github.com/akashsengupta1997/SSP-3D, fetched 2026-10-07]`: MIT license; 311 images of tightly clothed sports persons with silhouettes, and `labels.npz` with filenames, SMPL pose and shape parameters, genders, 2D joints, camera translations, and bounding boxes; the zip is part of the repository; SMPL model files are needed separately (R5). Key names are not listed in the README `[assumed; the loader logs the keys]`.
 
-**Masks (FR-019)**: `real.ssp3d.mask_source` is `provided` (the dataset silhouettes; default) or `sam2` (recomputed from the photograph with the SAM 2 image predictor and a box prompt from the dataset bounding box; checkpoint read from `<asset_root>/sam2/`). SAM 2 code and checkpoints are Apache-2.0, Python >= 3.10, torch >= 2.5.1 `[verified: https://github.com/facebookresearch/sam2 via search summary]`; a package named `sam2` 1.1.0 exists on PyPI `[assumed to be Meta's; otherwise install from the GitHub source, see R11]`. A mask is usable when it covers at least 2% of the image and its largest connected component holds at least 90% of the mask area; otherwise the subject is skipped and counted. BodyM silhouettes are used as provided.
+**Masks (FR-019)**: `real.ssp3d.mask_source` is `provided` (the dataset silhouettes; default) or `sam2` (recomputed from the photograph with the SAM 2 image predictor and a box prompt from the dataset bounding box; checkpoint read from `<asset_root>/sam2/`). SAM 2 code and checkpoints are Apache-2.0, Python >= 3.10, torch >= 2.5.1 `[verified: https://github.com/facebookresearch/sam2 via search summary]`; the PyPI package `sam2` 1.1.0 is Meta's distribution `[verified by the cycle-1 analyzer on PyPI, 2026-10-07]`. A mask is usable when it covers at least 2% of the image and its largest connected component holds at least 90% of the mask area; otherwise the subject is skipped and counted. A mask with two connected components that each hold at least 10% of the mask area is `skipped_multi_person`. BodyM silhouettes are used as provided.
 
 **Nominal cameras**: BodyM front = azimuth 0 degrees, side = azimuth 90 degrees (the dataset's left-side view; the sign is confirmed on the first subject at implementation `[assumed]`); SSP-3D = azimuth 0 degrees; distance 3.0 m, height 1.2 m, no placement noise. Preprocessing: pad to square, resize to `camera.image_size` with area interpolation, threshold at 0.5.
 
@@ -167,14 +167,16 @@ Versions available to Python 3.13 on 2026-10-07 `[verified: pip index versions o
 
 ## R13. Compute budget estimate (SC-010)
 
+Slice count per mesh: the chest, waist, and hip searches of R6 step 0.5 cm over ranges of about 20 to 35 cm each, so one mesh needs about 130 slices plus the thigh slice and the height extremes.
+
 | Stage | Estimate | Basis |
 |---|---|---|
-| Generation, 24,000 bodies, 4 views each, 128 by 128 | about 20 minutes on CPU | R1 cost plus SMPL-X forward passes and 5 slices per body `[inferred]` |
+| Generation, 24,400 bodies, 4 views each, 128 by 128 | about 30 minutes on CPU | R1 cost plus SMPL-X forward passes and about 130 slices per body for ground truth `[inferred]` |
 | Training, 30 epochs over 20,000 bodies | under 2 hours on a T4 | small CNN, 128 by 128 inputs `[inferred]` |
-| Prediction, 9 cells by 4,000 bodies by 32 samples, plus measurement | 1 to 3 hours, mostly CPU slicing | R6 slices restricted to part subsets (about 1 to 2 ms each) `[inferred]` |
+| Prediction, 9 cells by 4,400 bodies by 32 samples = 1,267,200 meshes, about 130 slices each | 1 to 2 hours on the T4 with the batched `measure_batch` of R6; 8 to 40 hours on CPU alone | vectorized intersection over meshes and heights with the Cauchy perimeter; the CPU figure is the sequential NumPy cost of about 40 ms per mesh `[inferred]` |
 | Calibration, evaluation, verdict, report | minutes | arithmetic on saved outputs |
 
-Total well under the 24 GPU-hour budget; the tiny configuration records measured per-stage timings in the run record so these estimates are checked before the first full run.
+Gate before the first full run (quickstart section 4 step 0, task T052): the tiny run's `timings.predict` scaled by (full meshes / tiny meshes) and by (SMPL-X faces / stand-in faces) must be under 12 hours; otherwise the Kaggle run does not start. Mitigations, in order: `predict.n_samples` 16 instead of 32 (halves the cost); a 1.0 cm search step (halves the slices); a first-order linearization of the measurement map around each body's median sample (11 mesh evaluations per body instead of 32, exact at the median). A mitigation is a configuration change recorded in the run record, never a change to the FR-014 rule.
 
 ## R14. Clean-room provenance (Principle I, FR-023)
 

@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-plan repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Data Model: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
@@ -32,7 +32,7 @@ One view of one body (spec: Camera Placement).
 | K | float[3,3] | fixed intrinsics from `camera.image_size` and `camera.focal_px` |
 | R_true, t_true | float[3,3], float[3] | world-to-camera; look-at the pelvis joint with jitter |
 | azimuth_deg, distance_m, height_m | float | within `camera.*` ranges; azimuths of one rig at least `camera.min_separation_deg` apart |
-| noise_axis | float[3] | unit vector, drawn per view per cell |
+| noise_axis | float[3] | unit vector, drawn once per (body, view) at generation and stored; every cell rotates about it by its own `noise_deg`; training draws the angle only, about the stored axis |
 | R_given(noise_deg) | derived | `R_noise(noise_deg, noise_axis) @ R_true`; `t` unchanged (FR-005) |
 
 ### Silhouette
@@ -53,7 +53,7 @@ One view of one body (spec: Camera Placement).
 ### PerViewPosterior and FusedPosterior
 | Field | Type | Rule |
 |---|---|---|
-| mu_v, logvar_v | float[L] each, `L = model.latent_dim` | from the encoder of view v with `R_given`, `t` |
+| mu_v, logvar_v | float[L] each, `L = model.latent_dim` | the per-view posterior: the product of the prior expert `N(0, I)` and the encoder expert of view v (encoder input: mask, `R_given`, `t`); with one view the fused posterior equals it exactly |
 | mu, logvar | float[L] | product of experts with the `N(0, I)` prior expert; `exp(logvar) <= exp(logvar_v)` for every contributing v (FR-007, SC-004) |
 
 ### MeasurementInterval
@@ -99,17 +99,20 @@ Per (body, cell, measurement).
 | mae_cm | float | mean of `abs(m_median - m_true)` (secondary metric) |
 | mean_signed_error_cm | float | mean of `m_median - m_true` |
 | clipped_count | int | intervals clipped at 0 |
-| in_band | bool | `evaluate.band[0] <= coverage <= evaluate.band[1]`, inclusive (FR-013) |
+| in_band | bool | inclusive (FR-013), compared as integers: `100 * covered_count >= 87 * n_test` and `100 * covered_count <= 93 * n_test` |
+| config_hash, seed, code_version, hardware_class | provenance | copied from the RunRecord into every row (FR-025) |
 
 ### KillVerdict (FR-014)
 | Field | Type | Rule |
 |---|---|---|
 | noise_deg | 0 | fixed |
 | ratios | map circumference to float | `median_width(v4) / median_width(v1)` for chest, waist, hip, thigh |
-| median_ratio | float | median of the four ratios |
-| threshold | 0.70 | from `verdict.threshold` |
+| median_ratio | float | `numpy.median` of the four ratios: the mean of the 2nd and 3rd smallest |
+| threshold | 0.70 | constant in `verdict.py`; a configuration that differs exits 2 |
 | cells_in_band | bool | all eight compared cells (v1 and v4, four circumferences, 0 degrees) have `in_band = true` |
-| verdict | enum PASS, KILL | PASS iff `median_ratio <= threshold and cells_in_band` |
+| verdict | enum PASS, KILL | PASS iff `median_ratio <= threshold and cells_in_band and not invalid_comparison` |
+| invalid_comparison | bool | true when a ratio is non-finite or a compared cell is missing; the verdict is then KILL and the command exits 4 |
+| sc004_violations | int | count from `evaluate/sc004.json`; above 0 exits 4 |
 | reported_only | height row and the 2 and 5 degree rows | shown next to the verdict, never used in it |
 | run_record | RunRecord | attached |
 
@@ -129,7 +132,7 @@ Per (body, cell, measurement).
 | dataset, subject_id | enum bodym_testA, bodym_testB, ssp3d; string | key |
 | views | list of (mask, nominal placement) | BodyM: front, side; SSP-3D: one |
 | mask_source | enum provided, sam2 | per configuration |
-| mask_status | enum ok, skipped_no_mask, skipped_unusable, skipped_multi_person | skipped rows are counted, never dropped |
+| mask_status | enum ok, skipped_no_mask, skipped_unusable, skipped_multi_person | skipped rows are counted, never dropped; `skipped_multi_person` when two connected components each hold at least 10% of the mask area |
 | measurements_true | float[5] cm | BodyM: tape values; SSP-3D: from the SMPL mesh in canonical pose with the FR-004 rules |
 | intervals | MeasurementInterval[5] | using the CalibrationQuantile of the matching cell (`v2_n0` for BodyM, `v1_n0` for SSP-3D) |
 
@@ -157,3 +160,6 @@ Stage order and inputs: generate (none) -> train (generate) -> predict (generate
 - Calibration refuses `n_cal < calibrate.min_cal` with a message that names the minimum (FR-011).
 - The verdict read back from `verdict.json` equals the verdict recomputed from the predict outputs (SC-003).
 - Every table and record carries `config_hash`, `seed`, `code_version`, `hardware_class` (FR-025).
+- Every body id yielded by the training sampler lies in `[0, n_train)`; calibration refuses a predict file whose `split` is not `cal`; evaluation refuses one whose `split` is not `test`.
+- On run outputs, per test body and noise level, `latent_var_mean(v4) <= latent_var_mean(v2) <= latent_var_mean(v1)` within 1e-6 (SC-004); violations are counted in `evaluate/sc004.json` and fail the verdict command.
+- `verdict.py` refuses a configuration whose FR-014 keys differ from its constants (exit 2).

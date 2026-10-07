@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-07 skill=speckit-implement repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: output artifacts
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md) | **Entities**: [../data-model.md](../data-model.md)
@@ -12,6 +12,7 @@ Everything lives under the `--out` directory, outside version control. Every CSV
 │   ├── manifest.csv                     # one row per body
 │   ├── summary.json                     # counts: bodies, rejections, flags, unflagged per split
 │   ├── shards/shard_0000.npz ...        # silhouettes and per-body arrays
+│   ├── shards/shard_0000.csv ...        # manifest rows of that shard (same columns as manifest.csv)
 │   └── DONE.json
 ├── train/
 │   ├── checkpoints/epoch_000.pt ...     # model, optimizer, scheduler, RNG states, epoch, step
@@ -50,6 +51,10 @@ Everything lives under the `--out` directory, outside version control. Every CSV
 
 ### `data/summary.json`
 `n_bodies, n_flagged {empty_mask, out_of_frame, slice_nan}, n_unflagged {train, cal, test}, min_unflagged, n_rejections, per_shard [{shard, n_bodies, n_flagged, n_rejections}], config_hash, seed, code_version, hardware_class`. Generation writes this file, then exits 4 without writing `DONE.json` when `n_unflagged.cal` or `n_unflagged.test` is below `min_unflagged`, so `--resume` cannot skip a generation that fell short.
+
+### `data/shards/shard_NNNN.csv`
+
+The manifest rows of one shard, in the `manifest.csv` column order, written atomically next to the shard's `.npz` (decision during implementation, T023 finding: the shard arrays do not hold split, pose source, rejection count, or camera placement scalars, so a resumed generation could not rebuild `manifest.csv` from the `.npz` files alone). A shard counts as done only when both files exist; `manifest.csv` is the concatenation of the per-shard files in shard order, written once at the end of generation.
 
 ### `data/shards/shard_NNNN.npz`
 `body_id (n,) int64`, `masks (n, 4, H*W/8) uint8` bit-packed, `K (3, 3) float64`, `R_true (n, 4, 3, 3) float64`, `t_true (n, 4, 3) float64`, `noise_axis (n, 4, 3) float64`, `betas (n, 10) float64`, `pose_root (n, 3)`, `pose_body (n, 63)`, `measurements (n, 5) float64`, `flags (n,) int64` bit field. Written to a temporary name and renamed, so a partial shard never exists.

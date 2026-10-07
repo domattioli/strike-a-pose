@@ -1,0 +1,50 @@
+# Package metadata for the strike_a_pose kill-test MVP.
+# Lower bounds live here; constraints.txt holds the exact pins (research R11).
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "strike_a_pose"
+dynamic = ["version"]
+description = "Kill-test MVP for calibrated multi-view body-measurement uncertainty"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0",
+    "torch>=2.6",
+    "opencv-python-headless>=4.14,<5",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+# SMPL-X and SMPL meshes from the asset root (research R5).
+body = ["smplx>=0.1.28"]
+# SSP-3D masks from SAM 2 (research R11).
+real = ["sam2>=1.1.0"]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.16.10",
+]
+
+[project.scripts]
+sap = "strike_a_pose.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "strike_a_pose.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# Every collected test must finish within 60 seconds (constitution Principle VI).
+timeout = 60
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

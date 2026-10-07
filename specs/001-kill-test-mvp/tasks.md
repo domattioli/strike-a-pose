@@ -45,7 +45,7 @@ description: "Task list for feature 001-kill-test-mvp"
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement `src/strike_a_pose/config.py` (YAML load, defaults, unknown-key error, canonical dump, SHA-256 `config_hash`, `--set` overrides) and `tests/test_config.py` (tier: haiku)
+- [X] T005 Implement `src/strike_a_pose/config.py` (YAML load, defaults, unknown-key error, canonical dump, SHA-256 `config_hash`, `--set` overrides) and `tests/test_config.py` (tier: haiku)
 - [ ] T006 [P] Implement `src/strike_a_pose/assets.py` (asset root from configuration or `SAP_ASSET_ROOT`, `MissingAssetError` naming file and key, `list_assets()` for `sap info`, no download path) and `tests/test_assets.py` (tier: haiku)
 - [ ] T007 [P] Implement `src/strike_a_pose/seeding.py` (`rng_for(seed, *path)` from `numpy.random.SeedSequence`, torch seeding helper, deterministic flags) and `tests/test_seeding.py` (same stream on repeat, different streams per path) (tier: haiku)
 - [ ] T008 [P] Implement `src/strike_a_pose/device.py` (select `auto`, `cpu`, `cuda`; hardware class; device name) and `tests/test_device.py` (CPU fallback when CUDA is unavailable) (tier: haiku)

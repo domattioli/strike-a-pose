@@ -62,7 +62,7 @@ description: "Task list for feature 001-kill-test-mvp"
 - [ ] T019 [P] Write `tests/test_pose_source.py` and `tests/test_pose_limits.py` (registry resolves both sources; limits draws stay within the table; determinism per seed) (tier: haiku)
 - [ ] T020 Implement `src/strike_a_pose/body/smplx_body.py` (lazy `smplx` import, `SMPLX_NEUTRAL.npz` from the asset root, canonical pose, part ids from `lbs_weights` argmax, metres) and `src/strike_a_pose/body/smpl_body.py` (same for SMPL male, female, neutral) (tier: haiku)
 - [ ] T021 Write `tests/test_smplx_body.py` and `tests/test_smpl_body.py` (both skip when the asset is absent; with a fake `smplx` module assert joint-name mapping, part-id derivation from `lbs_weights` argmax, and gender selection for SMPL) (tier: haiku)
-- [ ] T022 Implement the `src/strike_a_pose/cli.py` skeleton (argparse with the subcommands of contracts/cli.md, common options, exit codes, `sap info [--strict]`) and `tests/test_cli.py` (`sap info` runs; unknown key exits 2; missing asset exits 3) (tier: haiku)
+- [X] T022 Implement the `src/strike_a_pose/cli.py` skeleton (argparse with the subcommands of contracts/cli.md, common options, exit codes, `sap info [--strict]`) and `tests/test_cli.py` (`sap info` runs; unknown key exits 2; missing asset exits 3) (tier: haiku)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

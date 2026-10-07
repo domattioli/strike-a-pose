@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-specify repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-07 skill=speckit-clarify repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Specification Quality Checklist: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
@@ -14,7 +14,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -38,3 +38,4 @@
 - "Written for non-technical stakeholders": the reader is the researcher-operator. Each domain term is defined once in the Terms paragraph under the Input line.
 - "Requirements are testable": FR-001, FR-014, and FR-020 become fully testable when their markers are resolved. Every other FR names an observable outcome or a hard limit (a count, a time, a tolerance).
 - "Technology-agnostic success criteria": SC-006 names a hardware class (4 cores, 15 GB, no GPU) because the time limit is meaningless without it.
+- Validation iteration 2 (2026-10-07, after `/speckit-clarify`): 16 of 16 items pass. FR-001, FR-014, and FR-020 resolved; see the spec Clarifications section. Kaggle compute added as FR-029, FR-030, and SC-010.

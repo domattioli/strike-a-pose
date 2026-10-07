@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-specify repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-07 skill=speckit-clarify repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Feature Specification: Kill-Test MVP for Calibrated Multi-View Body-Measurement Uncertainty
 
 **Feature Branch**: `001-kill-test-mvp`  
@@ -7,6 +7,15 @@
 **Input**: User description: "Kill-test MVP for calibrated multi-view body-measurement uncertainty. A clean-room Python package that: (1) generates synthetic silhouette renders of SMPL-X bodies seen by 1 to 4 cameras with randomized, known extrinsics; (2) trains a convolutional variational autoencoder whose per-view encodings fuse into one latent posterior (product of experts), so more views narrow the posterior; (3) maps latent samples to SMPL-X shape coefficients and then to anthropometric measurements in cm (height and circumferences such as chest, waist, hip, thigh); (4) calibrates the measurement intervals with split conformal prediction; (5) reports empirical coverage at the 90% level and median interval width in cm against number of views {1, 2, 4} and extrinsic noise {0, 2 deg, 5 deg}; (6) applies a kill criterion: the 4-view median interval width must be at least 30% narrower than 1-view at matched coverage. Real-image evaluation uses public data only: BodyM (front and side silhouettes with measurements) and SSP-3D, with SAM2 masks for real images."
 
 Terms used throughout: a *view* is one camera's silhouette of one body. *Camera placement* is the camera's position and orientation (the extrinsics). *Placement noise* is a rotation error of the camera placement, in degrees. A *measurement* is one of five anthropometric quantities in cm. An *interval* is a calibrated prediction interval for one measurement. A *cell* is one experiment condition: a view count paired with a placement-noise level.
+
+## Clarifications
+
+### Session 2026-10-07
+
+- Q: What poses do the synthetic bodies stand in (FR-001)? → A: Random poses, guided by the operator's 2022 setup, restricted to realistic poses: implausible joint combinations are rejected and redrawn.
+- Q: What is the exact kill rule (FR-014)? → A: Circumference median: PASS when the median, over chest, waist, hip, and thigh, of the ratio of 4-view to 1-view median interval width is at most 0.70 at 0° placement noise, with both compared cells inside the tolerance band. Height and the 2° and 5° rows are reported, not gated.
+- Q: What role do the real-image results play in the gate (FR-020)? → A: Report only. The verdict rests on synthetic data.
+- Q: Where does the full-size training run? → A: Kaggle notebooks: GPU sessions of about 9 hours, about 30 GPU-hours per week, T4- or P100-class GPUs.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -21,7 +30,7 @@ The researcher runs the experiment from one configuration file and one seed. The
 **Acceptance Scenarios**:
 
 1. **Given** a valid configuration and seed, **When** the researcher runs the experiment, **Then** a results table appears with one row per cell (9 cells) and per measurement (5 measurements), each row holding empirical coverage at 90% nominal, median interval width in cm, mean absolute error in cm, and the test sample count.
-2. **Given** the results table, **When** the kill rule is applied, **Then** the verdict line states PASS when the 4-view median width is at most 70% of the 1-view median width at matched coverage, states KILL otherwise, and shows both widths and their ratio.
+2. **Given** the results table, **When** the kill rule (FR-014) is applied, **Then** the verdict line states PASS or KILL and shows, for each circumference at 0° noise, the 1-view and 4-view median widths and their ratio, plus the median of the four ratios.
 3. **Given** a cell whose empirical coverage falls outside the tolerance band, **When** the table is written, **Then** the cell is flagged, and the verdict line states that a width comparison involving that cell is invalid.
 4. **Given** a completed run, **When** the researcher opens the output directory, **Then** it holds the per-sample predictions, the calibration quantiles, the results table in CSV and Markdown, the plots, and a run record with configuration hash, seed, code version, and hardware class.
 
@@ -88,6 +97,9 @@ A reviewer takes the configuration file, seed, and code version recorded with a 
 - BodyM tape measurements and surface-derived circumferences follow different protocols. A systematic offset is expected. The report shows mean signed error per measurement next to coverage.
 - SSP-3D body-shape annotations use an earlier generation of the body-model family. Ground-truth measurements come from the dataset's own meshes with the FR-004 definitions. The conversion is documented in the plan.
 - Two views of one sample at the same noise level. Noise draws are independent per view.
+- A sampled pose breaks a joint-angle limit or makes the body intersect itself. The pose is redrawn, and the rejection count is reported.
+- A pose hides a body part from every camera of a rig. The sample is kept: self-occlusion is part of the task.
+- A Kaggle session ends in the middle of a stage. The next session resumes from the last checkpoint (FR-029).
 
 ## Requirements *(mandatory)*
 
@@ -95,10 +107,10 @@ A reviewer takes the configuration file, seed, and code version recorded with a 
 
 Synthetic data
 
-- **FR-001**: The system MUST generate synthetic bodies by sampling the shape coefficients of a parametric body model (SMPL-X) over a documented range, in [NEEDS CLARIFICATION: pose protocol not specified: one fixed canonical standing pose (matches the BodyM protocol; smallest scope), small random jitter around that pose, or full pose randomization from a pose prior (SSP-3D becomes a fair test; largest scope)].
+- **FR-001**: The system MUST generate synthetic bodies by sampling the shape coefficients of a parametric body model (SMPL-X) over a documented range, each body in a random pose drawn from a documented realistic-pose source. A pose that breaks the documented joint-angle limits or makes the body intersect itself MUST be rejected and redrawn, and the rejection rate MUST be reported.
 - **FR-002**: For each body, the system MUST place 1 to 4 virtual cameras at randomized placements (position and orientation) drawn from documented ranges with a minimum angular separation, and MUST record the true placement of every camera.
 - **FR-003**: The system MUST render one binary silhouette per camera at a fixed resolution and MUST store, per sample, the silhouettes, the true camera placements, the shape coefficients, and the ground-truth measurements.
-- **FR-004**: The system MUST compute ground-truth measurements from the body surface in centimeters: standing height and the circumferences of chest, waist, hip, and thigh. Each measurement MUST have one documented geometric definition that is applied identically to synthetic bodies and to real-data meshes.
+- **FR-004**: The system MUST compute ground-truth measurements from the body surface in centimeters: standing height and the circumferences of chest, waist, hip, and thigh. Each measurement MUST have one documented geometric definition that is applied identically to synthetic bodies and to real-data meshes. Measurements MUST be computed on the body in one fixed canonical reference pose for the sample's shape coefficients, so that they depend on body shape only and not on the rendered pose.
 - **FR-005**: The system MUST apply placement noise as a rotation of the camera placement that is given to the model, drawn independently per view, with angle equal to the condition's noise level (0°, 2°, or 5°). Silhouettes MUST stay rendered from the true placement.
 
 Model
@@ -117,7 +129,7 @@ Evaluation and verdict
 
 - **FR-012**: The system MUST evaluate a held-out synthetic test set for every cell of view count {1, 2, 4} by placement noise {0°, 2°, 5°} and MUST report, per cell and per measurement: empirical coverage at 90% nominal, median interval width in cm, mean absolute error in cm (secondary), and the number of test samples.
 - **FR-013**: The system MUST flag every cell whose empirical coverage lies outside the tolerance band around 90% stated in the Assumptions.
-- **FR-014**: The system MUST compute the kill verdict: PASS when the 4-view median interval width is at most 70% of the 1-view median interval width at matched coverage, KILL otherwise. [NEEDS CLARIFICATION: the rule leaves three choices open: (a) a per-measurement ratio required for all five measurements, or one pooled ratio; (b) judged at 0° placement noise only, or at every noise level; (c) "matched coverage" as both cells inside the tolerance band after per-cell calibration, or as re-calibration to equal empirical coverage before the widths are compared].
+- **FR-014**: The system MUST compute the kill verdict at 0° placement noise. For each circumference (chest, waist, hip, thigh), the width ratio is the 4-view median interval width divided by the 1-view median interval width. The verdict is PASS when the median of the four width ratios is at most 0.70 and all eight compared cells lie inside the tolerance band after per-cell calibration, and KILL otherwise. Height and the 2° and 5° rows MUST be reported next to the verdict but MUST NOT enter it.
 - **FR-015**: The system MUST write the results as a machine-readable table (CSV) and a human-readable table (Markdown) with the verdict line, generated by code from the saved per-sample outputs.
 - **FR-016**: The system MUST plot coverage and median width against view count, one series per noise level, for each measurement.
 
@@ -126,7 +138,7 @@ Real images
 - **FR-017**: The system MUST evaluate the calibrated model on the BodyM test subjects with the provided front and side silhouettes as a 2-view input and the dataset's tape measurements as ground truth for the five measurements.
 - **FR-018**: The system MUST evaluate the calibrated model on SSP-3D as a 1-view input with ground-truth measurements derived from the dataset's body-shape annotations by the FR-004 definitions.
 - **FR-019**: For a real photograph without a provided silhouette, the system MUST produce a person mask with a promptable segmentation model (operator-named: SAM 2), MUST record per subject whether a usable mask was produced, and MUST skip and count subjects without one.
-- **FR-020**: The real-image evaluation MUST report, per dataset and measurement: empirical coverage at 90% nominal, median width in cm, mean signed error in cm, subjects evaluated, and subjects skipped. [NEEDS CLARIFICATION: role of the real-image results in the gate: report only (the verdict rests on synthetic data), a second pass bar on BodyM (for example coverage of at least 85% at 90% nominal), or deferral of real-image evaluation to a later feature].
+- **FR-020**: The real-image evaluation MUST report, per dataset and measurement: empirical coverage at 90% nominal, median width in cm, mean signed error in cm, subjects evaluated, and subjects skipped. These results are reported only and MUST NOT enter the kill verdict.
 
 Data and compliance
 
@@ -141,6 +153,8 @@ Reproducibility and tests
 - **FR-026**: Every module MUST have a smoke test that runs with no GPU, no network, and no licensed asset, on stand-in data. The full test suite MUST finish within 10 minutes on a machine with 4 CPU cores and 15 GB RAM.
 - **FR-027**: A tiny end-to-end configuration MUST run the complete experiment on CPU within 10 minutes and MUST write the same table columns as a full run.
 - **FR-028**: The system MUST select the compute device at run time and MUST fall back to CPU when no GPU is present.
+- **FR-029**: The full-size experiment MUST run in Kaggle notebooks. Every long stage (generation, training, calibration, evaluation) MUST save checkpoints and resume from the last one, so that no single session runs longer than 9 hours. Resuming MUST give results that match an uninterrupted run within the SC-005 tolerance.
+- **FR-030**: The package MUST run on Python 3.10 or newer, covering both the development container (Python 3.13) and the Kaggle notebook image.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -153,7 +167,7 @@ Reproducibility and tests
 - **Data Split**: training, calibration, and test sets, disjoint by body identifier, with recorded sizes.
 - **Experiment Condition**: one cell: view count in {1, 2, 4} and placement noise in {0°, 2°, 5°}.
 - **Result Cell**: per condition and measurement: empirical coverage, median width, mean absolute error, sample count, and the tolerance flag.
-- **Kill Verdict**: PASS or KILL, with the 1-view median width, the 4-view median width, their ratio, the threshold (0.70), the coverage-band check, and the run record.
+- **Kill Verdict**: PASS or KILL, with, per circumference at 0° noise, the 1-view median width, the 4-view median width, and their ratio; the median of the four ratios; the threshold (0.70); the coverage-band check; and the run record.
 - **Real-Image Subject**: dataset name, subject identifier, available views, mask status, ground-truth measurements, and predicted intervals.
 
 ## Success Criteria *(mandatory)*
@@ -169,11 +183,11 @@ Reproducibility and tests
 - **SC-007**: The real-image evaluation reports all five measurements for 100% of BodyM test subjects (silhouettes are provided by the dataset) and for at least 90% of SSP-3D images (mask produced).
 - **SC-008**: The automated repository check finds zero licensed assets, derived render sets, per-subject tables, or trained weights under version control on every change.
 - **SC-009**: Every change description carries the clean-room statement, and review finds no material from the excluded sources.
-- **SC-010**: The full-size experiment completes within 24 hours of wall time on the training machine.
+- **SC-010**: The full-size experiment completes within 24 GPU-hours on one Kaggle T4- or P100-class GPU, in sessions of at most 9 hours each, so that it fits in one week's Kaggle GPU quota (about 30 hours).
 
 ## Assumptions
 
-- Pose: unless the clarification on FR-001 decides otherwise, synthetic bodies stand in one canonical pose with arms held slightly away from the body, which matches the BodyM standing protocol. SSP-3D poses vary and are evaluated as a stress test.
+- Pose: synthetic bodies stand in random, realistic poses, guided by the operator's 2022 setup (random poses seen by several cameras at once), which produced some implausible joint combinations. The plan selects the realistic-pose source: a published pose prior or motion-capture pose set read from the configured asset location, or sampling within documented joint-angle limits. Measurements are pose-independent (FR-004). SSP-3D's varied poses are therefore inside the training distribution, and SSP-3D is a fair test.
 - Measurement set: exactly five measurements: standing height and the circumferences of chest, waist, hip, and thigh. Each circumference is the perimeter of a horizontal slice of the body surface at a landmark height defined on the body model.
 - Body model: one gender-neutral body model. Shape coefficients are sampled from a documented distribution (default: the first 10 coefficients, standard normal, clipped at plus or minus 3).
 - Camera model: pinhole cameras with fixed intrinsic parameters. Distance and height are sampled within documented ranges; azimuth is uniform around the body; cameras of one rig are at least 20° apart.
@@ -185,6 +199,6 @@ Reproducibility and tests
 - Real data: BodyM silhouettes are used as provided; the mask step applies to SSP-3D photographs. BodyM front and side views are treated as nominal 0° and 90° placements at a fixed default distance with no placement noise.
 - Real-data ground truth: BodyM tape measurements as published; SSP-3D measurements derived from the dataset's body-shape annotations with the FR-004 definitions.
 - Licensing: body-model files, BodyM, SSP-3D, and segmentation weights are treated as research-only, non-redistributable assets. The operator obtains them under their own agreements and places them at the configured path. Renders of licensed bodies stay out of the repository.
-- Compute: development on a container with 4 CPU cores, 15 GB RAM, and no GPU; full training on a separate GPU machine. The full experiment budget is 24 hours of wall time.
+- Compute: development on a container with 4 CPU cores, 15 GB RAM, no GPU, and Python 3.13. Full training runs in Kaggle notebooks: a T4- or P100-class GPU, sessions of about 9 hours, about 30 GPU-hours per week (figures as reported for 2026; the operator's account settings are authoritative). The full experiment budget is 24 GPU-hours. Licensed assets reach Kaggle as private, owner-only datasets attached to the notebook, never as public datasets.
 - Scope: no README, no web surface, no packaging for distribution, and no further datasets or model families until the verdict is recorded (constitution Principle IV).
 - Deliverable: an importable package with one command-line entry point. Run outputs go to an output directory outside version control. The results tables for the gate decision are committed as text under this feature's spec directory.

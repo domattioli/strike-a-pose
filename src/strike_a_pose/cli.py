@@ -1,35 +1,55 @@
 """The sap command: argument parsing, exit codes, configuration and device checks, and sap info.
 
 The subcommands and options follow specs/001-kill-test-mvp/contracts/cli.md, and the exit codes are
-that contract's exit-code table. This skeleton implements sap info in full, including --strict,
-which compares each installed package with its pin in constraints.txt (research R11). Every other
-subcommand loads its configuration, checks its device request and output directory, and checks the
-licensed assets its stage reads (FR-021, exit 3). Then it stops with a message that the command is
-not implemented yet, and a later task replaces that stop with the stage itself. This module
-implements no published method, so it cites no algorithm source. The pin comparison follows the
-local version rule of PEP 440 (https://peps.python.org/pep-0440/).
+that contract's exit-code table. sap info prints versions, the device, and asset presence, and
+with --strict it compares each installed package with its pin in a constraints file (research
+R11). The stage subcommands generate, train, predict, calibrate, evaluate, verdict, report, and run
+load their configuration, check their device request, output directory, and licensed assets
+(FR-021, exit 3), and call their stage. sap run calls the stages in order. A KILL verdict exits 0
+and the run goes on to the report; a verdict that refuses its comparison (exit 4) stops the run
+after verdict.json and verdict.md exist. A time budget that ends a stage early exits 7 and prints
+the command that resumes the run. The real-eval, verify, and --seed-check commands are still not
+implemented. This module implements no published method, so it cites no algorithm source. The pin
+comparison follows the local version rule of PEP 440 (https://peps.python.org/pep-0440/).
 """
 
 import argparse
 import logging
 import os
 import re
+import shlex
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
 from typing import Any, NoReturn
 
 from strike_a_pose.assets import MissingAssetError, asset_root, list_assets, require_asset
-from strike_a_pose.checkpoint import parse_time_budget
+from strike_a_pose.calibrate import CalibrationRefusedError, calibrate_quantiles
+from strike_a_pose.checkpoint import TimeBudget, parse_time_budget
 from strike_a_pose.config import ConfigError, config_hash, load_config, resolve_config
+from strike_a_pose.data.generate import GenerationRefusedError, generate_dataset
 from strike_a_pose.device import (
     DEVICE_CHOICES,
     DeviceChoice,
     requested_device_from_environment,
     select_device,
 )
-from strike_a_pose.runrecord import current_code_version, current_library_versions
+from strike_a_pose.evaluate import run_evaluate
+from strike_a_pose.predict import PredictionRefusedError, run_predict
+from strike_a_pose.report.plots import write_plots
+from strike_a_pose.report.tables import write_results_markdown
+from strike_a_pose.runrecord import (
+    RunRecord,
+    current_code_version,
+    current_library_versions,
+    read_run_record,
+    start_run_record,
+    write_run_record,
+)
+from strike_a_pose.train import train_model
+from strike_a_pose.verdict import VerdictRefusedError, run_verdict
 
 __all__ = [
     "CONSTRAINTS_FILE_NAME",
@@ -47,6 +67,7 @@ __all__ = [
     "SUBCOMMANDS",
     "CommandNotImplementedError",
     "StrictVersionError",
+    "TimeBudgetReachedError",
     "UsageError",
     "build_parser",
     "check_pinned_versions",
@@ -114,6 +135,10 @@ class CommandNotImplementedError(Exception):
 
 class StrictVersionError(Exception):
     """The strict check of sap info failed: a version differs, or the pins cannot be read."""
+
+
+class TimeBudgetReachedError(Exception):
+    """The time budget ended a stage early: the run is partial and resumable (exit 7)."""
 
 
 class _SapParser(argparse.ArgumentParser):
@@ -219,7 +244,14 @@ def build_parser() -> argparse.ArgumentParser:
     info.add_argument(
         "--strict",
         action="store_true",
-        help="exit 5 when an installed version differs from constraints.txt",
+        help="exit 5 when an installed version differs from the constraints file",
+    )
+    info.add_argument(
+        "--constraints",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=f"constraints file for --strict (default: {CONSTRAINTS_FILE_NAME} at the root)",
     )
 
     generate = commands.add_parser("generate", help="generate the synthetic bodies")
@@ -425,23 +457,233 @@ def _run_info(arguments: argparse.Namespace) -> int:
         where = "no asset root is set" if status.location is None else str(status.location)
         print(f"  {status.name}: key {status.key}, {state} ({where})")
     if arguments.strict:
-        compared = check_pinned_versions(CONSTRAINTS_PATH)
+        constraints = CONSTRAINTS_PATH if arguments.constraints is None else arguments.constraints
+        compared = check_pinned_versions(constraints)
         print(
-            f"strict: {compared} installed package(s) match {CONSTRAINTS_FILE_NAME}; "
+            f"strict: {compared} installed package(s) match {constraints.name}; "
             "packages that are not installed are not compared"
         )
     return EXIT_OK
 
 
-def _run_stage(arguments: argparse.Namespace) -> int:
-    """Check a stage subcommand's inputs, then stop: its stage is not implemented in this build."""
-    _output_directory(arguments)
+RUN_RECORD_NAME = "run_record.json"
+# The stage subcommands that call a stage, in run order. real-eval is not among them (T044).
+_PIPELINE_STAGES = (
+    "generate",
+    "train",
+    "predict",
+    "calibrate",
+    "evaluate",
+    "verdict",
+    "report",
+)
+
+
+@dataclass
+class _Session:
+    """What every stage of one command shares: configuration, output, record, and time budget."""
+
+    arguments: argparse.Namespace
+    configuration: dict[str, Any]
+    choice: DeviceChoice
+    out: Path
+    record: RunRecord
+    budget: TimeBudget | None
+    resume: bool
+
+
+def _prepare_stage_command(
+    arguments: argparse.Namespace,
+) -> tuple[dict[str, Any], DeviceChoice, Path]:
+    """Check a stage command's inputs, and return its configuration, device, and output directory.
+
+    The device that --device, SAP_DEVICE, or the configuration requests is written into the
+    configuration under the key device, because each stage selects its device from that key.
+    """
+    out = _output_directory(arguments)
     configuration = _load_configuration(arguments)
-    _resolve_device(arguments, configuration)
+    choice, _ = _resolve_device(arguments, configuration)
+    if choice.requested != configuration["device"]:
+        configuration = resolve_config({**configuration, "device": choice.requested})
     root = asset_root(configuration)
     for path, key in _required_assets(arguments.command, configuration):
         require_asset(path, key, root)
-    raise CommandNotImplementedError(f"the '{arguments.command}' command is not implemented yet")
+    return configuration, choice, out
+
+
+def _open_run_record(
+    configuration: Mapping[str, Any],
+    choice: DeviceChoice,
+    out: Path,
+    *,
+    fresh: bool,
+    creatable: bool,
+) -> RunRecord:
+    """Return the run record of the output directory, creating and writing it when allowed.
+
+    A fresh record replaces any file. Otherwise an existing file is read back, so that stage
+    timings add up across commands (runrecord.py). A missing file is created when creatable, and a
+    missing file raises RunRecordError when not (evaluate, verdict, and report read the file
+    themselves and need the run that wrote it). A record of another configuration is not replaced
+    here: the stage that reads it refuses it and names both hashes.
+    """
+    path = out / RUN_RECORD_NAME
+    if not fresh and path.is_file():
+        return read_run_record(path)
+    if not fresh and not creatable:
+        return read_run_record(path)  # raises RunRecordError that names the missing file
+    record = start_run_record(
+        configuration, hardware_class=choice.hardware_class, device_name=choice.device_name
+    )
+    write_run_record(record, path)
+    return record
+
+
+def _stage_generate(session: _Session) -> None:
+    """Generate the bodies, and stop with exit 7 when the time budget ends the stage early."""
+    result = generate_dataset(
+        session.configuration,
+        session.out,
+        resume=session.resume,
+        time_budget=session.budget,
+        run_record=session.record,
+    )
+    if not result.completed:
+        raise TimeBudgetReachedError(
+            f"time budget reached in generate after {result.shards_generated} of "
+            f"{result.shards_total} shards"
+        )
+
+
+def _stage_train(session: _Session) -> None:
+    """Train the model, and stop with exit 7 when the time budget ends the stage early."""
+    result = train_model(
+        session.configuration,
+        session.out,
+        resume=session.resume,
+        time_budget=session.budget,
+        run_record=session.record,
+    )
+    if not result.completed:
+        raise TimeBudgetReachedError(
+            f"time budget reached in train after {result.steps_done} of {result.total_steps} steps"
+        )
+
+
+def _stage_predict(session: _Session) -> None:
+    """Predict every cell, and stop with exit 7 when the time budget ends the stage early."""
+    result = run_predict(
+        session.configuration,
+        session.out,
+        resume=session.resume,
+        time_budget=session.budget,
+        run_record=session.record,
+    )
+    if not result.completed:
+        raise TimeBudgetReachedError(
+            f"time budget reached in predict after {len(result.cells_written)} new cell file(s)"
+        )
+
+
+def _stage_calibrate(session: _Session) -> None:
+    """Calibrate the intervals on the calibration split."""
+    calibrate_quantiles(session.configuration, session.out, run_record=session.record)
+
+
+def _stage_evaluate(session: _Session) -> None:
+    """Evaluate coverage and width on the test split."""
+    run_evaluate(session.configuration, session.out)
+
+
+def _stage_verdict(session: _Session) -> None:
+    """Apply the FR-014 rule and print the verdict line.
+
+    A KILL verdict returns normally, so the run goes on to the report. A refused comparison prints
+    its verdict line first, and then raises the error for exit 4 after the verdict files exist.
+    """
+    try:
+        verdict = run_verdict(session.configuration, session.out)
+    except VerdictRefusedError as error:
+        print(error.verdict.line)
+        raise
+    print(verdict.line)
+
+
+def _stage_report(session: _Session) -> None:
+    """Write the two plots and the results table under report/."""
+    write_plots(session.out / "evaluate" / "results.csv", session.out / "report")
+    write_results_markdown(session.out)
+
+
+_STAGE_RUNNERS: dict[str, Callable[[_Session], None]] = {
+    "generate": _stage_generate,
+    "train": _stage_train,
+    "predict": _stage_predict,
+    "calibrate": _stage_calibrate,
+    "evaluate": _stage_evaluate,
+    "verdict": _stage_verdict,
+    "report": _stage_report,
+}
+
+
+def _resume_command(arguments: argparse.Namespace, command: str) -> str:
+    """Return the command line that continues a run that the time budget stopped."""
+    words = ["sap", command, "--config", str(arguments.config), "--out", str(arguments.out)]
+    for override in arguments.overrides or []:
+        words += ["--set", override]
+    if arguments.device is not None:
+        words += ["--device", arguments.device]
+    words.append("--resume")
+    return " ".join(shlex.quote(word) for word in words)
+
+
+def _execute_stages(session: _Session, stages: Sequence[str]) -> None:
+    """Run the stages in order. Each stage is timed, and the run record is written after it."""
+    record_path = session.out / RUN_RECORD_NAME
+    for stage in stages:
+        print(f"stage {stage}: started")
+        stopped: TimeBudgetReachedError | None = None
+        with session.record.time_stage(stage):
+            try:
+                _STAGE_RUNNERS[stage](session)
+            except TimeBudgetReachedError as error:
+                stopped = error  # the stage is partial, but its time still counts
+        write_run_record(session.record, record_path)
+        if stopped is not None:
+            resume = _resume_command(session.arguments, session.arguments.command)
+            raise TimeBudgetReachedError(f"{stopped}; resume with: {resume}") from stopped
+        print(f"stage {stage}: done")
+    if stages[-1] == "report":
+        session.record.finish()
+        write_run_record(session.record, record_path)
+
+
+def _run_stage(arguments: argparse.Namespace) -> int:
+    """Run one pipeline stage, or every stage in order for sap run."""
+    command = arguments.command
+    if command == "real-eval":
+        _prepare_stage_command(arguments)
+        raise CommandNotImplementedError("the 'real-eval' command is not implemented yet")
+    if command == "run" and arguments.seed_check is not None:
+        raise CommandNotImplementedError("the '--seed-check' option is not implemented yet")
+    configuration, choice, out = _prepare_stage_command(arguments)
+    is_first = command in ("generate", "run")
+    resume = bool(getattr(arguments, "resume", False))
+    record = _open_run_record(
+        configuration,
+        choice,
+        out,
+        fresh=is_first and not resume,
+        creatable=command not in ("evaluate", "verdict", "report"),
+    )
+    if is_first and resume and record.config_hash != config_hash(configuration):
+        # The configuration changed since the earlier session: its stages are stale, so start over.
+        record = _open_run_record(configuration, choice, out, fresh=True, creatable=True)
+    budget = None if arguments.time_budget is None else TimeBudget(arguments.time_budget)
+    session = _Session(arguments, configuration, choice, out, record, budget, resume)
+    stages = _PIPELINE_STAGES if command == "run" else (command,)
+    _execute_stages(session, stages)
+    return EXIT_OK
 
 
 def _run_verify(arguments: argparse.Namespace) -> int:
@@ -455,6 +697,12 @@ _HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
     "verify": _run_verify,
     **dict.fromkeys(_STAGE_SUBCOMMANDS, _run_stage),
 }
+
+
+def _refusal_code(error: Exception) -> int:
+    """Return the exit code of a stage that refuses its inputs: the error's own code, else 4."""
+    code = getattr(error, "exit_code", EXIT_STAGE_REFUSED)
+    return code if isinstance(code, int) else EXIT_STAGE_REFUSED
 
 
 def _fail(status: int, error: Exception) -> int:
@@ -491,5 +739,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _fail(EXIT_MISSING_ASSET, error)
     except StrictVersionError as error:
         return _fail(EXIT_STRICT_VERSION, error)
+    except TimeBudgetReachedError as error:
+        return _fail(EXIT_TIME_BUDGET, error)
     except CommandNotImplementedError as error:
         return _fail(EXIT_FAILURE, error)
+    except (
+        CalibrationRefusedError,
+        GenerationRefusedError,
+        PredictionRefusedError,
+        ValueError,
+        FileNotFoundError,
+    ) as error:
+        # Stage refusals (GenerationRefusedError, VerdictError, EvaluateError, ReportError,
+        # AmassDataError, RunRecordError, and the other errors that a stage raises for bad inputs).
+        return _fail(_refusal_code(error), error)

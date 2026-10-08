@@ -1,13 +1,17 @@
-"""Smoke tests for cli.py: sap info runs, exit codes 2 and 3, the strict check, and the parser."""
+"""Tests for cli.py: sap info, exit codes, the strict check, the parser, and sap run (T037)."""
 
 import json
+import re
 from importlib import metadata
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from strike_a_pose import cli
 from strike_a_pose.cli import build_parser, check_pinned_versions, main
+from strike_a_pose.runrecord import read_run_record
+from strike_a_pose.verdict import VerdictRefusedError
 
 FULL_CONFIGURATION = Path(__file__).resolve().parent.parent / "configs" / "full.yaml"
 
@@ -189,3 +193,200 @@ def test_a_missing_subcommand_exits_2(capsys: pytest.CaptureFixture[str]) -> Non
 def test_help_exits_0(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--help"]) == 0
     assert "COMMAND" in capsys.readouterr().out
+
+
+# The stages of sap run, in order, and the directory each one writes under the output directory.
+PIPELINE_STAGES = ("generate", "train", "predict", "calibrate", "evaluate", "verdict", "report")
+STAGE_DIRECTORIES = ("data", "train", "predict", "calibrate", "evaluate", "verdict", "report")
+# The extra overrides that tests/test_train.py and tests/test_predict.py use with small_config.
+RUN_OVERRIDES: dict[str, object] = {"camera.focal_px": 48, "data.min_unflagged": 0}
+VERDICT_LINE = re.compile(r"^VERDICT: (PASS|KILL) median_ratio=", re.MULTILINE)
+
+
+def _set_arguments(overrides: dict[str, object]) -> list[str]:
+    """Return one --set option for each override, with the value written as JSON (also YAML)."""
+    arguments: list[str] = []
+    for key, value in overrides.items():
+        arguments += ["--set", f"{key}={json.dumps(value)}"]
+    return arguments
+
+
+def _run_arguments(
+    config_path: Path, output: Path, small_config: dict[str, object], command: str = "run"
+) -> list[str]:
+    return [
+        command,
+        "--config",
+        str(config_path),
+        "--out",
+        str(output),
+        *_set_arguments({**small_config, **RUN_OVERRIDES}),
+    ]
+
+
+def test_sap_run_writes_every_stage_directory(
+    tiny_config_path: Path,
+    small_config: dict[str, object],
+    output_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(_run_arguments(tiny_config_path, output_dir, small_config)) == 0
+    output = capsys.readouterr().out
+    assert VERDICT_LINE.search(output) is not None
+    for directory in STAGE_DIRECTORIES:
+        assert (output_dir / directory).is_dir(), directory
+    assert (output_dir / "report" / "results.md").is_file()
+    assert (output_dir / "report" / "coverage_vs_views.png").is_file()
+    assert (output_dir / "report" / "width_vs_views.png").is_file()
+    assert (output_dir / "verdict" / "verdict.md").is_file()
+    record = read_run_record(output_dir / "run_record.json")
+    assert record.finished_at is not None
+    assert all(record.timings[stage] is not None for stage in PIPELINE_STAGES)
+
+
+def test_sap_run_resume_skips_finished_stages(
+    tiny_config_path: Path,
+    small_config: dict[str, object],
+    output_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    arguments = _run_arguments(tiny_config_path, output_dir, small_config)
+    assert main(arguments) == 0
+    capsys.readouterr()
+    assert main([*arguments, "--resume"]) == 0
+    assert VERDICT_LINE.search(capsys.readouterr().out) is not None
+    record = read_run_record(output_dir / "run_record.json")
+    assert record.finished_at is not None
+
+
+def test_single_stage_command_needs_the_earlier_stages(
+    tiny_config_path: Path,
+    small_config: dict[str, object],
+    output_dir: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(_run_arguments(tiny_config_path, output_dir, small_config, "generate")) == 0
+    capsys.readouterr()
+    assert main(_run_arguments(tiny_config_path, output_dir, small_config, "evaluate")) == 4
+    assert capsys.readouterr().err.startswith("sap: error: ")
+
+
+def test_evaluate_without_a_run_record_exits_4(
+    tiny_config_path: Path, output_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["evaluate", "--config", str(tiny_config_path), "--out", str(output_dir)]
+    assert main(argv) == 4
+    assert "run_record.json" in capsys.readouterr().err
+
+
+def _stub_stages(monkeypatch: pytest.MonkeyPatch, calls: list[str]) -> None:
+    """Replace each stage runner by a function that records its name, and does nothing else."""
+    for stage in PIPELINE_STAGES:
+        monkeypatch.setitem(
+            cli._STAGE_RUNNERS, stage, lambda session, name=stage: calls.append(name)
+        )
+
+
+def test_a_kill_verdict_exits_0_and_run_continues_to_the_report(
+    tiny_config_path: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[str] = []
+    _stub_stages(monkeypatch, calls)
+    verdict = SimpleNamespace(line="VERDICT: KILL median_ratio=0.900", exit_code=0)
+    monkeypatch.setitem(
+        cli._STAGE_RUNNERS,
+        "verdict",
+        lambda session: print(verdict.line) or calls.append("verdict"),
+    )
+    argv = ["run", "--config", str(tiny_config_path), "--out", str(output_dir)]
+    assert main(argv) == 0
+    assert calls == list(PIPELINE_STAGES)
+    assert "VERDICT: KILL" in capsys.readouterr().out
+
+
+def test_a_refused_verdict_exits_4_and_stops_run_before_the_report(
+    tiny_config_path: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[str] = []
+    _stub_stages(monkeypatch, calls)
+    verdict = SimpleNamespace(line="VERDICT: KILL median_ratio=nan")
+    refusal = VerdictRefusedError("the width ratio of chest is not finite", verdict)
+
+    def refuse(session: object) -> None:
+        print(verdict.line)
+        raise refusal
+
+    monkeypatch.setitem(cli._STAGE_RUNNERS, "verdict", refuse)
+    argv = ["run", "--config", str(tiny_config_path), "--out", str(output_dir)]
+    assert main(argv) == 4
+    captured = capsys.readouterr()
+    assert "VERDICT: KILL median_ratio=nan" in captured.out
+    assert "not finite" in captured.err
+    assert "report" not in calls
+    assert calls == list(PIPELINE_STAGES[:-2])
+
+
+def test_a_stage_stopped_by_the_time_budget_exits_7_with_the_resume_command(
+    tiny_config_path: Path,
+    output_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    unfinished = SimpleNamespace(completed=False, shards_generated=1, shards_total=4)
+    monkeypatch.setattr(cli, "generate_dataset", lambda *args, **kwargs: unfinished)
+    argv = [
+        "run",
+        "--config",
+        str(tiny_config_path),
+        "--out",
+        str(output_dir),
+        "--set",
+        "seed=3",
+        "--time-budget",
+        "90m",
+    ]
+    assert main(argv) == 7
+    error = capsys.readouterr().err
+    assert error.startswith("sap: error: time budget reached in generate after 1 of 4 shards")
+    assert "resume with: sap run --config" in error
+    assert "--set seed=3" in error
+    assert error.rstrip().endswith("--resume")
+    assert read_run_record(output_dir / "run_record.json").timings["generate"] is not None
+
+
+def test_seed_check_is_not_implemented_yet(
+    tiny_config_path: Path, output_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["run", "--config", str(tiny_config_path), "--out", str(output_dir)]
+    assert main([*argv, "--seed-check", str(output_dir)]) == 1
+    assert "--seed-check" in capsys.readouterr().err
+
+
+def test_the_device_option_overrides_the_configuration(
+    tiny_config_path: Path, output_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[str] = []
+    monkeypatch.setitem(
+        cli._STAGE_RUNNERS, "generate", lambda session: seen.append(session.configuration["device"])
+    )
+    argv = ["generate", "--config", str(tiny_config_path), "--out", str(output_dir)]
+    assert main([*argv, "--device", "auto"]) == 0
+    monkeypatch.setenv("SAP_DEVICE", "auto")
+    assert main(argv) == 0
+    assert seen == ["auto", "auto"]
+
+
+def test_info_reads_the_constraints_option(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pins = _write_pins(tmp_path / "bundled.txt", f"numpy=={metadata.version('numpy')}")
+    assert main(["info", "--strict", "--constraints", str(pins)]) == 0
+    assert "strict: 1 installed package(s) match bundled.txt" in capsys.readouterr().out
+    pins = _write_pins(tmp_path / "wrong.txt", "numpy==0.0.1")
+    assert main(["info", "--strict", "--constraints", str(pins)]) == 5

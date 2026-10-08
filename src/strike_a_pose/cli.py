@@ -8,8 +8,10 @@ load their configuration, check their device request, output directory, and lice
 (FR-021, exit 3), and call their stage. sap run calls the stages in order. A KILL verdict exits 0
 and the run goes on to the report; a verdict that refuses its comparison (exit 4) stops the run
 after verdict.json and verdict.md exist. A time budget that ends a stage early exits 7 and prints
-the command that resumes the run. The real-eval, verify, and --seed-check commands are still not
-implemented. This module implements no published method, so it cites no algorithm source. The pin
+the command that resumes the run. The real-eval command checks its dataset folder and, for SAM 2
+silhouettes, the SAM 2 checkpoint, then calls the real-image stage (FR-017 to FR-020). The verify
+and --seed-check commands are still not implemented. This module implements no published method,
+so it cites no algorithm source. The pin
 comparison follows the local version rule of PEP 440 (https://peps.python.org/pep-0440/).
 """
 
@@ -38,6 +40,7 @@ from strike_a_pose.device import (
 )
 from strike_a_pose.evaluate import run_evaluate
 from strike_a_pose.predict import PredictionRefusedError, run_predict
+from strike_a_pose.real.evaluate_real import run_real_eval
 from strike_a_pose.report.plots import write_plots
 from strike_a_pose.report.tables import write_results_markdown
 from strike_a_pose.runrecord import (
@@ -369,6 +372,25 @@ def _required_assets(command: str, configuration: Mapping[str, Any]) -> list[tup
     return required
 
 
+def _real_eval_assets(
+    configuration: Mapping[str, Any], dataset: str, mask_source: str | None
+) -> list[tuple[str, str]]:
+    """Return (asset path, configuration key) for each licensed asset that real-eval reads.
+
+    real-eval reads the folder of its dataset, which defaults to <root>/bodym or <root>/ssp3d as in
+    assets.py. It reads the SAM 2 checkpoint only for SSP-3D silhouettes from SAM 2: the value of
+    --mask-source, else the configuration key real.ssp3d.mask_source (contracts/cli.md). BodyM
+    always uses its provided silhouettes.
+    """
+    real = configuration["real"]
+    required = [(real[dataset]["path"] or f"<root>/{dataset}", f"real.{dataset}.path")]
+    source = mask_source if mask_source is not None else real["ssp3d"]["mask_source"]
+    if dataset == "ssp3d" and source == "sam2":
+        checkpoint = real["sam2"]["checkpoint"] or "<root>/sam2/sam2.1_hiera_base_plus.pt"
+        required.append((checkpoint, "real.sam2.checkpoint"))
+    return required
+
+
 def _installed_version(name: str) -> str | None:
     """Return the installed version of a distribution, or None when it is not installed."""
     try:
@@ -467,7 +489,8 @@ def _run_info(arguments: argparse.Namespace) -> int:
 
 
 RUN_RECORD_NAME = "run_record.json"
-# The stage subcommands that call a stage, in run order. real-eval is not among them (T044).
+# The stage subcommands that call a stage, in run order. real-eval runs on its own, so it is not
+# among them: sap run never evaluates a real dataset.
 _PIPELINE_STAGES = (
     "generate",
     "train",
@@ -506,7 +529,11 @@ def _prepare_stage_command(
     if choice.requested != configuration["device"]:
         configuration = resolve_config({**configuration, "device": choice.requested})
     root = asset_root(configuration)
-    for path, key in _required_assets(arguments.command, configuration):
+    if arguments.command == "real-eval":
+        required = _real_eval_assets(configuration, arguments.dataset, arguments.mask_source)
+    else:
+        required = _required_assets(arguments.command, configuration)
+    for path, key in required:
         require_asset(path, key, root)
     return configuration, choice, out
 
@@ -615,6 +642,21 @@ def _stage_report(session: _Session) -> None:
     write_results_markdown(session.out)
 
 
+def _stage_real_eval(session: _Session) -> None:
+    """Evaluate the trained model on the real dataset of --dataset and write real/<dataset>/.
+
+    The results are reported only and never enter the kill verdict (FR-020). The run record is
+    read, not created: the earlier stages must have written it.
+    """
+    result = run_real_eval(
+        session.configuration,
+        session.out,
+        session.arguments.dataset,
+        mask_source=session.arguments.mask_source,
+    )
+    print(f"real-eval {result.dataset} ({result.mask_source} masks): wrote {result.results_path}")
+
+
 _STAGE_RUNNERS: dict[str, Callable[[_Session], None]] = {
     "generate": _stage_generate,
     "train": _stage_train,
@@ -623,6 +665,7 @@ _STAGE_RUNNERS: dict[str, Callable[[_Session], None]] = {
     "evaluate": _stage_evaluate,
     "verdict": _stage_verdict,
     "report": _stage_report,
+    "real_eval": _stage_real_eval,
 }
 
 
@@ -662,8 +705,11 @@ def _run_stage(arguments: argparse.Namespace) -> int:
     """Run one pipeline stage, or every stage in order for sap run."""
     command = arguments.command
     if command == "real-eval":
-        _prepare_stage_command(arguments)
-        raise CommandNotImplementedError("the 'real-eval' command is not implemented yet")
+        configuration, choice, out = _prepare_stage_command(arguments)
+        record = _open_run_record(configuration, choice, out, fresh=False, creatable=False)
+        session = _Session(arguments, configuration, choice, out, record, None, resume=False)
+        _execute_stages(session, ("real_eval",))
+        return EXIT_OK
     if command == "run" and arguments.seed_check is not None:
         raise CommandNotImplementedError("the '--seed-check' option is not implemented yet")
     configuration, choice, out = _prepare_stage_command(arguments)

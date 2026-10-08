@@ -1,16 +1,31 @@
-"""Tests for cli.py: sap info, exit codes, the strict check, the parser, and sap run (T037)."""
+"""Tests for cli.py: sap info, exit codes, the strict check, the parser, sap run, and real-eval."""
 
+import csv
 import json
 import re
 from importlib import metadata
 from pathlib import Path
 from types import SimpleNamespace
 
+import cv2
+import numpy as np
 import pytest
+import torch
 
 from strike_a_pose import cli
+from strike_a_pose.calibrate import QUANTILE_COLUMNS
+from strike_a_pose.checkpoint import write_done_marker
 from strike_a_pose.cli import build_parser, check_pinned_versions, main
-from strike_a_pose.runrecord import read_run_record
+from strike_a_pose.config import config_hash, load_config
+from strike_a_pose.measure import MEASUREMENT_NAMES
+from strike_a_pose.model.vae import ShapeVAE
+from strike_a_pose.report.tables import REAL_RESULT_COLUMNS, RESULT_COLUMNS, write_results_markdown
+from strike_a_pose.runrecord import (
+    current_code_version,
+    read_run_record,
+    start_run_record,
+    write_run_record,
+)
 from strike_a_pose.verdict import VerdictRefusedError
 
 FULL_CONFIGURATION = Path(__file__).resolve().parent.parent / "configs" / "full.yaml"
@@ -390,3 +405,200 @@ def test_info_reads_the_constraints_option(
     assert "strict: 1 installed package(s) match bundled.txt" in capsys.readouterr().out
     pins = _write_pins(tmp_path / "wrong.txt", "numpy==0.0.1")
     assert main(["info", "--strict", "--constraints", str(pins)]) == 5
+
+
+# real-eval (T044) ------------------------------------------------------------------------------
+
+TINY_CONFIGURATION = Path(__file__).resolve().parent.parent / "configs" / "tiny.yaml"
+# The overrides of tests/test_evaluate_real.py: a tiny model, a 2-view cell for BodyM, one noise
+# level.
+REAL_OVERRIDES: dict[str, object] = {
+    "data.n_train": 64,
+    "data.n_cal": 32,
+    "data.n_test": 32,
+    "data.shard_size": 32,
+    "data.min_unflagged": 16,
+    "calibrate.min_cal": 16,
+    "train.epochs": 1,
+    "predict.n_samples": 4,
+    "camera.image_size": 32,
+    "camera.focal_px": 32,
+    "evaluate.views": [1, 2, 4],
+    "evaluate.noise_deg": [0],
+    "measure.step_cm": 1.0,
+}
+REAL_CELL_COUNTS = {"v1_n0": 31, "v2_n0": 29, "v4_n0": 27}
+# Tape measurements of one BodyM subject: height, chest, waist, hip, thigh.
+TAPE = ("171.5", "96.0", "81.2", "98.4", "55.1")
+
+
+def _real_overrides(bodym_root: Path) -> dict[str, object]:
+    return {**REAL_OVERRIDES, "real.bodym.path": str(bodym_root)}
+
+
+def _write_bodym_split(root: Path, folder: str, subjects: list[str]) -> None:
+    """Write a BodyM split whose subjects each have a frontal and a side photograph with a mask."""
+    split = root / folder
+    (split / "frontal").mkdir(parents=True)
+    (split / "side").mkdir()
+    headers = ["subject_id", "Height (cm)", "Chest Girth (cm)", "Waist Girth (cm)"]
+    headers += ["Hip Girth (cm)", "Thigh Girth (cm)"]
+    with (split / "measurements.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(headers)
+        for subject in subjects:
+            writer.writerow([subject, *TAPE])
+    (split / "hwg_metadata.csv").write_text("subject_id,Gender\n", encoding="utf-8")
+    with (split / "subject_to_photo_map.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(["subject_id", "photo_id"])
+        for subject in subjects:
+            writer.writerow([subject, f"p_{subject}"])
+            mask = np.zeros((64, 48), dtype=np.uint8)
+            mask[10:50, 14:34] = 255
+            for side in ("frontal", "side"):
+                assert cv2.imwrite(str(split / side / f"p_{subject}.png"), mask)
+
+
+@pytest.fixture
+def bodym_root(tmp_path: Path) -> Path:
+    """BodyM with two good subjects in testA and one in testB."""
+    root = tmp_path / "bodym"
+    _write_bodym_split(root, "testA", ["a1", "a2"])
+    _write_bodym_split(root, "testB", ["b1"])
+    return root
+
+
+@pytest.fixture
+def real_run(tmp_path: Path, bodym_root: Path) -> Path:
+    """An output folder with the model, the quantiles, the stage markers, and the run record.
+
+    The configuration is the one that the real-eval command builds from the same --set options.
+    """
+    config = load_config(
+        TINY_CONFIGURATION,
+        [f"{key}={json.dumps(value)}" for key, value in _real_overrides(bodym_root).items()],
+    )
+    out = tmp_path / "out"
+    torch.manual_seed(0)
+    (out / "train").mkdir(parents=True)
+    state = ShapeVAE.from_config(config).state_dict()
+    torch.save({"model": state}, out / "train" / "model_final.pt")
+    (out / "calibrate").mkdir()
+    with (out / "calibrate" / "quantiles.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(QUANTILE_COLUMNS)
+        for cell, views in (("v1_n0", 1), ("v2_n0", 2), ("v4_n0", 4)):
+            for name in MEASUREMENT_NAMES:
+                writer.writerow([cell, views, 0.0, name, REAL_CELL_COUNTS[cell], 0.1, 1.5, 0.1])
+    for stage in ("train", "calibrate"):
+        write_done_marker(
+            out / stage,
+            stage=stage,
+            config_hash=config_hash(config),
+            seed=int(config["seed"]),
+            code_version=current_code_version(),
+            hardware_class="cpu",
+            inputs={},
+        )
+    record = start_run_record(config, hardware_class="cpu", device_name="test cpu")
+    write_run_record(record, out / "run_record.json")
+    return out
+
+
+def _real_eval_argv(config_path: Path, out: Path, dataset: str, overrides: dict) -> list[str]:
+    return [
+        "real-eval",
+        "--config",
+        str(config_path),
+        "--out",
+        str(out),
+        "--dataset",
+        dataset,
+        *_set_arguments(overrides),
+    ]
+
+
+def test_real_eval_writes_the_bodym_table_and_times_the_stage(
+    tiny_config_path: Path,
+    real_run: Path,
+    bodym_root: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    argv = _real_eval_argv(tiny_config_path, real_run, "bodym", _real_overrides(bodym_root))
+    assert main(argv) == 0
+    assert "real-eval bodym (provided masks)" in capsys.readouterr().out
+    with (real_run / "real" / "bodym" / "results.csv").open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        assert reader.fieldnames == list(REAL_RESULT_COLUMNS)
+        rows = list(reader)
+    assert len(rows) == 2 * len(MEASUREMENT_NAMES)  # two splits, five measurements each
+    assert {row["split"] for row in rows} == {"testA", "testB"}
+    assert {row["mask_source"] for row in rows} == {"provided"}
+    assert (real_run / "real" / "bodym" / "subjects.csv").is_file()
+    record = read_run_record(real_run / "run_record.json")
+    assert record.timings["real_eval"] is not None
+
+
+def test_real_eval_without_a_run_record_exits_4(
+    tiny_config_path: Path, bodym_root: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "empty"
+    argv = _real_eval_argv(tiny_config_path, out, "bodym", _real_overrides(bodym_root))
+    assert main(argv) == 4
+    assert "run_record.json" in capsys.readouterr().err
+    assert not (out / "run_record.json").exists()
+
+
+def test_real_eval_without_the_dataset_folder_exits_3(
+    tiny_config_path: Path, output_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["real-eval", "--config", str(tiny_config_path), "--out", str(output_dir)]
+    assert main([*argv, "--dataset", "bodym"]) == 3
+    assert "real.bodym.path" in capsys.readouterr().err
+
+
+def test_real_eval_with_sam2_masks_needs_the_checkpoint(
+    tiny_config_path: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ssp3d = tmp_path / "ssp3d"
+    ssp3d.mkdir()
+    argv = _real_eval_argv(
+        tiny_config_path, tmp_path / "out", "ssp3d", {"real.ssp3d.path": str(ssp3d)}
+    )
+    assert main([*argv, "--mask-source", "sam2"]) == 3
+    assert "real.sam2.checkpoint" in capsys.readouterr().err
+
+
+def test_the_results_table_reads_the_real_eval_output(
+    tiny_config_path: Path,
+    real_run: Path,
+    bodym_root: Path,
+) -> None:
+    argv = _real_eval_argv(tiny_config_path, real_run, "bodym", _real_overrides(bodym_root))
+    assert main(argv) == 0
+    record = read_run_record(real_run / "run_record.json")
+    # write_results_markdown also reads the cell table and the verdict. Their values are
+    # placeholders here, because this test checks only the real-image table.
+    (real_run / "evaluate").mkdir()
+    with (real_run / "evaluate" / "results.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(RESULT_COLUMNS)
+        writer.writerow(
+            ["v1_n0", 1, 0.0, "chest", 0.9, 31, 32, 0.9, 10.0, 1.0, 0.0, 0, "true", 1.5]
+            + [record.seed, record.config_hash, record.code_version, record.hardware_class]
+        )
+    (real_run / "verdict").mkdir()
+    line = (
+        "VERDICT: PASS median_ratio=0.500 threshold=0.700 cells_in_band=true invalid=false "
+        "sc004_violations=0 (chest=0.500 waist=0.500 hip=0.500 thigh=0.500) "
+        "widths_v1_v4_cm=(chest=10.0/20.0 waist=10.0/20.0 hip=10.0/20.0 thigh=10.0/20.0) "
+        f"config={record.config_hash[:12]} seed={record.seed}"
+    )
+    (real_run / "verdict" / "verdict.md").write_text(line + "\n", encoding="utf-8")
+    (real_run / "report").mkdir()
+    text = write_results_markdown(real_run).read_text(encoding="utf-8")
+    assert "## Real-image results (reported only)" in text
+    rows = [row for row in text.splitlines() if row.startswith("| bodym |")]
+    assert len(rows) == 2 * len(MEASUREMENT_NAMES)
+    assert all("| provided | v2_n0 |" in row for row in rows)

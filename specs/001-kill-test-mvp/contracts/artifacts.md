@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-07 skill=speckit-implement repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-08 skill=speckit-implement repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: output artifacts
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md) | **Entities**: [../data-model.md](../data-model.md)
@@ -50,7 +50,7 @@ Everything lives under the `--out` directory, outside version control. Every CSV
 `body_id, shard, split, pose_source, pose_rejections, flags, betas_0..betas_9, pose_root_0..2, pose_body_0..62, cam{i}_azimuth_deg, cam{i}_distance_m, cam{i}_height_m, cam{i}_noise_axis_x, cam{i}_noise_axis_y, cam{i}_noise_axis_z` for `i` in 0..3, then `height_cm, chest_cm, waist_cm, hip_cm, thigh_cm`. Floats are written with `repr` precision so two runs compare byte for byte (FR-024).
 
 ### `data/summary.json`
-`n_bodies, n_flagged {empty_mask, out_of_frame, slice_nan}, n_unflagged {train, cal, test}, min_unflagged, n_rejections, per_shard [{shard, n_bodies, n_flagged, n_rejections}], config_hash, seed, code_version, hardware_class`. Generation writes this file, then exits 4 without writing `DONE.json` when `n_unflagged.cal` or `n_unflagged.test` is below `min_unflagged`, so `--resume` cannot skip a generation that fell short.
+`n_bodies, n_flagged {empty_mask, out_of_frame, slice_nan}, n_unflagged {train, cal, test}, min_unflagged, n_rejections, n_draws, rejection_rate, per_shard [{shard, n_bodies, n_flagged, n_rejections}], config_hash, seed, code_version, hardware_class`. Generation writes this file, then exits 4 without writing `DONE.json` when `n_unflagged.cal` or `n_unflagged.test` is below `min_unflagged`, so `--resume` cannot skip a generation that fell short.
 
 ### `data/shards/shard_NNNN.csv`
 

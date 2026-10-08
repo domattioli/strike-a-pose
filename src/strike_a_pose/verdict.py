@@ -9,6 +9,7 @@ and run_verdict refuses a configuration whose values differ (ConfigError, exit c
 
 The rule. For each circumference, the width ratio is the 4-view median interval width divided by the
 1-view median interval width, both at 0 degrees placement noise, read from evaluate/results.csv. The
+intervals are the split conformal intervals of research R8. The
 median ratio is numpy.median of the four ratios (the mean of the 2nd and 3rd smallest). The verdict
 is PASS when the median ratio is at most 0.70, all eight compared cells (two view counts by four
 circumferences) have in_band true, the comparison is valid, and evaluate/sc004.json counts no SC-004

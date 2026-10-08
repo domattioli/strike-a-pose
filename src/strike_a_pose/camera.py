@@ -2,7 +2,8 @@
 
 Every view of a body comes from a pinhole camera with fixed intrinsics and a known placement. This
 module holds that geometry for specs/001-kill-test-mvp: the CameraPlacement entity of
-data-model.md, the camera section of contracts/config.md, and the camera encoding of research R7.
+data-model.md, the camera section of contracts/config.md, the camera encoding of research R7, and
+the pinhole projection that the silhouette renderer of research R1 uses.
 Public sources:
 
 * The pinhole camera model and the OpenCV camera conventions: Hartley and Zisserman, "Multiple

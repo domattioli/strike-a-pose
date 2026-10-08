@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # CPU pre-commit gate (constitution Principle VI): ruff, the pytest suite, and the tiny end-to-end run.
 #
-# Usage: bash scripts/cpu_smoke.sh [--dry-run]
+# Usage: bash scripts/cpu_smoke.sh [--dry-run] [--seed-check]
 #
 # Each part runs under `timeout 600`; the script fails when any part fails or exceeds 600 s.
 # --dry-run prints the parts and exits 0 without running them.
+# --seed-check adds an opt-in part 4 after part 3: a second tiny run that is compared with part 3's
+# output by `sap run --seed-check`. The default gate stays three parts.
 # When SAP_PYTHON is set, it names the Python of the project environment, and ruff, pytest, and
 # sap are taken from the same bin directory. Otherwise python, ruff, pytest, and sap come from PATH.
 set -euo pipefail
@@ -15,14 +17,18 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 DRY_RUN=0
+SEED_CHECK=0
 for argument in "$@"; do
     case "$argument" in
         --dry-run)
             DRY_RUN=1
             ;;
+        --seed-check)
+            SEED_CHECK=1
+            ;;
         *)
             echo "cpu_smoke.sh: unknown argument: $argument" >&2
-            echo "usage: bash scripts/cpu_smoke.sh [--dry-run]" >&2
+            echo "usage: bash scripts/cpu_smoke.sh [--dry-run] [--seed-check]" >&2
             exit 2
             ;;
     esac
@@ -52,6 +58,8 @@ PART_3_COMMANDS=(
     "$PYTHON_BIN scripts/check_tiny_run.py \"\$tmp/out\""
     "grep -E '^VERDICT: ' \"\$tmp/stdout.txt\""
 )
+PART_4_NAME="part 4: seed check"
+PART_4_COMMAND="timeout $PART_TIMEOUT_SECONDS $SAP_BIN run --config configs/tiny.yaml --out \"\$tmp/out2\" --seed-check \"\$tmp/out\""
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "$PART_1_NAME"
@@ -62,6 +70,10 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     for command_line in "${PART_3_COMMANDS[@]}"; do
         echo "    $command_line"
     done
+    if [[ "$SEED_CHECK" -eq 1 ]]; then
+        echo "$PART_4_NAME (tmp=\$(mktemp -d))"
+        echo "    $PART_4_COMMAND"
+    fi
     exit 0
 fi
 
@@ -100,3 +112,13 @@ run_tiny_run() {
 }
 
 run_part "$PART_3_NAME" run_tiny_run
+
+# Part 4 runs only with --seed-check. It keeps part 3's output directory until it ends.
+run_seed_check() {
+    timeout "$PART_TIMEOUT_SECONDS" "$SAP_BIN" run --config configs/tiny.yaml --out "$tmp/out2" \
+        --seed-check "$tmp/out" || return $?
+}
+
+if [[ "$SEED_CHECK" -eq 1 ]]; then
+    run_part "$PART_4_NAME" run_seed_check
+fi

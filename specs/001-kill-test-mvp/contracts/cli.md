@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-fable-5-1 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-08 skill=speckit-implement repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: `sap` command line
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md)
@@ -27,7 +27,7 @@ One entry point, `sap`, installed by `pyproject.toml`. Every subcommand reads on
 | `sap report --config C --out O` | `evaluate/`, `verdict/`, `real/` when present | `report/` | `results.md` and plots (FR-015, FR-016) |
 | `sap run --config C --out O [--resume] [--time-budget T] [--seed-check O_ref]` | as above | all of the above | stages in order; a KILL (exit 0 from `verdict`) continues to `report`; an exit 4 from `verdict` stops the run after the verdict files are written, and an exit 4 from an earlier stage stops the run at that stage; `--seed-check` makes this run the second run and compares its manifests byte for byte and its metrics within SC-005 tolerance against a reference output |
 | `sap real-eval --config C --out O --dataset {bodym,ssp3d} [--mask-source {provided,sam2}]` | `train/`, `calibrate/`, dataset assets, SAM 2 checkpoint when `sam2` | `real/<dataset>/` | reported only (FR-020) |
-| `sap verify --out O` | `predict/`, `evaluate/`, `verdict/` | stdout | recomputes evaluate and verdict from predict outputs; exit 6 on any difference (SC-003) |
+| `sap verify --out O` | `evaluate/`, `verdict/`, `run_record.json` | stdout | recomputes the verdict from `evaluate/results.csv` and `evaluate/sc004.json` and compares it with the stored `verdict.json` and `verdict.md`; exit 6 on any difference (SC-003). Recomputing `evaluate/` itself needs the resolved configuration, which the output directory stores only as a hash, so `sap evaluate --config C` re-run on the same output is the way to check that stage (implementation decision, T048) |
 
 Common options: `--device {auto,cpu,cuda}`, `--log-level`, `--time-budget` as `<hours>h` or `<minutes>m` (the run stops cleanly at the next checkpoint when the budget would be exceeded by the next unit of work; the partial stage is resumable). `--set key=value` overrides one configuration key; it is repeatable, one key per `--set`, and the value is parsed as YAML (`--set evaluate.views=[1,4]` sets a list); an override of an FR-014 fixed key (`verdict.*`, `evaluate.band`) exits 2.
 

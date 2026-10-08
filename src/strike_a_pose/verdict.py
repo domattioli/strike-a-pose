@@ -48,6 +48,7 @@ Public source. This module implements no published method. The median is numpy.m
 """
 
 import csv
+import filecmp
 import io
 import json
 import logging
@@ -55,6 +56,7 @@ import math
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +69,8 @@ from strike_a_pose.checkpoint import (
     write_done_marker,
 )
 from strike_a_pose.config import ConfigError, config_hash
+from strike_a_pose.data.generate import data_directory
+from strike_a_pose.data.manifest import MANIFEST_NAME, SHARD_DIRECTORY_NAME
 from strike_a_pose.runrecord import RunRecord, RunRecordError, read_run_record
 
 __all__ = [
@@ -82,17 +86,22 @@ __all__ = [
     "THRESHOLD",
     "VERDICT_JSON_NAME",
     "VERDICT_MARKDOWN_NAME",
+    "SEED_COVERAGE_TOLERANCE",
+    "SEED_WIDTH_TOLERANCE_CM",
     "KillVerdict",
     "ReportedRow",
+    "ReproductionDifferenceError",
     "ResultCell",
     "VerdictError",
     "VerdictInputError",
     "VerdictRefusedError",
     "check_fixed_configuration",
+    "check_second_run",
     "compute_verdict",
     "recompute",
     "run_verdict",
     "verdict_directory",
+    "verify_output",
     "width_ratio",
 ]
 
@@ -553,6 +562,183 @@ def run_verdict(config: Mapping[str, Any], out_directory: str | os.PathLike[str]
         inputs=inputs,
     )
     return verdict
+
+
+# SC-005: coverage values match within 0.5 percentage points, and median widths within 0.1 cm.
+SEED_COVERAGE_TOLERANCE = 0.005
+SEED_WIDTH_TOLERANCE_CM = 0.1
+_RESULT_IDENTITY_COLUMNS = ("cell_id", "measurement")
+_SEED_CHECK_COLUMNS = ("coverage", "median_width_cm")
+
+
+class ReproductionDifferenceError(Exception):
+    """Two outputs that must reproduce each other differ: sap verify and --seed-check exit 6.
+
+    The message names the first difference. This is not a ValueError, so it never takes the exit
+    code of a refused stage (4); the command maps it to exit code 6 on its own.
+    """
+
+
+def verify_output(out_directory: str | os.PathLike[str]) -> KillVerdict:
+    """Recompute the verdict of an output directory and compare it with the stored verdict files.
+
+    This is the check of ``sap verify`` (SC-003). The stored verdict/verdict.json and
+    verdict/verdict.md must equal the recomputed text byte for byte. A missing stored file is a
+    difference too. Returns the recomputed verdict; raises ReproductionDifferenceError (exit 6)
+    that names the first difference. Inputs that cannot be read raise VerdictInputError first.
+    """
+    verdict = recompute(out_directory)
+    directory = verdict_directory(out_directory)
+    expected_texts = (
+        (VERDICT_JSON_NAME, verdict.to_json()),
+        (VERDICT_MARKDOWN_NAME, verdict.to_markdown()),
+    )
+    differences: list[str] = []
+    for name, expected in expected_texts:
+        path = directory / name
+        if not path.is_file():
+            differences.append(f"the stored file '{path}' is missing")
+            continue
+        stored = _read_text(path, "stored verdict file")
+        if stored != expected:
+            differences.append(
+                f"{name} differs from the recomputed text, "
+                f"{_first_text_difference(stored, expected)}"
+            )
+    _raise_on_differences(differences, "the stored verdict differs from the recomputed verdict")
+    return verdict
+
+
+def check_second_run(
+    out_directory: str | os.PathLike[str], reference_directory: str | os.PathLike[str]
+) -> None:
+    """Compare a run with the reference output it must reproduce (sap run --seed-check, SC-005).
+
+    data/manifest.csv and every shard under data/shards must be byte for byte equal to the
+    reference. Each row of evaluate/results.csv must name the same cell and measurement, in the same
+    order, and its coverage and median width must lie within SEED_COVERAGE_TOLERANCE and
+    SEED_WIDTH_TOLERANCE_CM of the reference. Other columns are not compared. Any difference, or a
+    missing file, raises ReproductionDifferenceError (exit 6) that names the first difference.
+    """
+    out = Path(out_directory)
+    reference = Path(reference_directory)
+    differences = _data_differences(out, reference) + _results_differences(out, reference)
+    _raise_on_differences(
+        differences, f"the run in '{out}' differs from the reference '{reference}'"
+    )
+
+
+def _raise_on_differences(differences: Sequence[str], subject: str) -> None:
+    """Raise ReproductionDifferenceError that names the first difference, if there is any."""
+    if not differences:
+        return
+    more = len(differences) - 1
+    count = f" ({more} more difference{'s' if more > 1 else ''})" if more else ""
+    raise ReproductionDifferenceError(f"{subject}: {differences[0]}{count}")
+
+
+def _first_text_difference(stored: str, expected: str) -> str:
+    """Name the first line at which two texts differ: its number, and both versions of it."""
+    for number, (found, wanted) in enumerate(
+        zip_longest(stored.splitlines(), expected.splitlines(), fillvalue="<no line>"), start=1
+    ):
+        if found != wanted:
+            return f"line {number}: stored {found!r}, recomputed {wanted!r}"
+    return "the two texts differ in their line endings or final newline"
+
+
+def _data_differences(out: Path, reference: Path) -> list[str]:
+    """Return the differences of the manifest and the shard files, compared byte for byte."""
+    out_data = data_directory(out)
+    reference_data = data_directory(reference)
+    out_shards = _shard_names(out_data)
+    reference_shards = _shard_names(reference_data)
+    differences: list[str] = []
+    if out_shards != reference_shards:
+        differences.append(
+            f"the shard files differ: {len(out_shards)} in the run, {len(reference_shards)} in the "
+            "reference"
+        )
+    pairs = [(out_data / MANIFEST_NAME, reference_data / MANIFEST_NAME)]
+    shared = sorted(set(out_shards) & set(reference_shards))
+    pairs += [
+        (out_data / SHARD_DIRECTORY_NAME / name, reference_data / SHARD_DIRECTORY_NAME / name)
+        for name in shared
+    ]
+    for found, wanted in pairs:
+        if not found.is_file() or not wanted.is_file():
+            differences.append(f"'{found}' or '{wanted}' is missing")
+        elif not filecmp.cmp(found, wanted, shallow=False):
+            differences.append(f"'{found}' differs from '{wanted}' in its bytes")
+    return differences
+
+
+def _shard_names(data_folder: Path) -> list[str]:
+    """Return the sorted names of the shard files of a data folder; none when it has no shards."""
+    folder = data_folder / SHARD_DIRECTORY_NAME
+    if not folder.is_dir():
+        return []
+    return sorted(path.name for path in folder.glob("*.npz"))
+
+
+def _results_differences(out: Path, reference: Path) -> list[str]:
+    """Return the differences of evaluate/results.csv, row by row, within the SC-005 tolerances."""
+    out_path = out / EVALUATE_STAGE / "results.csv"
+    reference_path = reference / EVALUATE_STAGE / "results.csv"
+    if not out_path.is_file() or not reference_path.is_file():
+        return [f"'{out_path}' or '{reference_path}' is missing"]
+    out_header, out_rows = _read_csv_rows(out_path)
+    reference_header, reference_rows = _read_csv_rows(reference_path)
+    required = _RESULT_IDENTITY_COLUMNS + _SEED_CHECK_COLUMNS
+    if not all(column in out_header for column in required) or not all(
+        column in reference_header for column in required
+    ):
+        return [
+            f"'{out_path}' or '{reference_path}' lacks one of the columns {', '.join(required)}"
+        ]
+    if len(out_rows) != len(reference_rows):
+        return [
+            f"the results table has {len(out_rows)} rows, the reference has {len(reference_rows)}"
+        ]
+    differences: list[str] = []
+    for line, (found, wanted) in enumerate(zip(out_rows, reference_rows, strict=True), start=2):
+        name = f"row {line} ({found.get('cell_id')} {found.get('measurement')})"
+        identity = tuple(found[column] for column in _RESULT_IDENTITY_COLUMNS)
+        expected_identity = tuple(wanted[column] for column in _RESULT_IDENTITY_COLUMNS)
+        if identity != expected_identity:
+            differences.append(f"{name} names {identity}, the reference names {expected_identity}")
+            continue
+        for column, tolerance, unit in (
+            ("coverage", SEED_COVERAGE_TOLERANCE, ""),
+            ("median_width_cm", SEED_WIDTH_TOLERANCE_CM, " cm"),
+        ):
+            gap = _float_gap(found[column], wanted[column])
+            # Written as "not within" so that a value that is not a number (NaN) also differs.
+            if not gap <= tolerance:
+                differences.append(
+                    f"{name} column {column} is {found[column]}{unit}, the reference is "
+                    f"{wanted[column]}{unit}; the tolerance is {tolerance}{unit}"
+                )
+    return differences
+
+
+def _read_csv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    """Return the header and the rows of a CSV file, read as text."""
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        return list(reader.fieldnames or []), rows
+
+
+def _float_gap(found: str, wanted: str) -> float:
+    """Return the absolute gap of two numbers as text; NaN when either is not a finite number."""
+    try:
+        first, second = float(found), float(wanted)
+    except ValueError:
+        return math.nan
+    if not (math.isfinite(first) and math.isfinite(second)):
+        return math.nan
+    return abs(first - second)
 
 
 def _verdict_from_files(out: Path, record: RunRecord) -> KillVerdict:

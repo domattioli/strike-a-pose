@@ -156,7 +156,7 @@ Covered by the module tests of Phases 2 to 4 plus the tasks below.
 
 ### Implementation for User Story 4
 
-- [ ] T048 [US4] Add `sap verify --out` and `sap run --seed-check` to `src/strike_a_pose/cli.py` and the comparison helpers to `src/strike_a_pose/verdict.py` (exit 6 on any difference) (tier: haiku)
+- [X] T048 [US4] Add `sap verify --out` and `sap run --seed-check` to `src/strike_a_pose/cli.py` and the comparison helpers to `src/strike_a_pose/verdict.py` (exit 6 on any difference) (tier: haiku)
 
 ---
 

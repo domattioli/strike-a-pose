@@ -26,18 +26,23 @@ from strike_a_pose.verdict import (
     MEASUREMENTS,
     NOISE_DEG,
     REPORTED_NOISE_DEG,
+    SEED_COVERAGE_TOLERANCE,
+    SEED_WIDTH_TOLERANCE_CM,
     STAGE_REFUSED_EXIT_CODE,
     THRESHOLD,
     KillVerdict,
+    ReproductionDifferenceError,
     ResultCell,
     VerdictError,
     VerdictInputError,
     VerdictRefusedError,
     check_fixed_configuration,
+    check_second_run,
     compute_verdict,
     recompute,
     run_verdict,
     verdict_directory,
+    verify_output,
     width_ratio,
 )
 
@@ -1245,3 +1250,154 @@ def test_compute_verdict_refuses_a_repeated_cell_and_a_bad_violation_count(
     for bad in (-1, True, 1.0):
         with pytest.raises(ValueError, match="violation count"):
             compute_verdict([cell], sc004_violations=bad, record=record)
+
+
+# sap verify (SC-003) and the --seed-check comparison (SC-005)
+
+SEED_HEADER = "cell_id,measurement,coverage,median_width_cm\n"
+
+
+def _seed_outputs(
+    out: Path,
+    *,
+    shard: bytes = b"\x00shard",
+    coverage: str = "0.900",
+    width: str = "6.000",
+    swap_rows: bool = False,
+) -> Path:
+    """Write the files that --seed-check compares: the manifest, one shard, and the results table.
+
+    The first row carries the given coverage and width; the second row is fixed. swap_rows puts the
+    second row first.
+    """
+    data = out / "data"
+    (data / "shards").mkdir(parents=True, exist_ok=True)
+    (data / "manifest.csv").write_bytes(b"cell_id,body\nv1_n0,0\n")
+    (data / "shards" / "shard_000.npz").write_bytes(shard)
+    first = f"v1_n0,chest,{coverage},{width}\n"
+    second = "v4_n0,chest,0.900,4.000\n"
+    body = second + first if swap_rows else first + second
+    (out / "evaluate").mkdir(parents=True, exist_ok=True)
+    (out / "evaluate" / "results.csv").write_text(SEED_HEADER + body, encoding="utf-8")
+    return out
+
+
+def test_the_seed_check_tolerances_are_the_sc005_values() -> None:
+    assert SEED_COVERAGE_TOLERANCE == 0.005
+    assert SEED_WIDTH_TOLERANCE_CM == 0.1
+
+
+def test_identical_outputs_and_small_drift_within_tolerance_pass_the_seed_check(
+    tmp_path: Path,
+) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    _seed_outputs(tmp_path / "same")
+    check_second_run(tmp_path / "same", reference)  # no error
+    _seed_outputs(tmp_path / "drift", coverage="0.904", width="6.050")
+    check_second_run(tmp_path / "drift", reference)
+
+
+def test_a_changed_shard_byte_fails_the_seed_check_and_names_the_shard(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    _seed_outputs(tmp_path / "run", shard=b"\x00shaxd")
+    with pytest.raises(ReproductionDifferenceError, match="shard_000.npz' differs"):
+        check_second_run(tmp_path / "run", reference)
+
+
+def test_a_changed_manifest_fails_the_seed_check(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    run = _seed_outputs(tmp_path / "run")
+    (run / "data" / "manifest.csv").write_bytes(b"cell_id,body\nv1_n0,1\n")
+    with pytest.raises(ReproductionDifferenceError, match="manifest.csv' differs"):
+        check_second_run(run, reference)
+
+
+def test_a_width_outside_0_1_cm_fails_the_seed_check(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    _seed_outputs(tmp_path / "run", width="6.200")
+    with pytest.raises(ReproductionDifferenceError, match="column median_width_cm"):
+        check_second_run(tmp_path / "run", reference)
+
+
+def test_a_coverage_outside_half_a_point_fails_the_seed_check(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    _seed_outputs(tmp_path / "run", coverage="0.920")
+    with pytest.raises(ReproductionDifferenceError, match="column coverage"):
+        check_second_run(tmp_path / "run", reference)
+
+
+def test_a_coverage_that_is_not_a_number_fails_the_seed_check(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    _seed_outputs(tmp_path / "run", coverage="nan")
+    with pytest.raises(ReproductionDifferenceError, match="column coverage"):
+        check_second_run(tmp_path / "run", reference)
+
+
+def test_rows_out_of_order_fail_the_seed_check(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    _seed_outputs(tmp_path / "run", swap_rows=True)
+    with pytest.raises(ReproductionDifferenceError, match="names"):
+        check_second_run(tmp_path / "run", reference)
+
+
+def test_a_missing_results_table_fails_the_seed_check(tmp_path: Path) -> None:
+    reference = _seed_outputs(tmp_path / "reference")
+    run = _seed_outputs(tmp_path / "run")
+    (run / "evaluate" / "results.csv").unlink()
+    with pytest.raises(ReproductionDifferenceError, match="is missing"):
+        check_second_run(run, reference)
+
+
+def test_verify_returns_the_verdict_and_writes_nothing_when_the_stored_files_match(
+    config: dict[str, Any], output_dir: Path
+) -> None:
+    make_run(config, output_dir)
+    run_verdict(config, output_dir)
+    before = snapshot(output_dir)
+    verdict = verify_output(output_dir)
+    assert verdict.verdict == "PASS"
+    assert verdict.line == read_markdown(output_dir).splitlines()[0]
+    assert snapshot(output_dir) == before
+
+
+def test_verify_names_the_line_of_a_stored_markdown_file_that_was_changed(
+    config: dict[str, Any], output_dir: Path
+) -> None:
+    make_run(config, output_dir)
+    run_verdict(config, output_dir)
+    path = verdict_directory(output_dir) / "verdict.md"
+    text = path.read_text(encoding="utf-8")
+    last_line = len(text.splitlines())
+    path.write_text(text.rstrip("\n") + " tampered\n", encoding="utf-8")
+    with pytest.raises(ReproductionDifferenceError, match=f"verdict.md differs.*line {last_line}"):
+        verify_output(output_dir)
+
+
+def test_verify_refuses_a_stored_verdict_file_that_is_missing(
+    config: dict[str, Any], output_dir: Path
+) -> None:
+    make_run(config, output_dir)
+    run_verdict(config, output_dir)
+    (verdict_directory(output_dir) / "verdict.json").unlink()
+    with pytest.raises(ReproductionDifferenceError, match="verdict.json' is missing"):
+        verify_output(output_dir)
+
+
+def test_verify_refuses_a_stored_verdict_that_the_changed_table_no_longer_gives(
+    config: dict[str, Any], output_dir: Path
+) -> None:
+    run = make_run(config, output_dir)
+    run_verdict(config, output_dir)
+    write_csv(
+        output_dir / "evaluate" / "results.csv",
+        result_rows(run.record, four_view=KILL_FOUR_VIEW_CM),
+    )
+    with pytest.raises(ReproductionDifferenceError, match="verdict.json differs"):
+        verify_output(output_dir)
+
+
+def test_verify_refuses_an_output_without_a_run_record_as_an_input_error(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(VerdictInputError):
+        verify_output(tmp_path)

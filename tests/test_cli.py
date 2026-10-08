@@ -26,7 +26,7 @@ from strike_a_pose.runrecord import (
     start_run_record,
     write_run_record,
 )
-from strike_a_pose.verdict import VerdictRefusedError
+from strike_a_pose.verdict import ReproductionDifferenceError, VerdictRefusedError
 
 FULL_CONFIGURATION = Path(__file__).resolve().parent.parent / "configs" / "full.yaml"
 
@@ -375,12 +375,136 @@ def test_a_stage_stopped_by_the_time_budget_exits_7_with_the_resume_command(
     assert read_run_record(output_dir / "run_record.json").timings["generate"] is not None
 
 
-def test_seed_check_is_not_implemented_yet(
-    tiny_config_path: Path, output_dir: Path, capsys: pytest.CaptureFixture[str]
+def _stub_seed_stages(
+    monkeypatch: pytest.MonkeyPatch, calls: list[str], *, shard: bytes, width: str
 ) -> None:
-    argv = ["run", "--config", str(tiny_config_path), "--out", str(output_dir)]
-    assert main([*argv, "--seed-check", str(output_dir)]) == 1
-    assert "--seed-check" in capsys.readouterr().err
+    """Stub every stage. generate and evaluate write the files that --seed-check compares."""
+    _stub_stages(monkeypatch, calls)
+
+    def generate(session: SimpleNamespace) -> None:
+        shards = session.out / "data" / "shards"
+        shards.mkdir(parents=True, exist_ok=True)
+        (session.out / "data" / "manifest.csv").write_text("cell_id,body\nv1_n0,0\n")
+        (shards / "shard_000.npz").write_bytes(shard)
+
+    def evaluate(session: SimpleNamespace) -> None:
+        (session.out / "evaluate").mkdir(parents=True, exist_ok=True)
+        (session.out / "evaluate" / "results.csv").write_text(
+            f"cell_id,measurement,coverage,median_width_cm\nv1_n0,chest,0.900,{width}\n"
+        )
+
+    monkeypatch.setitem(cli._STAGE_RUNNERS, "generate", generate)
+    monkeypatch.setitem(cli._STAGE_RUNNERS, "evaluate", evaluate)
+
+
+def _run_with_seed_check(config_path: Path, out: Path, reference: Path | None) -> list[str]:
+    argv = ["run", "--config", str(config_path), "--out", str(out)]
+    if reference is not None:
+        argv += ["--seed-check", str(reference)]
+    return argv
+
+
+def test_seed_check_passes_when_the_second_run_matches_the_reference(
+    tiny_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reference = tmp_path / "reference"
+    _stub_seed_stages(monkeypatch, [], shard=b"same", width="6.000")
+    assert main(_run_with_seed_check(tiny_config_path, reference, None)) == 0
+    capsys.readouterr()
+    _stub_seed_stages(monkeypatch, [], shard=b"same", width="6.050")  # within 0.1 cm
+    second = tmp_path / "second"
+    assert main(_run_with_seed_check(tiny_config_path, second, reference)) == 0
+    assert "matches the reference" in capsys.readouterr().out
+
+
+def test_seed_check_exits_6_and_names_the_first_difference(
+    tiny_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reference = tmp_path / "reference"
+    _stub_seed_stages(monkeypatch, [], shard=b"first", width="6.000")
+    assert main(_run_with_seed_check(tiny_config_path, reference, None)) == 0
+    capsys.readouterr()
+    _stub_seed_stages(monkeypatch, [], shard=b"other", width="6.000")
+    second = tmp_path / "second"
+    assert main(_run_with_seed_check(tiny_config_path, second, reference)) == 6
+    error = capsys.readouterr().err
+    assert error.startswith("sap: error: ")
+    assert "shard_000.npz' differs" in error
+
+
+def test_seed_check_exits_6_for_a_width_outside_the_tolerance(
+    tiny_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reference = tmp_path / "reference"
+    _stub_seed_stages(monkeypatch, [], shard=b"same", width="6.000")
+    assert main(_run_with_seed_check(tiny_config_path, reference, None)) == 0
+    capsys.readouterr()
+    _stub_seed_stages(monkeypatch, [], shard=b"same", width="6.300")
+    assert main(_run_with_seed_check(tiny_config_path, tmp_path / "second", reference)) == 6
+    assert "median_width_cm" in capsys.readouterr().err
+
+
+def test_seed_check_refuses_the_run_output_as_its_own_reference_before_any_stage(
+    tiny_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[str] = []
+    _stub_stages(monkeypatch, calls)
+    output = tmp_path / "out"
+    output.mkdir()
+    assert main(_run_with_seed_check(tiny_config_path, output, output)) == 2
+    assert "names the output of this run" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_seed_check_refuses_a_reference_that_is_not_a_directory_before_any_stage(
+    tiny_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[str] = []
+    _stub_stages(monkeypatch, calls)
+    argv = _run_with_seed_check(tiny_config_path, tmp_path / "out", tmp_path / "absent")
+    assert main(argv) == 2
+    assert "is not a directory" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_verify_prints_the_verdict_line_and_exits_0_when_the_files_match(
+    output_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    line = "VERDICT: PASS median_ratio=0.500"
+    monkeypatch.setattr(cli, "verify_output", lambda out: SimpleNamespace(line=line))
+    assert main(["verify", "--out", str(output_dir)]) == 0
+    assert capsys.readouterr().out == line + "\n"
+
+
+def test_verify_exits_6_and_names_the_first_difference(
+    output_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def differ(out: Path) -> None:
+        raise ReproductionDifferenceError("verdict.md differs from the recomputed text, line 1")
+
+    monkeypatch.setattr(cli, "verify_output", differ)
+    assert main(["verify", "--out", str(output_dir)]) == 6
+    assert capsys.readouterr().err.startswith("sap: error: verdict.md differs")
+
+
+def test_verify_without_an_output_directory_exits_2(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["verify"]) == 2
+    assert "no output directory" in capsys.readouterr().err
 
 
 def test_the_device_option_overrides_the_configuration(

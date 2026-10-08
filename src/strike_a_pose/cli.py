@@ -10,8 +10,9 @@ and the run goes on to the report; a verdict that refuses its comparison (exit 4
 after verdict.json and verdict.md exist. A time budget that ends a stage early exits 7 and prints
 the command that resumes the run. The real-eval command checks its dataset folder and, for SAM 2
 silhouettes, the SAM 2 checkpoint, then calls the real-image stage (FR-017 to FR-020). The verify
-and --seed-check commands are still not implemented. This module implements no published method,
-so it cites no algorithm source. The pin
+and --seed-check commands recompute the verdict and compare a second run with a reference output
+(SC-003, SC-005); both exit 6 on any difference. This module implements no published method, so
+it cites no algorithm source. The pin
 comparison follows the local version rule of PEP 440 (https://peps.python.org/pep-0440/).
 """
 
@@ -52,7 +53,13 @@ from strike_a_pose.runrecord import (
     write_run_record,
 )
 from strike_a_pose.train import train_model
-from strike_a_pose.verdict import VerdictRefusedError, run_verdict
+from strike_a_pose.verdict import (
+    ReproductionDifferenceError,
+    VerdictRefusedError,
+    check_second_run,
+    run_verdict,
+    verify_output,
+)
 
 __all__ = [
     "CONSTRAINTS_FILE_NAME",
@@ -710,8 +717,9 @@ def _run_stage(arguments: argparse.Namespace) -> int:
         session = _Session(arguments, configuration, choice, out, record, None, resume=False)
         _execute_stages(session, ("real_eval",))
         return EXIT_OK
-    if command == "run" and arguments.seed_check is not None:
-        raise CommandNotImplementedError("the '--seed-check' option is not implemented yet")
+    seed_check = arguments.seed_check if command == "run" else None
+    if seed_check is not None:
+        _check_seed_reference(seed_check, _output_directory(arguments))
     configuration, choice, out = _prepare_stage_command(arguments)
     is_first = command in ("generate", "run")
     resume = bool(getattr(arguments, "resume", False))
@@ -729,13 +737,28 @@ def _run_stage(arguments: argparse.Namespace) -> int:
     session = _Session(arguments, configuration, choice, out, record, budget, resume)
     stages = _PIPELINE_STAGES if command == "run" else (command,)
     _execute_stages(session, stages)
+    if seed_check is not None:
+        check_second_run(out, seed_check)
+        print(f"seed check: '{out}' matches the reference '{seed_check}' (SC-005)")
     return EXIT_OK
 
 
+def _check_seed_reference(reference: Path, out: Path) -> None:
+    """Refuse a --seed-check reference that is the run's own output, or is not a directory.
+
+    Both checks run before any stage, so that a refused command never writes into the reference.
+    """
+    if reference.resolve() == out.resolve():
+        raise UsageError("--seed-check names the output of this run; give the reference output")
+    if not reference.is_dir():
+        raise UsageError(f"--seed-check reference '{reference}' is not a directory")
+
+
 def _run_verify(arguments: argparse.Namespace) -> int:
-    """Check the output directory of verify, then stop: its recomputation is not implemented yet."""
-    _output_directory(arguments)
-    raise CommandNotImplementedError("the 'verify' command is not implemented yet")
+    """Recompute the verdict of --out, compare it with the stored verdict files, and print it."""
+    verdict = verify_output(_output_directory(arguments))
+    print(verdict.line)
+    return EXIT_OK
 
 
 _HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
@@ -787,6 +810,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _fail(EXIT_STRICT_VERSION, error)
     except TimeBudgetReachedError as error:
         return _fail(EXIT_TIME_BUDGET, error)
+    except ReproductionDifferenceError as error:
+        return _fail(EXIT_VERIFY_DIFFERENCE, error)
     except CommandNotImplementedError as error:
         return _fail(EXIT_FAILURE, error)
     except (

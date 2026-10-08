@@ -15,7 +15,14 @@ from strike_a_pose.config import load_config
 from strike_a_pose.data.dataset import ShapeDataset
 from strike_a_pose.data.generate import data_directory, generate_dataset
 from strike_a_pose.data.splits import DataSplit
-from strike_a_pose.train import HISTORY_COLUMNS, epoch_batches, train_directory, train_model
+from strike_a_pose.train import (
+    HISTORY_COLUMNS,
+    WARMUP_FRACTION,
+    epoch_batches,
+    learning_rate_factor,
+    train_directory,
+    train_model,
+)
 
 # Two epochs of small_config data. A batch of 8 bodies gives about eight steps per epoch, and a
 # checkpoint every 3 steps puts checkpoints inside an epoch as well as at its end. The wider
@@ -110,6 +117,36 @@ def test_a_two_epoch_run_writes_every_output(trained):
     final = torch.load(train_dir / "model_final.pt", weights_only=True)
     assert final["step"] == result.total_steps
     assert all(torch.isfinite(value).all() for value in final["model"].values())
+
+
+def test_the_learning_rate_warms_up_linearly_then_decays_by_cosine():
+    total = 200
+    warmup = int(WARMUP_FRACTION * total)
+    assert warmup == 10
+    factors = [learning_rate_factor(step, total) for step in range(total + 1)]
+    assert factors[0] == pytest.approx(0.01)
+    ramp = [factors[step + 1] - factors[step] for step in range(warmup)]
+    assert all(delta == pytest.approx(ramp[0]) and delta > 0 for delta in ramp)
+    assert factors[warmup] == pytest.approx(1.0) and max(factors) == pytest.approx(1.0)
+    tail = factors[warmup:]
+    assert all(later < earlier for earlier, later in zip(tail, tail[1:], strict=False))
+    midpoint = warmup + (total - warmup) // 2
+    assert factors[midpoint] == pytest.approx(0.01 + 0.99 * 0.5, abs=1e-3)
+    assert factors[total] == pytest.approx(0.01)
+    # A tiny run still warms up for one step.
+    assert [learning_rate_factor(step, 4) for step in range(2)] == pytest.approx([0.01, 1.0])
+
+
+def test_history_logs_the_warm_up_schedule(trained):
+    peak = float(trained.config["train"]["lr"])
+    total = trained.result.total_steps
+    rates = [float(row["learning_rate"]) for row in read_history(trained.out)]
+    print("learning rates:", rates[:3], "...", rates[-3:])
+    expected = [peak * learning_rate_factor(step, total) for step in range(total)]
+    assert rates == pytest.approx(expected, rel=1e-9)
+    assert rates[0] == pytest.approx(0.01 * peak)
+    assert max(rates) == pytest.approx(peak)
+    assert rates[-1] < rates[total // 2] < peak
 
 
 def test_resume_from_a_checkpoint_reaches_the_same_final_loss(trained, tmp_path):

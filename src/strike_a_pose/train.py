@@ -7,6 +7,11 @@ The stage reads ``<out>/data`` and writes ``<out>/train`` (contracts/artifacts.m
   https://arxiv.org/abs/1711.05101), for the AdamW optimizer, and Loshchilov and Hutter, "SGDR:
   Stochastic Gradient Descent with Warm Restarts" (ICLR 2017, https://arxiv.org/abs/1608.03983),
   for the cosine learning-rate decay (here without restarts).
+* A linear warm-up of the learning rate (Goyal et al., "Accurate, Large Minibatch SGD", 2017,
+  https://arxiv.org/abs/1706.02677). ``WARMUP_FRACTION`` = 0.05 is a module constant, not a
+  configuration key: the learning rate rises linearly from 1% of ``train.lr`` to ``train.lr`` over
+  the first 5% of all optimizer steps (at least 1 step), then follows the cosine decay over the
+  remaining steps down to 1% of ``train.lr``.
 * The model and its loss follow Wu and Goodman 2018 and Kingma and Welling 2013 (research R7); this
   module only calls ``ShapeVAE.loss``.
 * The PyTorch reproducibility notes (https://pytorch.org/docs/stable/notes/randomness.html) for the
@@ -36,6 +41,7 @@ a later call with ``resume=True`` continues from the newest checkpoint (FR-029).
 """
 
 import csv
+import functools
 import io
 import logging
 import math
@@ -72,8 +78,10 @@ from strike_a_pose.seeding import rng_for, seed_torch
 __all__ = [
     "HISTORY_COLUMNS",
     "STAGE_NAME",
+    "WARMUP_FRACTION",
     "TrainingResult",
     "epoch_batches",
+    "learning_rate_factor",
     "train_directory",
     "train_model",
 ]
@@ -108,8 +116,11 @@ _STAGE_ID = STAGES.index(STAGE_NAME)
 _ORDER_MARKER = 1
 _MONITOR_MARKER = 2
 
-# The cosine schedule ends at this share of the starting learning rate.
+# The schedule starts and ends at this share of the peak learning rate ``train.lr``.
 _FINAL_LEARNING_RATE_SHARE = 0.01
+
+# The warm-up covers this fraction of all optimizer steps (at least one step).
+WARMUP_FRACTION = 0.05
 
 _CHECKPOINT_VERSION = 1
 
@@ -151,6 +162,21 @@ def epoch_batches(seed: int, epoch: int, n_samples: int, batch_size: int) -> lis
     """
     order = rng_for(seed, _STAGE_ID, epoch, _ORDER_MARKER).permutation(n_samples).tolist()
     return [order[start : start + batch_size] for start in range(0, n_samples, batch_size)]
+
+
+def learning_rate_factor(step: int, total_steps: int) -> float:
+    """Return the learning rate at a 0-based optimizer step as a multiple of ``train.lr``.
+
+    The factor rises linearly from 0.01 at step 0 to 1 at step ``W = max(1, int(WARMUP_FRACTION *
+    total_steps))``, then follows a cosine from 1 down to 0.01 at ``total_steps``. It depends only
+    on the step, so a resumed run (the scheduler state holds the step) gets the same rates.
+    """
+    warmup = max(1, int(WARMUP_FRACTION * total_steps))
+    floor = _FINAL_LEARNING_RATE_SHARE
+    if step < warmup:
+        return floor + (1.0 - floor) * step / warmup
+    progress = min(1.0, (step - warmup) / max(1, total_steps - warmup))
+    return floor + (1.0 - floor) * 0.5 * (1.0 + math.cos(math.pi * progress))
 
 
 def train_model(
@@ -213,10 +239,8 @@ def train_model(
 
     model = ShapeVAE.from_config(config).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(train_config["lr"]))
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer,
-        T_max=total_steps,
-        eta_min=float(train_config["lr"]) * _FINAL_LEARNING_RATE_SHARE,
+    scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer, functools.partial(learning_rate_factor, total_steps=total_steps)
     )
 
     state = _TrainingState()

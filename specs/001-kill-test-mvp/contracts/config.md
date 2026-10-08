@@ -68,7 +68,7 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 | `model.camera_embed_dim` | int | 16 | 64 | |
 | `train.epochs` | int | 2 | 30 | |
 | `train.batch_size` | int | 32 | 128 | |
-| `train.lr` | float | 1e-3 | 3e-4 | AdamW |
+| `train.lr` | float | 1e-3 | 3e-3 | AdamW peak rate; a linear warm-up over the first 5% of steps (`train.WARMUP_FRACTION`) precedes the cosine decay. Full value raised from 3e-4 to 3e-3 after a CPU diagnosis showed 3e-4 to 1e-3 barely learns in about 4,500 steps and 3e-3 without warm-up collapses to the prior (implementation finding) |
 | `train.kl_weight` | float | 1e-3 | 1e-3 | after warm-up over the first 20% of steps |
 | `train.views_train` | list of int | [1, 2, 3, 4] | [1, 2, 3, 4] | uniform draw per sample |
 | `train.noise_train_deg` | [min, max] | [0, 5] | [0, 5] | uniform per view |

@@ -79,7 +79,7 @@ predict:                        # FR-010 to FR-014
 calibrate:                      # FR-010 to FR-014
   alpha: 0.10                   # nominal miscoverage, so 90% nominal coverage
   min_cal: 32                   # refusal threshold (FR-011)
-  spread_floor_cm: 0.1
+  spread_floor_cm: 0.001
 
 evaluate:                       # FR-010 to FR-014
   views: [1, 2, 4]              # view-count cells

@@ -1,4 +1,4 @@
-<!-- provenance: author=domattioli model=claude-opus-5-5 effort=high date=2026-10-07 skill=speckit-analyze repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
+<!-- provenance: author=domattioli model=claude-opus-5-5 effort=max date=2026-10-08 skill=speckit-implement repo=strike-a-pose session=session_012P6L2vQy2nq18wTJ6TLzTC -->
 # Contract: configuration schema
 
 **Branch**: `001-kill-test-mvp` | **Date**: 2026-10-07 | **Plan**: [../plan.md](../plan.md)
@@ -82,7 +82,7 @@ YAML, loaded by `config.py`. Unknown keys are an error (exit 2). The canonical d
 | `predict.measure_mode` | enum exact, linearized | exact | exact | `exact`: every latent sample's mesh is measured; `linearized`: a first-order expansion of the measurement map around each body's median sample, 11 mesh evaluations per body and cell; a research R13 mitigation; ground truth always uses `exact` |
 | `calibrate.alpha` | float | 0.10 | 0.10 | nominal miscoverage |
 | `calibrate.min_cal` | int | 32 | 200 | refusal threshold (FR-011) |
-| `calibrate.spread_floor_cm` | float | 0.1 | 0.1 | |
+| `calibrate.spread_floor_cm` | float | 0.001 | 0.001 | guards division by zero only; it must sit far below every model spread, or it pins interval widths and hides the effect of the number of views (implementation finding on the tiny run) |
 | `evaluate.views` | list of int | [1, 2, 4] | [1, 2, 4] | cells |
 | `evaluate.noise_deg` | list of float | [0, 2, 5] | [0, 2, 5] | cells |
 | `evaluate.band` | [low, high] | [0.87, 0.93] | [0.87, 0.93] | fixed by FR-014; inclusive, compared as integers (`100 * covered >= 87 * n_test` and `100 * covered <= 93 * n_test`); any other value is a configuration error (exit 2) |

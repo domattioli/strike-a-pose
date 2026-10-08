@@ -119,7 +119,7 @@ Module tests live in the module tasks below (two files each).
 - [X] T041 [US2] Implement `src/strike_a_pose/real/ssp3d.py` (load `labels.npz`, log keys, silhouettes, gendered SMPL ground truth in canonical pose through `smpl_body.py` and `measure.py`) and `tests/test_ssp3d.py` (synthetic labels fixture; the ground-truth path exercised with the stand-in body in place of SMPL) (tier: sonnet)
 - [X] T042 [US2] Implement `src/strike_a_pose/real/masks.py` (`MaskBackend` protocol; `ProvidedMasks`; `Sam2Masks` with lazy import, checkpoint from the asset root, box prompt; status per subject) and `tests/test_masks.py` (stub backend; the `sam2` test is skipped when the package is absent) (tier: haiku)
 - [X] T043 [US2] Implement `src/strike_a_pose/real/evaluate_real.py` (apply the trained model and the matching cell's quantiles; `results.csv` with `n_cal` of the matching synthetic cell and `code_version` and `hardware_class` from the run record, and `subjects.csv` per dataset; skipped counts; mean signed error) and `tests/test_evaluate_real.py` (tier: sonnet)
-- [ ] T044 [US2] Add `sap real-eval` to `src/strike_a_pose/cli.py`; the real-image section of `src/strike_a_pose/report/tables.py` already exists (written in T035), so check it against the `real/<dataset>/results.csv` columns that T043 writes and fix any mismatch there (tier: haiku)
+- [X] T044 [US2] Add `sap real-eval` to `src/strike_a_pose/cli.py`; the real-image section of `src/strike_a_pose/report/tables.py` already exists (written in T035), so check it against the `real/<dataset>/results.csv` columns that T043 writes and fix any mismatch there (tier: haiku)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -152,7 +152,7 @@ Covered by the module tests of Phases 2 to 4 plus the tasks below.
 
 ### Tests for User Story 4 (CPU smoke test per new module is mandatory, constitution VI; more only if requested)
 
-- [ ] T047 [US4] Write `tests/test_determinism.py` as three tests, each under 60 s, on `configs/tiny.yaml` with the `small_config` overrides of contracts/config.md, one `--set` per key: `data.n_train=64`, `data.n_cal=32`, `data.n_test=32`, `data.shard_size=32`, `data.min_unflagged=16`, `calibrate.min_cal=16`, `train.epochs=1`, `predict.n_samples=4`, `camera.image_size=32`, `camera.focal_px=32` (the focal length moves with the image size, so the field of view stays 53 degrees), `evaluate.views=[1,4]`, `evaluate.noise_deg=[0]` (two generations give identical shard bytes and manifest; two CPU trainings give metrics within the SC-005 tolerance; `verdict.recompute` equals the stored verdict); the full-tiny two-run comparison is the opt-in `scripts/cpu_smoke.sh --seed-check` (T046) (tier: haiku)
+- [X] T047 [US4] Write `tests/test_determinism.py` as three tests, each under 60 s, on `configs/tiny.yaml` with the `small_config` overrides of contracts/config.md, one `--set` per key: `data.n_train=64`, `data.n_cal=32`, `data.n_test=32`, `data.shard_size=32`, `data.min_unflagged=16`, `calibrate.min_cal=16`, `train.epochs=1`, `predict.n_samples=4`, `camera.image_size=32`, `camera.focal_px=32` (the focal length moves with the image size, so the field of view stays 53 degrees), `evaluate.views=[1,4]`, `evaluate.noise_deg=[0]` (two generations give identical shard bytes and manifest; two CPU trainings give metrics within the SC-005 tolerance; `verdict.recompute` equals the stored verdict); the full-tiny two-run comparison is the opt-in `scripts/cpu_smoke.sh --seed-check` (T046) (tier: haiku)
 
 ### Implementation for User Story 4
 

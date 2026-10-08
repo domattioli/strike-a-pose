@@ -270,7 +270,7 @@ def test_quantile_index_on_a_known_score_list(
     for views, spread in cells:
         for measurement, scale in zip(MEASUREMENTS, SCALES, strict=True):
             q_hat = rank * scale / spread
-            expected.append(f"v{views}_n0,{views},0.0,{measurement},19,{alpha!r},{q_hat!r},0.1")
+            expected.append(f"v{views}_n0,{views},0.0,{measurement},19,{alpha!r},{q_hat!r},0.001")
     assert result.quantiles_path.read_bytes() == ("\n".join(expected) + "\n").encode("utf-8")
     # compute_quantiles gives the same rows without writing anything.
     assert compute_quantiles(config, out / "predict") == list(result.quantiles)
@@ -357,7 +357,7 @@ def test_outputs_and_inputs_use_the_names_the_evaluate_stage_reads(
     assert [row["measurement"] for row in rows] == list(MEASUREMENTS) * 2
     # The nominal level is 1 - alpha: alpha 0.1 is 90% coverage. The floor goes with the scores.
     assert {row["alpha"] for row in rows} == {"0.1"}
-    assert {row["spread_floor_cm"] for row in rows} == {"0.1"}
+    assert {row["spread_floor_cm"] for row in rows} == {"0.001"}
     assert {row["noise_deg"] for row in rows} == {"0.0"}
     assert b"\r" not in (out / "calibrate" / "quantiles.csv").read_bytes()
 

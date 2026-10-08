@@ -35,7 +35,7 @@ RUN_OVERRIDES: dict[str, object] = {
     "evaluate.noise_deg": [0, 5],
 }
 SPLITS = ("cal", "test")
-FLOOR_CM = 0.1
+FLOOR_CM = 0.001  # calibrate.spread_floor_cm in configs/tiny.yaml
 
 
 class Trained(NamedTuple):

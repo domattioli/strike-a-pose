@@ -210,7 +210,9 @@ _SCHEMA: dict[str, Any] = {
     "calibrate": {
         "alpha": Setting("float", 0.10, check=_is_open_unit, rule="a number above 0 and below 1"),
         "min_cal": Setting("int", 32, check=_at_least(1), rule="an integer of at least 1"),
-        "spread_floor_cm": Setting("float", 0.1, check=_at_least(0), rule="a number of at least 0"),
+        "spread_floor_cm": Setting(
+            "float", 0.001, check=_at_least(0), rule="a number of at least 0"
+        ),
     },
     "evaluate": {
         "views": Setting(

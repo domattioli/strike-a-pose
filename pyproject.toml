@@ -41,6 +41,8 @@ where = ["src"]
 [tool.pytest.ini_options]
 # Every collected test must finish within 60 seconds (constitution Principle VI).
 timeout = 60
+# The repository root is importable, so tests can share helpers through tests.conftest.
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

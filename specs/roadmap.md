@@ -1,6 +1,6 @@
 # strike-a-pose Roadmap (spec of specs)
 
-Status: **DRAFT — awaiting operator sign-off on slice list and order.**
+Status: **Slice list + order APPROVED (operator, 2026-10-17).** Q2 pending confirmation.
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -10,8 +10,9 @@ Changelog below.
 ## Goal (MVP)
 
 Reproducible successor to `Conv_AE-Human_Pose`: from a scripted, versioned
-synthetic dataset of rendered human poses, train an autoencoder whose latent
-reconstructs the pose better than a trivial baseline on a fixed held-out split.
+synthetic dataset of rendered human poses, train an image autoencoder end-to-end that *works*: trains
+without error, loss decreases, held-out reconstructions are recognizable, and
+baseline numbers are reported alongside for context (not as a bar to beat).
 
 ## Slices
 
@@ -20,7 +21,7 @@ reconstructs the pose better than a trivial baseline on a fixed held-out split.
 | 001 | `dataset-generation` | Scripted CLI that renders body-model poses from defined cameras and writes images + labels (pose params, keypoints, camera, mask) with a manifest | — | Same config + seed → byte-identical manifest; small fixture set committed for tests |
 | 002 | `data-pipeline` | Package `strike_a_pose.data`: dataset loader, transforms, normalization, frozen train/val/test split | 001 (manifest schema) | Loader unit tests pass on fixture; split file versioned |
 | 003 | `baselines-and-metrics` | Metrics (e.g., MPJPE, image recon error) + mean-pose / PCA baselines, eval CLI | 002 | Baseline numbers produced by a logged run |
-| 004 | `autoencoder-mvp` | Config-driven train/eval CLI for the AE, CPU smoke test in CI | 002, 003 | Beats baseline on held-out split by the margin set in its spec |
+| 004 | `autoencoder-mvp` | Config-driven train/eval CLI for the AE, CPU smoke test in CI | 002, 003 | Runs end-to-end from config; loss decreases; held-out recon figure + metrics logged |
 | 005 | `repo-foundation` | `pyproject.toml`, ruff, pytest, CI workflow (lint + tests + smoke) | — | CI green on an empty package; can land before or with 001 |
 
 Out of MVP (later candidates): latent → camera/pose regression (the old
@@ -29,10 +30,11 @@ rails (Kaggle).
 
 ## Open questions (batched; answer all at once)
 
-Slice-level:
-1. Approve slice list and order? Should 005 be folded into 001?
-2. Model input for 004: rendered images (like the predecessor), keypoints, or both?
-3. MVP success margin over baseline (e.g., ≥ X% lower error)?
+Slice-level (answered 2026-10-17):
+1. ~~Approve slice list and order?~~ Approved. 005 stays separate (default).
+2. Model input: proposed **images in** (as predecessor), keypoints/pose params
+   generated as labels by 001 for metrics + later probes. Awaiting confirm.
+3. ~~Success margin?~~ None — MVP bar is "working", not "better".
 
 Slice 001 specifics (carried into its clarify step):
 4. Source: synthetic renders (body model: SMPL / SMPL-X / other) or a public dataset?
@@ -47,3 +49,4 @@ Slice 001 specifics (carried into its clarify step):
 ## Changelog
 
 - 2026-10-17: initial draft roadmap (dataset-first ordering).
+- 2026-10-17: slice list approved; MVP bar set to "working"; image input proposed.

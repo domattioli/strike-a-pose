@@ -50,3 +50,12 @@ Slice 001 specifics (carried into its clarify step):
 
 - 2026-10-17: initial draft roadmap (dataset-first ordering).
 - 2026-10-17: slice list approved; MVP bar set to "working"; image input proposed.
+- 2026-10-17: slice 001 spec approved (8 clarifications at defaults). Plan,
+  tasks, analyze done; implementation landed on `claude/charming-wozniak-5ouldf`
+  (package `strike_a_pose.datagen`, CLI `strike-a-pose-data`, layout contract
+  v1, 32 tests green without SMPL/AMASS). Deviation: in-package NumPy
+  rasterizer + NumPy SMPL LBS instead of pyrender/smplx (determinism, no GL/torch
+  deps; FR-003 still met; see 001 research R1/R2). Minimal scaffolding
+  (pyproject, uv.lock, ruff, pytest) landed with 001; CI workflow stays in 005.
+  Open operator tasks: obtain SMPL/AMASS, generate + commit fixture (T022),
+  first full run timing (T025).

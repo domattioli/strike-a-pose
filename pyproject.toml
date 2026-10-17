@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "strike-a-pose"
+version = "0.1.0"
+description = "Compact latent representations of human pose (successor to Conv_AE-Human_Pose)."
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy>=1.26",   # arrays, SMPL LBS, rasterizer
+    "pillow>=10.0",  # PNG I/O
+    "pyyaml>=6.0",   # config files
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+strike-a-pose-data = "strike_a_pose.datagen.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/strike_a_pose"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

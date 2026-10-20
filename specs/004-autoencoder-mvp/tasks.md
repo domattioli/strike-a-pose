@@ -11,25 +11,25 @@
 
 ## Phase 1: Setup
 
-- [ ] T003 `pyproject.toml` console script `strike-a-pose-train`; `uv lock --check`.
+- [x] T003 `pyproject.toml` console script `strike-a-pose-train`; `uv lock --check`.
 
 ## Phase 2: Foundational — shared report helpers
 
-- [ ] T004 [P] `tests/test_eval_report.py`: grid tiles at documented offsets equal column inputs (non-square H×W, several rows/cols, header labels region); `figure_indices` spacing; `score_images` equals per-batch metric means.
-- [ ] T005 `src/strike_a_pose/eval/report.py`; `baselines.py` uses it (003 tests incl. byte-identical fixture `metrics.json` still pass).
+- [x] T004 [P] `tests/test_eval_report.py`: grid tiles at documented offsets equal column inputs (non-square H×W, several rows/cols, header labels region); `figure_indices` spacing; `score_images` equals per-batch metric means.
+- [x] T005 `src/strike_a_pose/eval/report.py`; `baselines.py` uses it (003 tests incl. byte-identical fixture `metrics.json` still pass).
 
 ## Phase 3: US1 — model, config, training (P1)
 
-- [ ] T006 [P] `tests/test_model.py`: encode → `[B, 64]`, decode/forward → `[B, 1, 256, 192]` in [0, 1]; custom latent/channels; non-divisible size → `ValueError`; parameter count of the default model; checkpoint round trip.
-- [ ] T007 `src/strike_a_pose/models/{__init__,autoencoder}.py`.
-- [ ] T008 [P] `tests/test_train_config.py`: defaults; `configs/ae.yaml` + `configs/ae_fixture.yaml` load; errors: unknown/missing key, bad types, non-positive ints/lr, empty/duplicate channels, bad schedule, `train` or duplicate in eval_splits, figure split not evaluated, threshold range, bad run_name, `context_pca_k` null allowed.
-- [ ] T009 `src/strike_a_pose/train/config.py`, `configs/ae.yaml`, `configs/ae_fixture.yaml`.
-- [ ] T010 [P] `tests/test_train.py`: overfit on a fixed batch of 4 fixture images (15 steps, final < ½ initial); fixture CLI end-to-end (temp run root, < 60 s): exit 0, run dir files, resolved config with `--seed` override, run_info fields, `history.csv` rows = epochs with empty val and last train loss < first, `metrics.json` keys (val `samples: 0`; test `ae`/`mean_image`/`pca_k4`), figure size for 4 columns, checkpoint loads; second run → identical `history.csv` losses and `metrics.json` bytes; split mismatch → exit 1, no run dir; bad config → exit 2; non-divisible channels → exit 2.
-- [ ] T011 `src/strike_a_pose/train/{__init__,trainer,cli}.py`.
+- [x] T006 [P] `tests/test_model.py`: encode → `[B, 64]`, decode/forward → `[B, 1, 256, 192]` in [0, 1]; custom latent/channels; non-divisible size → `ValueError`; parameter count of the default model; checkpoint round trip.
+- [x] T007 `src/strike_a_pose/models/{__init__,autoencoder}.py`.
+- [x] T008 [P] `tests/test_train_config.py`: defaults; `configs/ae.yaml` + `configs/ae_fixture.yaml` load; errors: unknown/missing key, bad types, non-positive ints/lr, empty/duplicate channels, bad schedule, `train` or duplicate in eval_splits, figure split not evaluated, threshold range, bad run_name, `context_pca_k` null allowed.
+- [x] T009 `src/strike_a_pose/train/config.py`, `configs/ae.yaml`, `configs/ae_fixture.yaml`.
+- [x] T010 [P] `tests/test_train.py`: overfit on a fixed batch of 4 fixture images (15 steps, final < ½ initial); fixture CLI end-to-end (temp run root, < 60 s): exit 0, run dir files, resolved config with `--seed` override, run_info fields, `history.csv` rows = epochs with empty val and last train loss < first, `metrics.json` keys (val `samples: 0`; test `ae`/`mean_image`/`pca_k4`), figure size for 4 columns, checkpoint loads; second run → identical `history.csv` losses and `metrics.json` bytes; split mismatch → exit 1, no run dir; bad config → exit 2; non-divisible channels → exit 2.
+- [x] T011 `src/strike_a_pose/train/{__init__,trainer,cli}.py`.
 
 ## Phase 4: Verify + CI
 
-- [ ] T012 Local: `uv sync --locked`, `uv lock --check`, ruff check, ruff format --check, pytest; fixture CLI smoke timing.
+- [x] T012 Local: `uv sync --locked`, `uv lock --check`, ruff check, ruff format --check, pytest; fixture CLI smoke timing.
 - [ ] T013 CI: replace the 005 placeholder with the fixture smoke-train step; push; green on both legs; record per-leg time.
 
 ## Phase 5: US3 — full run + record

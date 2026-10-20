@@ -67,3 +67,10 @@ Slice 001 specifics (carried into its clarify step):
   `smpl_proc_v1`.
 - 2026-10-20: operator answers on 001 open questions: defaults (keep arms-out limitation, framing, run_info.json, predecessor hand-free table) except
   hand joints zeroed (`predecessor-v1-nohands`; predecessor AE did hands poorly). Fixture regenerated with seed 3 (seed 0 near-T-poses).
+- 2026-10-20: slice 005 `repo-foundation` (autonomous run, operator delegation
+  2026-10-20; clarifications at lead defaults in its spec). Added
+  `.github/workflows/ci.yml` (push + pull_request; ubuntu, Python 3.11/3.13;
+  `uv sync --locked`; ruff check, ruff format --check, pytest, `validate` on the
+  committed fixture), `README.md`, pyproject `readme`/`authors`/`urls`.
+  "Done when" read as CI green on the current package (no longer empty).
+  Smoke-train step left as a marked placeholder in `ci.yml`; slice 004 owns it.

@@ -16,8 +16,8 @@ commands run locally on 3.11 + 3.13 and the GitHub Actions run.
 ## Phase 3: Verify + record
 
 - [x] T005 Run locally, Python 3.11 and 3.13 (separate venvs): `uv sync --locked`, `ruff check .`, `ruff format --check .`, `pytest`, `strike-a-pose-data validate tests/fixtures/smpl_fixture` — all green.
-- [ ] T006 Push; confirm GitHub Actions run for the head SHA is green on both legs (SC-001) and each leg < 5 min (SC-003); fix and re-push until green.
-- [ ] T007 Roadmap changelog entry for slice 005.
+- [x] T006 Push; confirm GitHub Actions run for the head SHA is green on both legs (SC-001) and each leg < 5 min (SC-003); fix and re-push until green.
+- [x] T007 Roadmap changelog entry for slice 005.
 
 ## Dependencies
 
@@ -41,3 +41,10 @@ Findings and resolutions:
 4. Push + PR triggers double-run on PR branches; accepted (spec Clarification 4).
 5. No ambiguity or conflict with slice 001 artifacts; 001 plan already defers CI
    to 005.
+
+## Verification record (2026-10-20)
+
+- Local (T005): Python 3.11.17 and 3.13.16, separate venvs from `uv.lock`:
+  ruff check clean, format clean, 42 passed, fixture `validate` OK.
+- CI (T006): run 39356675346 on 16dcac4, both legs green (py3.11 13 s,
+  py3.13 11 s; SC-003 met); `test_fixture` ran (not skipped).

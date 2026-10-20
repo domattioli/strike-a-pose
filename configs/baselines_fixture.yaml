@@ -1,0 +1,14 @@
+# Baselines on the committed 16-sample fixture (tests + CI smoke; spec 003).
+# Fixture split: train 1 pose / val 0 / test 1 (8 views each).
+run_name: baselines-fixture
+run_root: runs
+seed: 0
+dataset_dir: tests/fixtures/smpl_fixture
+split_file: splits/smpl_fixture.json
+eval_splits: [val, test]
+batch_size: 4
+image_pca_ks: [2, 4]
+pose_pca_ks: [2]
+iou_threshold: 0.075
+figure_split: test
+figure_samples: 4

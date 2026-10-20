@@ -13,7 +13,7 @@ MVP in progress (plan: [`specs/roadmap.md`](specs/roadmap.md)).
 | 001 `dataset-generation` | Synthetic SMPL renders + labels + manifest (`strike-a-pose-data`) | implemented |
 | 002 `data-pipeline` | Dataset loader, transforms, frozen split (`strike_a_pose.data`) | implemented |
 | 005 `repo-foundation` | CI, README, packaging metadata | implemented |
-| 003 `baselines-and-metrics` | Metrics, mean-pose / PCA baselines | planned |
+| 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented |
 | 004 `autoencoder-mvp` | Config-driven AE train/eval, CI smoke train | planned |
 
 ## Install
@@ -70,6 +70,21 @@ ds = PoseImageDataset(
 batch = next(iter(DataLoader(ds, batch_size=4)))
 batch["image"].shape  # [4, 1, 256, 192], float32 in [0, 1]
 ```
+
+Score trivial baselines (mean image, PCA images; mean pose, PCA joints) fitted on
+`train` only, on `val` and `test`. Each run writes a directory under `runs/`
+(git-ignored) with the resolved config, `run_info.json` (git commit, seed,
+environment, dataset + split hashes), `metrics.json` and a reconstruction figure
+(contract: [`specs/003-baselines-and-metrics/contracts/eval-run.md`](specs/003-baselines-and-metrics/contracts/eval-run.md)):
+
+```bash
+uv run strike-a-pose-eval baseline --config configs/baselines.yaml           # full dataset
+uv run strike-a-pose-eval baseline --config configs/baselines_fixture.yaml   # 16-sample fixture
+```
+
+The metric functions (`image_mse`, `psnr`, `silhouette_iou`, `mpjpe`,
+`keypoint_error_2d`) live in `strike_a_pose.eval` and accept NumPy arrays or torch
+tensors. Baseline numbers for `smpl_proc_v1` are under [Results](#results).
 
 Exit codes and the on-disk layout are specified in
 [`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).

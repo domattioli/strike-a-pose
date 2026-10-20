@@ -26,7 +26,8 @@ Constants: `IOU_THRESHOLD = 0.075`, `PSNR_MSE_FLOOR = 1e-10`, `ROOT_JOINT = 0`.
 covariance eigendecomposition, float64), keeps the top `min(k, rank)` components
 where rank counts eigenvalues `> rel_tol × λ_max`. `PCA` fields: `mean [d]`,
 `components [k_eff, d]` (orthonormal rows), `variances [k_eff]`,
-`total_variance`, `n_samples`. Methods: `reconstruct(x, k=None)` (uses the first
+`total_variance`, `n_samples`, `numerical_rank`; property `n_components`
+(= `k_eff` = `min(k, numerical_rank)`). Methods: `reconstruct(x, k=None)` (uses the first
 `min(k, k_eff)` components), `explained_variance_ratio(k)`, `k_effective(k)`.
 
 ## Baseline config (YAML, `configs/baselines*.yaml`)
@@ -76,8 +77,8 @@ Inputs are checked before the run dir is created (no dir on exit 1/2).
   "dataset": {"name": "smpl_proc_v1", "manifest_sha256": "…", "split_file_sha256": "…"},
   "fit": {
     "split": "train", "samples": 12800, "poses": 1600,
-    "image_pca": {"rank": 12799, "explained_variance_ratio": {"8": 0.5, "…": 0}},
-    "pose_pca": {"rank": 69, "explained_variance_ratio": {"4": 0.5, "…": 0}}
+    "image_pca": {"numerical_rank": 12799, "n_components": 128, "explained_variance_ratio": {"8": 0.5, "…": 0}},
+    "pose_pca": {"numerical_rank": 69, "n_components": 32, "explained_variance_ratio": {"4": 0.5, "…": 0}}
   },
   "units": {"image_mse": "…", "psnr_db": "…", "silhouette_iou": "…", "mpjpe_mm": "…", "kp2d_px": "…"},
   "splits": {

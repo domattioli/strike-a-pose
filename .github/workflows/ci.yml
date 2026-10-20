@@ -46,6 +46,11 @@ jobs:
       - name: Smoke - validate committed fixture
         run: uv run --locked strike-a-pose-data validate tests/fixtures/smpl_fixture
 
+      - name: Smoke - baselines on committed fixture (slice 003)
+        run: >-
+          uv run --locked strike-a-pose-eval baseline
+          --config configs/baselines_fixture.yaml --run-root "$RUNNER_TEMP/runs"
+
       # Smoke train (slice 004 adds this): CPU, a few steps on the fixture,
       # < ~2 min (constitution IV). Expected shape:
       # - name: Smoke - train

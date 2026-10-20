@@ -1,0 +1,270 @@
+"""Mean / PCA baselines for images and root-relative 3D joints (spec 003).
+
+Fit on the train split only; score the configured eval splits; write a run directory
+(contract: specs/003-baselines-and-metrics/contracts/eval-run.md).
+"""
+
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import torch
+from PIL import Image, ImageDraw
+from torch.utils.data import DataLoader
+
+from strike_a_pose.data import PoseImageDataset, parse_sample_id, tensor_to_image
+from strike_a_pose.datagen.assets import sha256_file
+from strike_a_pose.runlog import (
+    environment_summary,
+    git_info,
+    make_run_dir,
+    seed_everything,
+    utc_now,
+    write_json_exact,
+    write_yaml,
+)
+
+from .config import BaselineConfig
+from .metrics import (
+    ROOT_JOINT,
+    image_mse,
+    keypoint_error_2d,
+    mpjpe,
+    project_points,
+    psnr,
+    silhouette_iou,
+)
+from .pca import PCA, fit_pca
+
+METRICS_VERSION = 1
+UNITS = {
+    "image_mse": "per-pixel mean squared error, images in [0, 1] (PCA output clamped to [0, 1])",
+    "psnr_db": "dB, 10*log10(1/max(MSE, 1e-10)) per image, averaged over images",
+    "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean",
+    "mpjpe_mm": "mm, root-relative (pelvis) 3D joint error, world frame (= camera frame)",
+    "kp2d_px": "px, mean over visible joints; prediction + true root projected with true camera",
+}
+FIG_PAD, FIG_HEADER, FIG_BG = 4, 16, 48
+
+
+@dataclass(frozen=True)
+class Baselines:
+    mean_image: torch.Tensor  # [H*W] float32
+    image_pca: PCA
+    mean_pose: torch.Tensor  # [J*3] float64, root-relative
+    pose_pca: PCA
+
+
+def load_arrays(ds: PoseImageDataset, batch_size: int, masks: bool = True) -> dict:
+    """Read a whole dataset (split) into preallocated tensors (images flattened)."""
+    n = len(ds)
+    h, w = ds.image_size
+    a: dict = {"n": n, "image_size": (h, w)}
+    a["image"] = torch.empty((n, h * w), dtype=torch.float32)
+    if masks:
+        a["mask"] = torch.empty((n, h * w), dtype=torch.bool)
+    a["pose_index"] = torch.empty(n, dtype=torch.int64)
+    keys3 = {"joints": (24, 3), "kp2d": (24, 2), "K": (3, 3), "R": (3, 3), "t": (3,)}
+    for k, shp in keys3.items():
+        a[k] = torch.empty((n, *shp), dtype=torch.float64)
+    a["visible"] = torch.empty((n, 24), dtype=torch.bool)
+    i = 0
+    for b in DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0):
+        m = b["image"].shape[0]
+        sl = slice(i, i + m)
+        a["image"][sl] = b["image"].reshape(m, -1)
+        if masks:
+            a["mask"][sl] = b["mask"].reshape(m, -1)
+        a["pose_index"][sl] = b["pose_index"]
+        a["joints"][sl] = b["joints_3d_world"].double()
+        a["kp2d"][sl] = b["keypoints_2d"].double()
+        a["visible"][sl] = b["visibility"]
+        for k in ("K", "R", "t"):
+            a[k][sl] = b["camera"][k].double()
+        i += m
+    return a
+
+
+def _rel_flat(joints: torch.Tensor) -> torch.Tensor:
+    rel = joints - joints[:, ROOT_JOINT : ROOT_JOINT + 1]
+    return rel.reshape(rel.shape[0], -1)
+
+
+def fit_baselines(train: dict, cfg: BaselineConfig) -> Baselines:
+    x = train["image"]
+    mean_image = (x.sum(dim=0, dtype=torch.float64) / x.shape[0]).to(torch.float32)
+    image_pca = fit_pca(x, max(cfg.image_pca_ks))
+    rel = _rel_flat(train["joints"])
+    return Baselines(mean_image, image_pca, rel.mean(dim=0), fit_pca(rel, max(cfg.pose_pca_ks)))
+
+
+def _image_predictors(b: Baselines, cfg: BaselineConfig):
+    yield "mean_image", None, lambda x: b.mean_image.expand(x.shape[0], -1)
+    for k in cfg.image_pca_ks:
+        yield f"pca_k{k}", k, lambda x, k=k: b.image_pca.reconstruct(x, k).clamp(0.0, 1.0)
+
+
+def _pose_predictors(b: Baselines, cfg: BaselineConfig):
+    yield "mean_pose", None, lambda r: b.mean_pose.expand(r.shape[0], -1)
+    for k in cfg.pose_pca_ks:
+        yield f"pca_k{k}", k, lambda r, k=k: b.pose_pca.reconstruct(r, k)
+
+
+def score_split(b: Baselines, a: dict, cfg: BaselineConfig) -> dict:
+    n = a["n"]
+    out: dict = {"samples": n, "poses": int(a["pose_index"].unique().numel()) if n else 0}
+    if n == 0:
+        return out
+    img: dict = {}
+    for name, k, pred in _image_predictors(b, cfg):
+        mse, ps, iou = [], [], []
+        for i in range(0, n, cfg.batch_size):
+            x = a["image"][i : i + cfg.batch_size]
+            p = pred(x)
+            mse.append(image_mse(p, x))
+            ps.append(psnr(p, x))
+            iou.append(silhouette_iou(p, a["mask"][i : i + cfg.batch_size], cfg.iou_threshold))
+        r = {
+            "image_mse": float(torch.cat(mse).double().mean()),
+            "psnr_db": float(torch.cat(ps).double().mean()),
+            "silhouette_iou": float(torch.cat(iou).double().mean()),
+        }
+        if k is not None:
+            r |= {"k": k, "k_effective": b.image_pca.k_effective(k)}
+        img[name] = r
+    pose: dict = {}
+    joints = a["joints"]
+    rel = _rel_flat(joints)
+    root = joints[:, ROOT_JOINT : ROOT_JOINT + 1]
+    for name, k, pred in _pose_predictors(b, cfg):
+        p_rel = pred(rel).reshape(n, -1, 3)
+        e3 = mpjpe(p_rel, rel.reshape(n, -1, 3)) * 1000.0
+        kp = project_points(p_rel + root, a["K"], a["R"], a["t"])
+        e2 = keypoint_error_2d(kp, a["kp2d"], a["visible"])
+        ok = ~torch.isnan(e2)
+        r = {
+            "mpjpe_mm": float(e3.mean()),
+            "kp2d_px": float(e2[ok].mean()) if ok.any() else float("nan"),
+            "kp2d_samples": int(ok.sum()),
+        }
+        if k is not None:
+            r |= {"k": k, "k_effective": b.pose_pca.k_effective(k)}
+        pose[name] = r
+    out["image"], out["pose"] = img, pose
+    return out
+
+
+def figure_indices(n: int, rows: int) -> list[int]:
+    if n == 0:
+        return []
+    return sorted({int(i) for i in np.linspace(0, n - 1, min(rows, n)).round()})
+
+
+def recon_figure(b: Baselines, a: dict, cfg: BaselineConfig) -> Image.Image | None:
+    """Grid: header labels, then per sample: true | mean | PCA k for each k."""
+    idx = figure_indices(a["n"], cfg.figure_samples)
+    if not idx:
+        return None
+    h, w = a["image_size"]
+    x = a["image"][idx]
+    cols = [("true", x)] + [
+        (name if k is None else f"pca k={k}", pred(x))
+        for name, k, pred in _image_predictors(b, cfg)
+    ]
+    nr, nc = len(idx), len(cols)
+    fig = Image.new(
+        "L", (nc * w + (nc + 1) * FIG_PAD, FIG_HEADER + nr * h + (nr + 1) * FIG_PAD), FIG_BG
+    )
+    draw = ImageDraw.Draw(fig)
+    for c, (label, imgs) in enumerate(cols):
+        x0 = FIG_PAD + c * (w + FIG_PAD)
+        draw.text((x0 + 2, 2), label, fill=255)
+        for r in range(nr):
+            tile = Image.fromarray(tensor_to_image(imgs[r].reshape(h, w)))
+            fig.paste(tile, (x0, FIG_HEADER + FIG_PAD + r * (h + FIG_PAD)))
+    return fig
+
+
+def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
+    """Check inputs, then fit + score + write the run directory; return its path.
+
+    Raises ``DatasetError`` (bad dataset / split) before creating anything, and
+    ``FileExistsError`` if the run directory already exists.
+    """
+    t0 = time.monotonic()
+    started = utc_now()
+    seed_everything(cfg.seed)
+    kw = {"split_file": cfg.split_file}
+    train_ds = PoseImageDataset(cfg.dataset_dir, split="train", **kw)
+    eval_ds = {s: PoseImageDataset(cfg.dataset_dir, split=s, **kw) for s in cfg.eval_splits}
+    split_sha = sha256_file(Path(cfg.split_file))
+
+    run_dir = make_run_dir(cfg.run_root, cfg.run_name, started)
+    write_yaml(run_dir / "config.yaml", cfg.to_dict())
+    info = {
+        "argv": list(sys.argv if argv is None else argv),
+        "cwd": str(Path.cwd()),
+        "seed": cfg.seed,
+        "git": git_info(),
+        "env": environment_summary(),
+        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": train_ds.manifest_sha256},
+        "split_file": {"path": cfg.split_file, "sha256": split_sha},
+        "started_utc": started.isoformat(),
+        "finished_utc": None,
+        "wall_s": None,
+    }
+    write_json_exact(run_dir / "run_info.json", info)
+
+    train = load_arrays(train_ds, cfg.batch_size, masks=False)
+    b = fit_baselines(train, cfg)
+    del train
+    fit = {
+        "split": "train",
+        "samples": len(train_ds),
+        "poses": len({parse_sample_id(s)[0] for s in train_ds.sample_ids}),
+        "image_pca": {
+            "numerical_rank": b.image_pca.numerical_rank,
+            "n_components": b.image_pca.n_components,
+            "explained_variance_ratio": {
+                str(k): b.image_pca.explained_variance_ratio(k) for k in cfg.image_pca_ks
+            },
+        },
+        "pose_pca": {
+            "numerical_rank": b.pose_pca.numerical_rank,
+            "n_components": b.pose_pca.n_components,
+            "explained_variance_ratio": {
+                str(k): b.pose_pca.explained_variance_ratio(k) for k in cfg.pose_pca_ks
+            },
+        },
+    }
+    splits, figure = {}, None
+    for s, ds in eval_ds.items():
+        a = load_arrays(ds, cfg.batch_size, masks=True)
+        splits[s] = score_split(b, a, cfg)
+        if s == cfg.figure_split:
+            fig = recon_figure(b, a, cfg)
+            if fig is not None:
+                figure = f"recon_{s}.png"
+                fig.save(run_dir / figure, format="PNG")
+        del a
+    metrics = {
+        "metrics_version": METRICS_VERSION,
+        "dataset": {
+            "name": train_ds.manifest["dataset_name"],
+            "manifest_sha256": train_ds.manifest_sha256,
+            "split_file_sha256": split_sha,
+        },
+        "fit": fit,
+        "units": UNITS,
+        "splits": splits,
+    }
+    write_json_exact(run_dir / "metrics.json", metrics)
+    info |= {
+        "figure": figure,
+        "finished_utc": utc_now().isoformat(),
+        "wall_s": round(time.monotonic() - t0, 1),
+    }
+    write_json_exact(run_dir / "run_info.json", info)
+    return run_dir

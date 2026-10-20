@@ -25,6 +25,7 @@ dev = ["pytest>=8.0", "ruff>=0.6", "scipy>=1.13"]  # scipy: test-only reference
 
 [project.scripts]
 strike-a-pose-data = "strike_a_pose.datagen.cli:main"
+strike-a-pose-eval = "strike_a_pose.eval.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/strike_a_pose"]

@@ -1,8 +1,11 @@
-"""PoseImageDataset on the committed fixture + corrupted copies (spec 002 FR-001..003, FR-008)."""
+"""PoseImageDataset on the committed fixture + corrupted copies (spec 002 FR-001..003, FR-008;
+spec 007 FR-004..006, FR-010 b/e/f/g: split file v2, SplitCommitWarning, legacy v1)."""
 
+import hashlib
 import json
 import shutil
 import time
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -11,13 +14,31 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from strike_a_pose.data import DatasetError, PoseImageDataset, make_split, write_split
-from strike_a_pose.data.split import manifest_sha256
-from strike_a_pose.datagen.io import load_manifest
+from strike_a_pose.data import (
+    SPLITS,
+    DatasetError,
+    PoseImageDataset,
+    SplitCommitWarning,
+    make_split,
+    manifest_content_sha256,
+    manifest_sha256,
+    write_split,
+)
+from strike_a_pose.datagen import generate
+from strike_a_pose.datagen.io import dumps, load_manifest
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "smpl_fixture"
 SPLIT = ROOT / "splits" / "smpl_fixture.json"
+SPLIT_V1 = ROOT / "tests" / "fixtures" / "smpl_fixture_split_v1.json"  # pre-007 bytes
+FIXTURE_RAW_SHA256 = "06787bb039f7d64a69248d7b58147fea3f8708fc28508c89a789f1dd6b52574e"
+FIXTURE_CONTENT_SHA256 = "7843ff453af51734c6d87ce2c473bb623d1368ae43beaa5bb26718e7daa9f769"
+FIXTURE_CODE = {"commit": "ab95629e6155d38a176d6a54492cc65a1be3a1fa", "dirty": True}
+CODE_EDITS = {  # manifest edits that leave the content unchanged (007 US1)
+    "commit": lambda m: m["code"].update(commit="f" * 40),
+    "dirty": lambda m: m["code"].update(dirty=False),
+    "unknown": lambda m: m.update(code={"commit": "unknown", "dirty": None}),
+}
 H, W, J = 256, 192, 24
 
 TENSOR_SPEC = {
@@ -89,9 +110,11 @@ def test_transform_applied():
 
 
 def test_split_views_together_and_disjoint():
-    tr = PoseImageDataset(FIXTURE, split="train", split_file=SPLIT)
-    te = PoseImageDataset(FIXTURE, split="test", split_file=SPLIT)
-    va = PoseImageDataset(FIXTURE, split="val", split_file=SPLIT)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", SplitCommitWarning)  # committed split: same code
+        tr = PoseImageDataset(FIXTURE, split="train", split_file=SPLIT)
+        te = PoseImageDataset(FIXTURE, split="test", split_file=SPLIT)
+        va = PoseImageDataset(FIXTURE, split="val", split_file=SPLIT)
     assert (len(tr), len(te), len(va)) == (8, 8, 0)
     for ds in (tr, te):
         poses = {ds[i]["pose_index"] for i in range(len(ds))}
@@ -99,7 +122,23 @@ def test_split_views_together_and_disjoint():
         assert len(poses) == 1 and cams == ds.cameras  # all 8 views of one pose
     assert not set(tr.sample_ids) & set(te.sample_ids)
     split = json.loads(SPLIT.read_text())
-    assert split["manifest_sha256"] == manifest_sha256(FIXTURE)
+    assert split["split_version"] == 2 and split["manifest_code"] == FIXTURE_CODE
+    assert split["manifest_content_sha256"] == tr.manifest_content_sha256 == FIXTURE_CONTENT_SHA256
+
+
+def test_fixture_manifest_hashes():
+    """007 FR-001 / FR-010 (b): pinned content hash; 001 output re-serializes exactly."""
+    raw = (FIXTURE / "manifest.json").read_bytes()
+    m = load_manifest(FIXTURE)
+    assert dumps(m) == raw and m["code"] == FIXTURE_CODE
+    assert manifest_sha256(FIXTURE) == hashlib.sha256(raw).hexdigest() == FIXTURE_RAW_SHA256
+    assert manifest_content_sha256(m) == FIXTURE_CONTENT_SHA256
+    without_code = dumps({k: v for k, v in m.items() if k != "code"})  # the file 001 would write
+    assert hashlib.sha256(without_code).hexdigest() == FIXTURE_CONTENT_SHA256
+    ds = PoseImageDataset(FIXTURE)
+    assert (ds.manifest_sha256, ds.manifest_content_sha256) == (
+        FIXTURE_RAW_SHA256, FIXTURE_CONTENT_SHA256,
+    )  # fmt: skip
 
 
 def test_verify_full_passes_on_fixture():
@@ -178,18 +217,88 @@ def test_split_argument_errors():
         PoseImageDataset(FIXTURE, split="holdout", split_file=SPLIT)
 
 
-def test_split_for_other_dataset_rejected(copy, tmp_path):
-    _edit_manifest(copy, lambda m: m.update(seed=99))  # same samples, different manifest bytes
-    with pytest.raises(DatasetError, match="split was made for manifest"):
+@pytest.mark.parametrize(
+    "edit",
+    [lambda m: m.update(seed=99), lambda m: m["samples"][0].update(labels_sha256="f" * 64)],
+    ids=["seed", "labels_sha256"],
+)
+def test_split_for_other_content_rejected(copy, edit):
+    """007 FR-004 (a): same samples, other manifest content → refused."""
+    _edit_manifest(copy, edit)
+    with pytest.raises(DatasetError, match="split was made for manifest content 7843ff453af5"):
         PoseImageDataset(copy, split="train", split_file=SPLIT)
+
+
+def test_not_a_split_file(tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text("{}")
     with pytest.raises(DatasetError, match="not a split file"):
         PoseImageDataset(FIXTURE, split="train", split_file=bad)
 
 
+@pytest.mark.parametrize("edit", list(CODE_EDITS.values()), ids=list(CODE_EDITS))
+def test_code_only_change_warns_and_keeps_split(copy, edit):
+    """007 US1 / FR-004 (c): other generating code, same content → warning, same split."""
+    _edit_manifest(copy, edit)
+    new_code = json.dumps(load_manifest(copy)["code"], sort_keys=True)
+    for name in SPLITS:
+        with pytest.warns(SplitCommitWarning, match="manifest content is identical") as rec:
+            ds = PoseImageDataset(copy, split=name, split_file=SPLIT)
+        assert len(rec) == 1
+        msg = str(rec[0].message)
+        assert new_code in msg and json.dumps(FIXTURE_CODE, sort_keys=True) in msg
+        assert "--overwrite" in msg and str(SPLIT) in msg
+        assert ds.sample_ids == PoseImageDataset(FIXTURE, split=name, split_file=SPLIT).sample_ids
+        assert ds.manifest_content_sha256 == FIXTURE_CONTENT_SHA256
+
+
+def test_formatting_only_change(copy):
+    """007 edge case: same values, other bytes → v2 silent, v1 (raw bytes) refuses."""
+    _edit_manifest(copy, lambda m: None)  # compact JSON, same content
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", SplitCommitWarning)
+        assert len(PoseImageDataset(copy, split="train", split_file=SPLIT)) == 8
+    with pytest.raises(DatasetError, match="split_version 1"):
+        PoseImageDataset(copy, split="train", split_file=SPLIT_V1)
+
+
+def test_v1_split_legacy_strict(copy):
+    """007 FR-005 / FR-010 (g): v1 loads its own dataset silently, refuses a code-only change."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", SplitCommitWarning)
+        for name in SPLITS:
+            old = PoseImageDataset(FIXTURE, split=name, split_file=SPLIT_V1)
+            assert (
+                old.sample_ids == PoseImageDataset(FIXTURE, split=name, split_file=SPLIT).sample_ids
+            )
+    _edit_manifest(copy, CODE_EDITS["commit"])
+    with pytest.raises(DatasetError, match="split_version 1 pins the raw manifest bytes") as e:
+        PoseImageDataset(copy, split="train", split_file=SPLIT_V1)
+    assert "--overwrite" in str(e.value) and "split was made for manifest 06787bb039f7" in str(
+        e.value
+    )
+
+
+def test_regenerated_at_other_commit_end_to_end(small_cfg, tmp_path, monkeypatch):
+    """007 US1 / FR-010 (f): same config + seed regenerated by other code → the split is
+    reused with a warning; another seed → refused (synthetic body model, 64×48 images)."""
+    a = generate.generate_dataset(small_cfg, seed=5, output_root=tmp_path / "a")
+    sp = write_split(make_split(load_manifest(a), 0, (0.5, 0.0, 0.5)), tmp_path / "split.json")
+    monkeypatch.setattr(generate, "git_commit", lambda: {"commit": "f" * 40, "dirty": False})
+    b = generate.generate_dataset(small_cfg, seed=5, output_root=tmp_path / "b")
+    assert load_manifest(b)["code"] != load_manifest(a)["code"]
+    for name in ("train", "test"):
+        with pytest.warns(SplitCommitWarning, match="manifest content is identical"):
+            got = PoseImageDataset(b, split=name, split_file=sp)
+        assert got.sample_ids == PoseImageDataset(a, split=name, split_file=sp).sample_ids
+        assert len(got) == 8
+    c = generate.generate_dataset(small_cfg, seed=6, output_root=tmp_path / "c")
+    with pytest.raises(DatasetError, match="split was made for manifest content"):
+        PoseImageDataset(c, split="train", split_file=sp)
+
+
 def test_split_written_for_copy_loads(copy, tmp_path):
-    split = make_split(load_manifest(copy), manifest_sha256(copy), seed=5, fractions=(0.5, 0, 0.5))
+    split = make_split(load_manifest(copy), seed=5, fractions=(0.5, 0, 0.5))
     p = write_split(split, tmp_path / "s.json")
     tr = PoseImageDataset(copy, split="train", split_file=p)
     assert {tr[i]["pose_index"] for i in range(len(tr))} == set(split["poses"]["train"])

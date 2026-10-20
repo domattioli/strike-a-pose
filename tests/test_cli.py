@@ -1,3 +1,5 @@
+import json
+import shutil
 from pathlib import Path
 
 import yaml
@@ -42,6 +44,7 @@ def test_config_errors(tmp_path):
 
 FIXTURE = Path(__file__).parent / "fixtures" / "smpl_fixture"
 FIXTURE_SPLIT = Path(__file__).parents[1] / "splits" / "smpl_fixture.json"
+FIXTURE_SPLIT_V1 = Path(__file__).parent / "fixtures" / "smpl_fixture_split_v1.json"  # pre-007
 FIXTURE_SPLIT_ARGS = ["--seed", "0", "--fractions", "0.5", "0", "0.5"]
 
 
@@ -53,6 +56,20 @@ def test_split_frozen_and_matches_committed(tmp_path, capsys):
     assert main(args) == 4  # frozen
     assert "--overwrite" in capsys.readouterr().err
     assert main([*args, "--overwrite"]) == 0
+
+
+def test_split_overwrite_rewrites_v1_as_v2(tmp_path):
+    """Spec 007 FR-003 / FR-008: --overwrite turns a v1 file into v2, same pose assignment."""
+    out = tmp_path / "s.json"
+    shutil.copyfile(FIXTURE_SPLIT_V1, out)
+    args = ["split", str(FIXTURE), *FIXTURE_SPLIT_ARGS, "--out", str(out)]
+    assert main(args) == 4 and out.read_bytes() == FIXTURE_SPLIT_V1.read_bytes()  # frozen
+    assert main([*args, "--overwrite"]) == 0
+    old, new = json.loads(FIXTURE_SPLIT_V1.read_text()), json.loads(out.read_text())
+    assert (old["split_version"], new["split_version"]) == (1, 2)
+    same = ("algorithm", "unit", "dataset_name", "seed", "fractions", "poses", "counts")
+    assert {k: new[k] for k in same} == {k: old[k] for k in same}
+    assert out.read_bytes() == FIXTURE_SPLIT.read_bytes()
 
 
 def test_split_error_exits(tmp_path):

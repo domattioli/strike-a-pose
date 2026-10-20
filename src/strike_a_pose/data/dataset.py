@@ -4,6 +4,7 @@ Items are dicts (see ``contracts/sample-contract.md``); labels stay in source un
 """
 
 import json
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,7 +23,17 @@ from strike_a_pose.datagen.io import (
 )
 from strike_a_pose.datagen.skeleton import NUM_JOINTS, SKELETON_NAME
 
-from .split import SPLITS, SplitError, check_split_for, load_split, manifest_sha256, parse_sample_id
+from .split import (
+    SPLITS,
+    SplitCommitWarning,
+    SplitError,
+    check_split_code,
+    check_split_for,
+    load_split,
+    manifest_content_sha256,
+    manifest_sha256,
+    parse_sample_id,
+)
 from .transforms import image_to_tensor, mask_to_tensor
 
 
@@ -119,16 +130,22 @@ class PoseImageDataset(Dataset):
         if errs:
             raise DatasetError(_fmt(f"invalid dataset {self.dataset_dir}", errs))
         self.manifest = m
-        self.manifest_sha256 = manifest_sha256(self.dataset_dir)
+        self.manifest_sha256 = manifest_sha256(self.dataset_dir)  # raw bytes (incl. code)
+        self.manifest_content_sha256 = manifest_content_sha256(m)  # without code (spec 007)
         self.cameras = [c["name"] for c in m["cameras"]]
         if split_file is not None:
             try:
                 sp = load_split(split_file)
             except SplitError as e:
                 raise DatasetError(str(e)) from e
-            errs = check_split_for(sp, self.manifest_sha256, {e.pose_index for e in entries})
+            poses = {e.pose_index for e in entries}
+            errs = check_split_for(sp, self.manifest_sha256, self.manifest_content_sha256, poses)
             if errs:
                 raise DatasetError(_fmt(f"split file {split_file} does not fit dataset", errs))
+            note = check_split_code(sp, m["code"])
+            if note is not None:  # stacklevel 1: one location → shown once per process
+                msg = f"split file {split_file}, dataset {self.dataset_dir}: {note}"
+                warnings.warn(msg, SplitCommitWarning, stacklevel=1)
             if split is not None:
                 keep = set(sp["poses"][split])
                 entries = [e for e in entries if e.pose_index in keep]

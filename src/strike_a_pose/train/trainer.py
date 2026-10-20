@@ -252,7 +252,11 @@ def run_training(
         "seed": cfg.seed,
         "git": git_info(),
         "env": environment_summary(),
-        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": s["train_ds"].manifest_sha256},
+        "dataset": {
+            "dir": cfg.dataset_dir,
+            "manifest_sha256": s["train_ds"].manifest_sha256,  # resume check (raw, spec 007)
+            "manifest_content_sha256": s["train_ds"].manifest_content_sha256,
+        },
         "split_file": {"path": cfg.split_file, "sha256": s["split_sha"]},
         "model_parameters": s["model"].parameter_count(),
         "history": "history.csv",

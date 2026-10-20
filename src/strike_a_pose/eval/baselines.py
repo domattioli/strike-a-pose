@@ -171,7 +171,11 @@ def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
         "seed": cfg.seed,
         "git": git_info(),
         "env": environment_summary(),
-        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": train_ds.manifest_sha256},
+        "dataset": {
+            "dir": cfg.dataset_dir,
+            "manifest_sha256": train_ds.manifest_sha256,
+            "manifest_content_sha256": train_ds.manifest_content_sha256,
+        },
         "split_file": {"path": cfg.split_file, "sha256": split_sha},
         "started_utc": started.isoformat(),
         "finished_utc": None,

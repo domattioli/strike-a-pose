@@ -2,6 +2,7 @@
 
 import csv
 import json
+import shutil
 import time
 from pathlib import Path
 
@@ -10,9 +11,15 @@ import torch
 import yaml
 from PIL import Image
 
-from strike_a_pose.data import PoseImageDataset, make_split, write_split
+from strike_a_pose.data import (
+    PoseImageDataset,
+    SplitCommitWarning,
+    make_split,
+    manifest_content_sha256,
+    write_split,
+)
 from strike_a_pose.data.split import manifest_sha256
-from strike_a_pose.datagen.io import load_manifest
+from strike_a_pose.datagen.io import dumps, load_manifest
 from strike_a_pose.eval.report import FIG_HEADER, FIG_PAD
 from strike_a_pose.models import ConvAutoencoder, load_checkpoint
 from strike_a_pose.train.cli import main
@@ -101,6 +108,9 @@ def test_fixture_train_run(tmp_path, capsys):
     assert info["seed"] == 3 and set(info["git"]) == {"commit", "dirty"}
     assert {"python", "torch", "numpy", "pillow", "platform", "torch_threads"} <= set(info["env"])
     assert info["dataset"]["manifest_sha256"] == manifest_sha256(FIXTURE)
+    assert info["dataset"]["manifest_content_sha256"] == manifest_content_sha256(
+        load_manifest(FIXTURE)
+    )  # spec 007 FR-007
     assert info["model_parameters"] == 3_126_897
     assert info["wall_s"] is not None and info["train_wall_s"] is not None
     assert info["figure"] == "recon_test.png"
@@ -146,7 +156,7 @@ def test_repeatable(tmp_path):
 
 
 def test_split_mismatch_exit_1_no_run_dir(tmp_path, capsys):
-    other = make_split(load_manifest(FIXTURE), "0" * 64, 0, (0.5, 0.0, 0.5))
+    other = make_split({**load_manifest(FIXTURE), "seed": 99}, 0, (0.5, 0.0, 0.5))  # other content
     sp = write_split(other, tmp_path / "other.json")
     cfg = yaml.safe_load(CFG.read_text()) | {"split_file": str(sp), "run_root": str(tmp_path / "r")}
     p = tmp_path / "c.yaml"
@@ -194,6 +204,23 @@ def test_resume_equals_uninterrupted(tmp_path, capsys):
     assert "already finished" in capsys.readouterr().err
 
 
+def test_resume_refuses_dataset_regenerated_at_other_commit(tmp_path, capsys):
+    """Spec 007 clarification 8: resume keys on the raw manifest hash (it includes the
+    generating commit; the manifest does not hash the images), so a dataset whose manifest
+    differs only in ``code`` does not resume, although its split accepts it with a warning."""
+    ds = tmp_path / "smpl_fixture"
+    shutil.copytree(FIXTURE, ds)
+    cfg = load_config(CFG).with_overrides(run_root=str(tmp_path / "r"), dataset_dir=str(ds))
+    d = run_training(cfg, stop_after_epoch=1)
+    m = load_manifest(ds)
+    m["code"]["commit"] = "f" * 40
+    (ds / "manifest.json").write_bytes(dumps(m))
+    with pytest.warns(SplitCommitWarning):
+        assert main(["--resume", str(d)]) == 1
+    assert "dataset manifest changed" in capsys.readouterr().err
+    assert not (d / "metrics.json").exists()
+
+
 def test_resume_errors(tmp_path, capsys):
     assert main(["--resume", str(tmp_path)]) == 2  # no checkpoint
     assert "no checkpoint" in capsys.readouterr().err
@@ -208,9 +235,7 @@ def _val_cfg(tmp_path: Path, root: str):
     """Fixture split with a val pose (train 1 / val 1 / test 0 poses)."""
     sp = tmp_path / "val_split.json"
     if not sp.exists():
-        write_split(
-            make_split(load_manifest(FIXTURE), manifest_sha256(FIXTURE), 0, (0.5, 0.5, 0.0)), sp
-        )
+        write_split(make_split(load_manifest(FIXTURE), 0, (0.5, 0.5, 0.0)), sp)
     return load_config(CFG).with_overrides(
         run_root=str(tmp_path / root), split_file=str(sp), epochs=6,
         eval_splits=["val"], figure_split="val",

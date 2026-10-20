@@ -11,7 +11,7 @@ import torch
 import yaml
 from PIL import Image
 
-from strike_a_pose.data import make_split, write_split
+from strike_a_pose.data import make_split, manifest_content_sha256, write_split
 from strike_a_pose.data.split import manifest_sha256
 from strike_a_pose.datagen.io import load_manifest
 from strike_a_pose.eval.cli import main
@@ -159,6 +159,9 @@ def test_fixture_probe_run(tmp_path, capsys, ae_checkpoint):
     assert info["cache"] == {"path": None, "hit": False}
     assert info["figures"] == ["skeleton_test.png", "yaw_confusion_test.png"]
     assert info["dataset"]["manifest_sha256"] == manifest_sha256(FIXTURE)
+    assert info["dataset"]["manifest_content_sha256"] == manifest_content_sha256(
+        load_manifest(FIXTURE)
+    )  # spec 007 FR-007
 
     m = json.loads((d / "metrics.json").read_text())
     assert m["probe_version"] == 1 and m["encoder"]["epoch"] == 10
@@ -208,7 +211,7 @@ def load_yaml(p: Path) -> dict:
 
 def test_val_selection_with_val_split(tmp_path, ae_checkpoint):
     sp = write_split(
-        make_split(load_manifest(FIXTURE), manifest_sha256(FIXTURE), 0, (0.5, 0.5, 0.0)),
+        make_split(load_manifest(FIXTURE), 0, (0.5, 0.5, 0.0)),
         tmp_path / "split.json",
     )
     cfg = tmp_path / "c.yaml"
@@ -233,7 +236,8 @@ def test_errors(tmp_path, capsys, ae_checkpoint):
     bad.write_text(yaml.safe_dump(load_yaml(CFG) | {"targets": ["nope"]}))
     assert _probe(tmp_path, ae_checkpoint, cfg=bad) == (2, [])
     other = write_split(
-        make_split(load_manifest(FIXTURE), "0" * 64, 0, (0.5, 0.0, 0.5)), tmp_path / "o.json"
+        make_split({**load_manifest(FIXTURE), "seed": 99}, 0, (0.5, 0.0, 0.5)),  # other content
+        tmp_path / "o.json",
     )
     wrong = tmp_path / "wrong.yaml"
     wrong.write_text(yaml.safe_dump(load_yaml(CFG) | {"split_file": str(other)}))

@@ -541,7 +541,11 @@ def run_probe(
         "seed": cfg.seed,
         "git": git_info(),
         "env": environment_summary(),
-        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": hashes["manifest_sha256"]},
+        "dataset": {
+            "dir": cfg.dataset_dir,
+            "manifest_sha256": hashes["manifest_sha256"],  # cache key (raw, spec 007)
+            "manifest_content_sha256": train_ds.manifest_content_sha256,
+        },
         "split_file": {"path": cfg.split_file, "sha256": hashes["split_sha256"]},
         "checkpoint": _checkpoint_info(ck_path, ckpt, hashes["checkpoint_sha256"]),
         "started_utc": started.isoformat(),

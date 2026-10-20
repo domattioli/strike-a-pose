@@ -8,7 +8,7 @@ import pytest
 import yaml
 from PIL import Image
 
-from strike_a_pose.data import make_split, write_split
+from strike_a_pose.data import make_split, manifest_content_sha256, write_split
 from strike_a_pose.data.split import manifest_sha256
 from strike_a_pose.datagen.io import load_manifest
 from strike_a_pose.eval.cli import main
@@ -50,6 +50,9 @@ def test_fixture_run_directory(tmp_path, capsys):
     assert info["seed"] == 3 and set(info["git"]) == {"commit", "dirty"}
     assert {"python", "torch", "numpy", "pillow", "platform"} <= set(info["env"])
     assert info["dataset"]["manifest_sha256"] == manifest_sha256(FIXTURE)
+    assert info["dataset"]["manifest_content_sha256"] == manifest_content_sha256(
+        load_manifest(FIXTURE)
+    )  # spec 007 FR-007
     assert len(info["split_file"]["sha256"]) == 64
     assert info["finished_utc"] and info["wall_s"] is not None and info["figure"]
 
@@ -85,7 +88,7 @@ def test_metrics_bytes_repeat(tmp_path):
 
 
 def test_split_mismatch_exit_1_no_run_dir(tmp_path, capsys):
-    other = make_split(load_manifest(FIXTURE), "0" * 64, 0, (0.5, 0.0, 0.5))
+    other = make_split({**load_manifest(FIXTURE), "seed": 99}, 0, (0.5, 0.0, 0.5))  # other content
     sp = write_split(other, tmp_path / "other.json")
     cfg = yaml.safe_load(CFG.read_text()) | {"split_file": str(sp), "run_root": str(tmp_path / "r")}
     p = tmp_path / "c.yaml"

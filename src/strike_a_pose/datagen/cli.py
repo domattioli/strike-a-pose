@@ -65,7 +65,6 @@ def _split(a: argparse.Namespace) -> int:
         SPLITS,
         SplitError,
         make_split,
-        manifest_sha256,
         write_split,
     )
 
@@ -76,12 +75,7 @@ def _split(a: argparse.Namespace) -> int:
         print(f"invalid dataset: {len(errs)} problem(s)", file=sys.stderr)
         return 1
     try:
-        split = make_split(
-            load_manifest(a.dataset_dir),
-            manifest_sha256(a.dataset_dir),
-            a.seed,
-            a.fractions or DEFAULT_FRACTIONS,
-        )
+        split = make_split(load_manifest(a.dataset_dir), a.seed, a.fractions or DEFAULT_FRACTIONS)
         out = write_split(split, a.out, overwrite=a.overwrite)
     except SplitError as e:
         print(f"split error: {e}", file=sys.stderr)

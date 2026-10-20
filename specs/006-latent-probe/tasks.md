@@ -8,8 +8,8 @@
 
 - [x] T001 Roadmap: "Surrogate rulings 2026-10-20" changelog (all provisional), Q2 struck + status line, 006 row, deferred open questions 12–16.
 - [x] T002 CI: pin `ubuntu-latest` → `ubuntu-24.04` (separate commit).
-- [ ] T003 [P] `tests/test_train.py`: with a val split, `best.pt` holds the epoch of the minimum val loss (loads via `load_checkpoint`); interrupted + resumed run gives the same `best.pt` epoch / weights and `metrics.json` as uninterrupted; empty val → no `best.pt`.
-- [ ] T004 `train/trainer.py`: additive `best.pt` + `best_val_epoch` / `best_val_loss` in `metrics.json.training` and `run_info.json`; 004 contract note. `configs/ae.yaml` unchanged; selection stays off.
+- [x] T003 [P] `tests/test_train.py`: with a val split, `best.pt` holds the epoch of the minimum val loss (loads via `load_checkpoint`); interrupted + resumed run gives the same `best.pt` epoch / weights and `metrics.json` as uninterrupted; empty val → no `best.pt`.
+- [x] T004 `train/trainer.py`: additive `best.pt` + `best_val_epoch` / `best_val_loss` in `metrics.json.training` and `run_info.json`; 004 contract note. `configs/ae.yaml` unchanged; selection stays off.
 
 ## Phase 1: Probe core (US1, US2)
 

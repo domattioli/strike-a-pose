@@ -182,6 +182,15 @@ def _write_history(path: Path, rows: list[dict]) -> None:
             wr.writerow(_history_row(r))
 
 
+def _best_val(rows: list[dict]) -> dict | None:
+    """Earliest epoch with the lowest val loss so far (None without val)."""
+    best = None
+    for r in rows:
+        if r["val_loss"] is not None and (best is None or r["val_loss"] < best["val_loss"]):
+            best = {"epoch": r["epoch"], "val_loss": r["val_loss"]}
+    return best
+
+
 def _history_row(r: dict) -> list:
     return [r["epoch"], _fmt(r["train_loss"]), _fmt(r["val_loss"]), _fmt(r["lr"], ".6g"),
             f"{r['epoch_s']:.1f}"]  # fmt: skip
@@ -330,6 +339,7 @@ def _train_and_evaluate(
         elapsed0, train0 = ckpt["elapsed_s"], ckpt["train_wall_s"]
     hist_path = run_dir / "history.csv"
     _write_history(hist_path, rows)
+    best = _best_val(rows)  # recomputed from the checkpointed history on resume
     t_train = time.monotonic()
     with hist_path.open("a", newline="") as fh:
         wr = csv.writer(fh)
@@ -342,6 +352,19 @@ def _train_and_evaluate(
             rows.append(row)
             wr.writerow(_history_row(row))
             fh.flush()
+            if vl is not None and (best is None or vl < best["val_loss"]):
+                best = {"epoch": epoch, "val_loss": vl}
+                _save_checkpoint(  # additive (surrogate ruling 2026-10-20 #3); not evaluated
+                    run_dir / "best.pt",
+                    {
+                        "train_version": TRAIN_VERSION,
+                        "epoch": epoch,
+                        "val_loss": vl,
+                        "model_hparams": model.hparams(),
+                        "model": model.state_dict(),
+                        "config": cfg.to_dict(),
+                    },
+                )
             now = time.monotonic()
             _save_checkpoint(
                 run_dir / "checkpoint.pt",
@@ -430,6 +453,8 @@ def _train_and_evaluate(
             "final_train_loss": rows[-1]["train_loss"],
             "first_val_loss": vals[0],
             "final_val_loss": vals[-1],
+            "best_val_epoch": best["epoch"] if best else None,
+            "best_val_loss": best["val_loss"] if best else None,
         },
         "context": {
             "fit_split": "train",
@@ -442,6 +467,8 @@ def _train_and_evaluate(
     write_json_exact(run_dir / "metrics.json", metrics)
     info |= {
         "figure": figure,
+        "best_val_epoch": best["epoch"] if best else None,
+        "best_checkpoint": "best.pt" if best else None,
         "finished_utc": utc_now().isoformat(),
         "wall_s": round(elapsed0 + time.monotonic() - t0, 1),
         "train_wall_s": round(train_wall, 1),

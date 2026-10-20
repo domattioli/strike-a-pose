@@ -202,3 +202,45 @@ def test_resume_errors(tmp_path, capsys):
     assert e.value.code == 2
     with pytest.raises(SystemExit):
         main(["--config", str(CFG), "--resume", str(tmp_path)])
+
+
+def _val_cfg(tmp_path: Path, root: str):
+    """Fixture split with a val pose (train 1 / val 1 / test 0 poses)."""
+    sp = tmp_path / "val_split.json"
+    if not sp.exists():
+        write_split(
+            make_split(load_manifest(FIXTURE), manifest_sha256(FIXTURE), 0, (0.5, 0.5, 0.0)), sp
+        )
+    return load_config(CFG).with_overrides(
+        run_root=str(tmp_path / root), split_file=str(sp), epochs=6,
+        eval_splits=["val"], figure_split="val",
+    )  # fmt: skip
+
+
+def test_best_checkpoint_and_resume(tmp_path):
+    """Surrogate ruling 2026-10-20 #3: additive best.pt (min val loss), resume-safe."""
+    full = run_training(_val_cfg(tmp_path, "full"))
+    vals = [float(r["val_loss"]) for r in _history(full)]
+    best_epoch = vals.index(min(vals)) + 1
+    model, ck = load_checkpoint(full / "best.pt")
+    assert ck["epoch"] == best_epoch and model.latent_dim == 64
+    assert format(ck["val_loss"], ".8g") == _history(full)[best_epoch - 1]["val_loss"]
+    m = json.loads((full / "metrics.json").read_text())
+    assert m["training"]["best_val_epoch"] == best_epoch
+    info = json.loads((full / "run_info.json").read_text())
+    assert info["best_val_epoch"] == best_epoch and info["best_checkpoint"] == "best.pt"
+    assert torch.load(full / "checkpoint.pt")["epoch"] == 6  # final weights still evaluated
+
+    cut = run_training(_val_cfg(tmp_path, "cut"), stop_after_epoch=3)
+    assert main(["--resume", str(cut)]) == 0
+    a, b = torch.load(cut / "best.pt"), torch.load(full / "best.pt")
+    assert a["epoch"] == b["epoch"]
+    assert all(torch.equal(a["model"][k], b["model"][k]) for k in b["model"])
+    assert (cut / "metrics.json").read_bytes() == (full / "metrics.json").read_bytes()
+
+
+def test_no_best_checkpoint_without_val(tmp_path):
+    d = _run(tmp_path)[1][0]  # fixture val is empty
+    assert not (d / "best.pt").exists()
+    m = json.loads((d / "metrics.json").read_text())
+    assert m["training"]["best_val_epoch"] is None and m["training"]["best_val_loss"] is None

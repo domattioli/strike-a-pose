@@ -72,6 +72,7 @@ invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
 | `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset`, `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure`, `sessions` (one per process: `started_utc`, `start_epoch`, `argv`, `git`); `wall_s`/`train_wall_s` sum the sessions |
 | `history.csv` | header `epoch,train_loss,val_loss,lr,epoch_s`; one row per epoch (1-based); `val_loss` empty when val is empty; `lr` = rate at the epoch's last step |
 | `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels}, "optimizer": state_dict, "scheduler": state_dict \| null, "rng": {"shuffle", "torch", "numpy", "python"}, "history": [row, …], "elapsed_s": float, "train_wall_s": float, "epoch": int, "config": dict, "train_version": 1}`; written atomically after every epoch (never committed) |
+| `best.pt` | additive (surrogate ruling 2026-10-20 #3): `{"model", "model_hparams", "epoch", "val_loss", "config", "train_version": 1}` of the epoch with the lowest val loss so far (earliest on ties), written atomically before that epoch's `checkpoint.pt`; absent when val is empty; loads with `load_checkpoint`; **not** evaluated (the final weights are), never committed. On resume the best-so-far is recomputed from the checkpointed history. |
 | `metrics.json` | below |
 | `recon_<figure_split>.png` | 003 grid: columns `true`, `ae`, `mean_image`, `pca k=K` |
 
@@ -98,6 +99,8 @@ invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
 }
 ```
 
-`first_*` = epoch 1 values. Empty splits: `{"samples": 0, "poses": 0}`; null where
+`training` also holds `best_val_epoch` / `best_val_loss` (null without val; additive,
+surrogate ruling 2026-10-20 #3; `run_info.json` gains `best_val_epoch` and
+`best_checkpoint`). `first_*` = epoch 1 values. Empty splits: `{"samples": 0, "poses": 0}`; null where
 no val. Floats: 6 significant digits, sorted keys (003 writer). Deterministic for
 the same inputs, code and machine/thread count.

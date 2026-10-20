@@ -165,6 +165,22 @@ change (#15) must land *after* F1, because new config fields enter
   AE control run on that dataset. Lead recommendation: (i) first, then (iii) or
   (iv) by goal (detail vs generation).
 
+## Session pause (2026-10-20 23:30 UTC)
+
+- Pushed and CI green at `5382075` (slices 007 and 008 landed). Slice 009
+  `region-metrics`: spec approved at surrogate scope
+  (`specs/009-region-metrics/spec.md`, "Notes for the plan"); plan/tasks/implementation
+  not started — next step is phase 2 with a fresh lead.
+- `domattioli/smpl-assets` now exists and is attachable but is still empty
+  (operator just created it); F1 and every retrain wait for `SMPL_NEUTRAL.npz`
+  (expected SHA-256 `f408141b…`, the fixture manifest's `inputs.smpl_model.sha256`).
+- Design memos for 010 (dataset realism) and 011 (training variants) were produced
+  by read-only architect passes; copies live in the session scratchpad only
+  (`010-design-memo.md`, `011-training-variants-memo.md`); re-derive from the
+  roadmap #15/#16 decisions if the scratchpad is gone.
+- Operator instruction: resume at 2026-10-21 08:04 UTC for a 3-hour window
+  (scheduled), wrap-up reminder at 10:49 UTC.
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

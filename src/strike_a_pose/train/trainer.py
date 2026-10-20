@@ -1,0 +1,330 @@
+"""Autoencoder training + evaluation run (spec 004; contract: contracts/train-run.md).
+
+Train split is held in memory as uint8 and scaled ``/255`` per batch (bit-identical
+to the 002 loader's float values). The final model is scored with the 003 image
+metrics next to the mean-image and PCA baselines refit on train in the same run.
+"""
+
+import csv
+import math
+import os
+import sys
+import time
+from collections.abc import Callable
+from pathlib import Path
+
+import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+
+from strike_a_pose.data import DatasetError, PoseImageDataset, parse_sample_id
+from strike_a_pose.datagen.assets import sha256_file
+from strike_a_pose.eval.baselines import UNITS
+from strike_a_pose.eval.config import ConfigError
+from strike_a_pose.eval.pca import fit_pca
+from strike_a_pose.eval.report import figure_indices, grid_figure, score_images
+from strike_a_pose.models import ConvAutoencoder
+from strike_a_pose.runlog import (
+    environment_summary,
+    git_info,
+    make_run_dir,
+    seed_everything,
+    utc_now,
+    write_json_exact,
+    write_yaml,
+)
+
+from .config import TrainConfig
+
+TRAIN_VERSION = 1
+METRICS_VERSION = 1  # image metrics as in 003 metrics.json
+IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou")}
+HISTORY_FIELDS = ("epoch", "train_loss", "val_loss", "lr", "epoch_s")
+CL = torch.channels_last
+
+
+def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> dict:
+    """Read a dataset split into memory: uint8 images ``[n, 1, H, W]`` (+ bool masks)."""
+    n = len(ds)
+    h, w = ds.image_size
+    a: dict = {"n": n, "image_size": (h, w)}
+    a["image"] = torch.empty((n, 1, h, w), dtype=torch.uint8)
+    a["pose_index"] = torch.empty(n, dtype=torch.int64)
+    if masks:
+        a["mask"] = torch.empty((n, h * w), dtype=torch.bool)
+    i = 0
+    for b in DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0):
+        m = b["image"].shape[0]
+        a["image"][i : i + m] = torch.round(b["image"] * 255.0).to(torch.uint8)
+        a["pose_index"][i : i + m] = b["pose_index"]
+        if masks:
+            a["mask"][i : i + m] = b["mask"].reshape(m, -1)
+        i += m
+    return a
+
+
+def to_float(u8: torch.Tensor) -> torch.Tensor:
+    """uint8 → float32 in [0, 1] (same values as the 002 ``image_to_tensor``)."""
+    return u8.to(torch.float32) / 255.0
+
+
+def train_epoch(
+    model: ConvAutoencoder,
+    opt: torch.optim.Optimizer,
+    images: torch.Tensor,
+    batch_size: int,
+    gen: torch.Generator,
+    sched: torch.optim.lr_scheduler.LRScheduler | None = None,
+) -> tuple[float, float]:
+    """One shuffled pass (last batch may be smaller); returns (mean MSE, last lr used)."""
+    model.train()
+    n = images.shape[0]
+    perm = torch.randperm(n, generator=gen)
+    total, lr = 0.0, float("nan")
+    for i in range(0, n, batch_size):
+        idx = perm[i : i + batch_size]
+        x = to_float(images[idx]).contiguous(memory_format=CL)
+        opt.zero_grad(set_to_none=True)
+        loss = F.mse_loss(model(x), x)
+        loss.backward()
+        lr = float(opt.param_groups[0]["lr"])
+        opt.step()
+        if sched is not None:
+            sched.step()
+        total += float(loss.detach()) * len(idx)
+    return total / n, lr
+
+
+@torch.no_grad()
+def predict_rows(model: ConvAutoencoder, rows: torch.Tensor) -> torch.Tensor:
+    """Eval-mode reconstruction of flattened image rows ``[n, H*W]`` → ``[n, H*W]``."""
+    model.eval()
+    h, w = model.image_size
+    x = rows.reshape(-1, 1, h, w).contiguous(memory_format=CL)
+    return model(x).reshape(rows.shape[0], -1).contiguous()
+
+
+@torch.no_grad()
+def eval_loss(model: ConvAutoencoder, images: torch.Tensor, batch_size: int) -> float | None:
+    """Mean per-image MSE (eval mode) over uint8 images; None when empty."""
+    n = images.shape[0]
+    if n == 0:
+        return None
+    model.eval()
+    total = 0.0
+    for i in range(0, n, batch_size):
+        x = to_float(images[i : i + batch_size]).contiguous(memory_format=CL)
+        total += float(((model(x) - x) ** 2).mean(dim=(1, 2, 3)).double().sum())
+    return total / n
+
+
+def overfit_steps(model: ConvAutoencoder, x: torch.Tensor, steps: int, lr: float) -> list[float]:
+    """Adam steps on one fixed batch ``x [B, 1, H, W]``; returns the loss before each step."""
+    model.train()
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    losses = []
+    for _ in range(steps):
+        opt.zero_grad(set_to_none=True)
+        loss = F.mse_loss(model(x), x)
+        loss.backward()
+        opt.step()
+        losses.append(float(loss.detach()))
+    return losses
+
+
+def make_scheduler(opt: torch.optim.Optimizer, schedule: str, total_steps: int):
+    if schedule == "constant":
+        return None
+    return torch.optim.lr_scheduler.LambdaLR(
+        opt, lambda s: 0.5 * (1.0 + math.cos(math.pi * min(s, total_steps) / total_steps))
+    )
+
+
+def _fmt(v: float | None, spec: str = ".8g") -> str:
+    return "" if v is None else format(v, spec)
+
+
+def _save_checkpoint(path: Path, obj: dict) -> None:
+    tmp = path.with_suffix(".pt.tmp")
+    torch.save(obj, tmp)
+    os.replace(tmp, path)
+
+
+def run_training(
+    cfg: TrainConfig,
+    argv: list[str] | None = None,
+    log: Callable[[str], None] | None = None,
+) -> Path:
+    """Check inputs, train, evaluate, write the run directory; return its path.
+
+    Raises ``DatasetError`` (bad dataset / split) or ``ConfigError`` (model does not
+    fit the image size) before creating anything; ``FileExistsError`` if the run
+    directory exists.
+    """
+    say = log or (lambda _msg: None)
+    t0 = time.monotonic()
+    started = utc_now()
+    seed_everything(cfg.seed)
+    kw = {"split_file": cfg.split_file}
+    train_ds = PoseImageDataset(cfg.dataset_dir, split="train", **kw)
+    val_ds = PoseImageDataset(cfg.dataset_dir, split="val", **kw)
+    eval_ds = {s: PoseImageDataset(cfg.dataset_dir, split=s, **kw) for s in cfg.eval_splits}
+    if len(train_ds) == 0:
+        raise DatasetError("train split has no samples")
+    try:
+        model = ConvAutoencoder(train_ds.image_size, cfg.latent_dim, cfg.channels)
+    except ValueError as e:
+        raise ConfigError(f"model: {e}") from e
+    model = model.to(memory_format=CL)
+    split_sha = sha256_file(Path(cfg.split_file))
+
+    run_dir = make_run_dir(cfg.run_root, cfg.run_name, started)
+    write_yaml(run_dir / "config.yaml", cfg.to_dict())
+    info = {
+        "argv": list(sys.argv if argv is None else argv),
+        "cwd": str(Path.cwd()),
+        "seed": cfg.seed,
+        "git": git_info(),
+        "env": environment_summary(),
+        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": train_ds.manifest_sha256},
+        "split_file": {"path": cfg.split_file, "sha256": split_sha},
+        "model_parameters": model.parameter_count(),
+        "history": "history.csv",
+        "checkpoint": "checkpoint.pt",
+        "started_utc": started.isoformat(),
+        "finished_utc": None,
+        "wall_s": None,
+        "train_wall_s": None,
+        "figure": None,
+    }
+    write_json_exact(run_dir / "run_info.json", info)
+
+    train = load_split(train_ds, cfg.batch_size)
+    val = load_split(val_ds, cfg.batch_size, masks="val" in cfg.eval_splits)
+    say(f"loaded train {train['n']} / val {val['n']} images ({time.monotonic() - t0:.0f} s)")
+
+    opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
+    steps_per_epoch = math.ceil(train["n"] / cfg.batch_size)
+    sched = make_scheduler(opt, cfg.lr_schedule, cfg.epochs * steps_per_epoch)
+    gen = torch.Generator().manual_seed(cfg.seed)
+    hist_path = run_dir / "history.csv"
+    rows: list[dict] = []
+    t_train = time.monotonic()
+    with hist_path.open("w", newline="") as fh:
+        wr = csv.writer(fh)
+        wr.writerow(HISTORY_FIELDS)
+        fh.flush()
+        for epoch in range(1, cfg.epochs + 1):
+            te = time.monotonic()
+            tl, lr = train_epoch(model, opt, train["image"], cfg.batch_size, gen, sched)
+            vl = eval_loss(model, val["image"], cfg.batch_size)
+            dt = time.monotonic() - te
+            rows.append({"epoch": epoch, "train_loss": tl, "val_loss": vl})
+            wr.writerow([epoch, _fmt(tl), _fmt(vl), _fmt(lr, ".6g"), f"{dt:.1f}"])
+            fh.flush()
+            _save_checkpoint(
+                run_dir / "checkpoint.pt",
+                {
+                    "train_version": TRAIN_VERSION,
+                    "epoch": epoch,
+                    "model_hparams": model.hparams(),
+                    "model": model.state_dict(),
+                    "optimizer": opt.state_dict(),
+                    "config": cfg.to_dict(),
+                },
+            )
+            vs = "-" if vl is None else f"{vl:.5f}"
+            say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f} val {vs} lr {lr:.2e} ({dt:.0f} s)")
+    train_wall = time.monotonic() - t_train
+    model.eval()
+
+    # Context baselines, fit on train only (003 code path: exact PCA, clamp to [0, 1]).
+    x_train = to_float(train["image"]).reshape(train["n"], -1)
+    mean_image = (x_train.sum(dim=0, dtype=torch.float64) / train["n"]).to(torch.float32)
+    pca = fit_pca(x_train, cfg.context_pca_k) if cfg.context_pca_k else None
+    del x_train, train
+    preds = {
+        "ae": lambda x: predict_rows(model, x),
+        "mean_image": lambda x: mean_image.expand(x.shape[0], -1),
+    }
+    pca_name = f"pca_k{cfg.context_pca_k}"
+    if pca is not None:
+        preds[pca_name] = lambda x: pca.reconstruct(x, cfg.context_pca_k).clamp(0.0, 1.0)
+
+    splits, figure = {}, None
+    for s, ds in eval_ds.items():
+        a = val if s == "val" else load_split(ds, cfg.batch_size, masks=True)
+        n = a["n"]
+        out: dict = {"samples": n, "poses": int(a["pose_index"].unique().numel()) if n else 0}
+        if n:
+            x = to_float(a["image"]).reshape(n, -1)
+            img = {}
+            for name, fn in preds.items():
+                r = score_images(fn, x, a["mask"], cfg.batch_size, cfg.iou_threshold)
+                if name == pca_name:
+                    r |= {"k": cfg.context_pca_k, "k_effective": pca.k_effective(cfg.context_pca_k)}
+                img[name] = r
+            out["image"] = img
+            if s == cfg.figure_split:
+                idx = figure_indices(n, cfg.figure_samples)
+                xi = x[idx]
+                cols = [("true", xi)] + [
+                    (f"pca k={cfg.context_pca_k}" if nm == pca_name else nm, fn(xi))
+                    for nm, fn in preds.items()
+                ]
+                figure = f"recon_{s}.png"
+                grid_figure(cols, a["image_size"]).save(run_dir / figure, format="PNG")
+        splits[s] = out
+        say(f"{s} ({n}): " + _headline(out))
+
+    vals = [r["val_loss"] for r in rows]
+    metrics = {
+        "train_version": TRAIN_VERSION,
+        "metrics_version": METRICS_VERSION,
+        "dataset": {
+            "name": train_ds.manifest["dataset_name"],
+            "manifest_sha256": train_ds.manifest_sha256,
+            "split_file_sha256": split_sha,
+        },
+        "model": {
+            "name": "ConvAutoencoder",
+            **model.hparams(),
+            "parameters": info["model_parameters"],
+        },
+        "training": {
+            "epochs": cfg.epochs,
+            "steps": cfg.epochs * steps_per_epoch,
+            "train_samples": len(train_ds),
+            "train_poses": len({parse_sample_id(i)[0] for i in train_ds.sample_ids}),
+            "val_samples": len(val_ds),
+            "first_train_loss": rows[0]["train_loss"],
+            "final_train_loss": rows[-1]["train_loss"],
+            "first_val_loss": vals[0],
+            "final_val_loss": vals[-1],
+        },
+        "context": {
+            "fit_split": "train",
+            "pca_k": cfg.context_pca_k,
+            "pca_k_effective": pca.k_effective(cfg.context_pca_k) if pca is not None else None,
+        },
+        "units": IMAGE_UNITS,
+        "splits": splits,
+    }
+    write_json_exact(run_dir / "metrics.json", metrics)
+    info |= {
+        "figure": figure,
+        "finished_utc": utc_now().isoformat(),
+        "wall_s": round(time.monotonic() - t0, 1),
+        "train_wall_s": round(train_wall, 1),
+    }
+    write_json_exact(run_dir / "run_info.json", info)
+    return run_dir
+
+
+def _headline(out: dict) -> str:
+    if not out["samples"]:
+        return "no samples"
+    return "; ".join(
+        f"{k} mse {r['image_mse']:.5f} iou {r['silhouette_iou']:.3f}"
+        for k, r in out["image"].items()
+    )

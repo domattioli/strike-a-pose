@@ -1,0 +1,20 @@
+# Convolutional autoencoder on the full default dataset (spec 004).
+# Run: strike-a-pose-train --config configs/ae.yaml   (CPU, ~1.5 h on 4 vCPU)
+# Train split only for fitting; val loss logged per epoch; final weights scored on
+# val + test next to the mean image and PCA k=64 (refit on train in the same run).
+run_name: ae-smpl_proc_v1
+run_root: runs                         # git-ignored
+seed: 0
+dataset_dir: data/generated/smpl_proc_v1
+split_file: splits/smpl_proc_v1.json
+latent_dim: 64                         # predecessor latent size
+channels: [16, 32, 64, 128, 256, 256]  # 6 stride-2 blocks: 256x192 -> 4x3 (research R2)
+epochs: 60                             # a priori, fits the ~3 h CPU budget (research R2)
+batch_size: 64
+lr: 0.001
+lr_schedule: cosine                    # per-step decay to 0
+eval_splits: [val, test]
+context_pca_k: 64                      # baseline column / metrics (= 003 headline PCA)
+iou_threshold: 0.075                   # 003 default
+figure_split: val
+figure_samples: 6                      # same samples as the 003 figure

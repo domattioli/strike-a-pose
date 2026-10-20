@@ -1,4 +1,5 @@
-# CI (slice 005): lint + format check + tests + dataset smoke, from the lockfile.
+# CI (slice 005): lint + format check + tests + smoke steps (dataset validate,
+# baselines 003, AE smoke train 004), from the lockfile.
 # Runs without SMPL/AMASS: tests use synthetic assets, the fixture is committed.
 name: CI
 
@@ -51,7 +52,7 @@ jobs:
           uv run --locked strike-a-pose-eval baseline
           --config configs/baselines_fixture.yaml --run-root "$RUNNER_TEMP/runs"
 
-      # Smoke train (slice 004 adds this): CPU, a few steps on the fixture,
-      # < ~2 min (constitution IV). Expected shape:
-      # - name: Smoke - train
-      #   run: uv run --locked <train-cli> --config configs/<smoke>.yaml --seed 0
+      - name: Smoke - train autoencoder on committed fixture (slice 004)
+        run: >-
+          uv run --locked strike-a-pose-train
+          --config configs/ae_fixture.yaml --run-root "$RUNNER_TEMP/runs"

@@ -1,0 +1,18 @@
+# AE smoke train on the committed 16-sample fixture (tests + CI; spec 004).
+# Fixture split: train 1 pose / val 0 / test 1 (8 views each).
+run_name: ae-fixture
+run_root: runs
+seed: 0
+dataset_dir: tests/fixtures/smpl_fixture
+split_file: splits/smpl_fixture.json
+latent_dim: 64
+channels: [16, 32, 64, 128, 256, 256]
+epochs: 10                             # 2 steps / epoch -> 20 steps
+batch_size: 4
+lr: 0.001
+lr_schedule: cosine
+eval_splits: [val, test]
+context_pca_k: 4
+iou_threshold: 0.075
+figure_split: test
+figure_samples: 4

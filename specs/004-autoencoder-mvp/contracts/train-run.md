@@ -64,7 +64,7 @@ invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
 | `config.yaml` | resolved config (overrides applied) |
 | `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset`, `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure` |
 | `history.csv` | header `epoch,train_loss,val_loss,lr,epoch_s`; one row per epoch (1-based); `val_loss` empty when val is empty; `lr` = rate at the epoch's last step |
-| `checkpoint.pt` | `{"model": state_dict, "optimizer": state_dict, "epoch": int, "config": dict, "train_version": 1}` (never committed) |
+| `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels}, "optimizer": state_dict, "epoch": int, "config": dict, "train_version": 1}` (never committed) |
 | `metrics.json` | below |
 | `recon_<figure_split>.png` | 003 grid: columns `true`, `ae`, `mean_image`, `pca k=K` |
 

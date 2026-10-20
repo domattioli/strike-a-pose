@@ -11,8 +11,9 @@ decreases and held-out reconstructions are recognizable (plan:
 [`specs/roadmap.md`](specs/roadmap.md); numbers under [Results](#results)).
 Post-MVP slice 006 (latent probe) done 2026-10-20 under provisional surrogate
 rulings (operator sign-off 2026-10-21). Slice 007 (split content hash) implements the
-operator-approved roadmap question #14 (2026-10-20; approved at surrogate scope,
-operator sign-off pending); the other open questions wait for the operator.
+operator-approved roadmap question #14, and slice 008 (best-val weight selection) the
+operator's choice B for question #13 (both 2026-10-20; approved at surrogate scope,
+operator sign-off pending); the remaining open questions are listed in the roadmap.
 
 | Slice | What | State |
 |---|---|---|
@@ -23,6 +24,7 @@ operator sign-off pending); the other open questions wait for the operator.
 | 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented |
 | 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) |
 | 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2); warning on a commit mismatch | implemented (roadmap #14; follow-up F1: rewrite `splits/smpl_proc_v1.json`, needs SMPL) |
+| 008 `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default (`select_weights`), the final weights when val is empty | implemented (roadmap #13, operator choice B) |
 
 ## Install
 
@@ -108,8 +110,13 @@ tensors. Baseline numbers for `smpl_proc_v1` are under [Results](#results).
 
 Train the convolutional autoencoder (latent 64) from a config: it fits on `train`,
 logs train/val loss per epoch to `history.csv`, checkpoints after every epoch, then
-scores the final model next to the mean image and PCA k=64 (refit on train in the
-same run) on `val` and `test` and writes a reconstruction figure
+scores the selected weights next to the mean image and PCA k=64 (refit on train in the
+same run) on `val` and `test` and writes a reconstruction figure with them. Which
+weights are scored is set by `select_weights` (spec
+[008](specs/008-best-val-selection/spec.md)): `best_val` (default) scores the epoch with
+the lowest val loss, kept as `best.pt`, and falls back to the final weights when val is
+empty (as in the fixture) or never finite; `final` scores the last epoch. Training is
+the same either way; `metrics.json` names the scored weights in `selection`
 (contract: [`specs/004-autoencoder-mvp/contracts/train-run.md`](specs/004-autoencoder-mvp/contracts/train-run.md)):
 
 ```bash
@@ -135,9 +142,12 @@ setsid nohup uv run --locked strike-a-pose-train --resume runs/<run-dir> \
 
 Never run two `--resume` processes on one run dir (there is no lock).
 
-Runs that have a non-empty val split also keep `best.pt` (weights at the lowest val
-loss, epoch logged as `best_val_epoch`) next to `checkpoint.pt`; it is informational —
-the final weights are the ones evaluated.
+Runs that have a non-empty val split keep `best.pt` (weights at the lowest val loss,
+epoch logged as `best_val_epoch`) next to `checkpoint.pt` (the resume state of the last
+epoch); under `select_weights: best_val` it is the scored file. A resume rewrites
+`best.pt` from the checkpoint after a kill between the two writes and refuses (exit 2)
+when the selected epoch's weights are lost; run directories started before slice 008
+resume with `final`, the rule they were started under.
 
 Probe what the frozen encoder of a trained AE knows (spec 006): every image is encoded
 once (latents cached under `runs/probe-cache/`, keyed by checkpoint, manifest and split
@@ -149,10 +159,16 @@ them in `metrics.json` (contract:
 [`specs/006-latent-probe/contracts/probe-run.md`](specs/006-latent-probe/contracts/probe-run.md)):
 
 ```bash
-uv run strike-a-pose-eval probe --config configs/probe.yaml        # full dataset (~7 min, 4 vCPU)
+uv run strike-a-pose-eval probe --config configs/probe.yaml \
+    --checkpoint runs/<ae-run>/best.pt                             # full dataset (~7 min, 4 vCPU)
 uv run strike-a-pose-eval probe --config configs/probe_fixture.yaml \
     --checkpoint runs/<ae-fixture-run>/checkpoint.pt               # fixture smoke (seconds)
 ```
+
+Probe the scored weights of the train run, the file its `metrics.json` names in
+`selection.checkpoint`: `best.pt` for a full run, `checkpoint.pt` for the fixture
+(empty val). `configs/probe.yaml` names a placeholder run directory until the next full
+AE run exists; set it to that run's `best.pt` or pass `--checkpoint`.
 
 Exit codes and the on-disk layout are specified in
 [`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).
@@ -183,9 +199,10 @@ All k values (image 8–128, pose 4–32) are in `metrics.json` and
 
 Autoencoder (004) on `smpl_proc_v1`: `ConvAutoencoder` (latent 64, 3.1 M
 parameters) trained 60 epochs on train with config
-[`configs/ae.yaml`](configs/ae.yaml); final-epoch weights scored on val and test,
-with the mean image and PCA k=64 refit on train in the same run (identical to the
-003 numbers above). Source: run `runs/ae-smpl_proc_v1-20261020T030038Z` at commit
+[`config.yaml`](docs/results/004-ae-smpl_proc_v1/config.yaml) (the run's resolved config;
+`configs/ae.yaml` has since gained `select_weights`); final-epoch weights scored on val
+and test, with the mean image and PCA k=64 refit on train in the same run (identical to
+the 003 numbers above). Source: run `runs/ae-smpl_proc_v1-20261020T030038Z` at commit
 `f9619c6` (clean; resumed across two container restarts with unchanged code); copies of
 [`metrics.json`](docs/results/004-ae-smpl_proc_v1/metrics.json),
 [`run_info.json`](docs/results/004-ae-smpl_proc_v1/run_info.json),
@@ -202,7 +219,12 @@ Training took 84 min of compute on 4 vCPU (78 s/epoch + data loading and
 evaluation). Train MSE fell 0.0352 → 0.00106; val MSE fell 0.0100 → its minimum
 0.00217 at epoch 34 and ended at 0.00221: val flattens from about epoch 30 while
 train keeps falling, i.e. mild overfitting
-([loss curve](docs/results/004-ae-smpl_proc_v1/loss_curve.png)). In the
+([loss curve](docs/results/004-ae-smpl_proc_v1/loss_curve.png)). These published 004
+numbers, and the 006 probe numbers below, come from the final-epoch weights of a run made
+before slice 008; runs from 008 on report the best-val weights (`select_weights:
+best_val`; here the val minimum was epoch 34, 1.8 % below the final val MSE, ≈ 0.08 dB).
+That gain is known on val only, the split that selects the epoch, so best-val numbers of
+a later run and the final-weight numbers here are compared with that caveat. In the
 [val reconstructions](docs/results/004-ae-smpl_proc_v1/recon_val.png) all six
 poses shown are recognizable (body orientation, arm and leg angles), but the images are
 blurred: faces and hands lose all detail (fingers vanish), feet and wrists are
@@ -214,7 +236,8 @@ hyper-parameter (ridge λ, MLP weight decay) is chosen on val, test is scored on
 The control is the same probe on an **untrained** encoder of the same architecture
 (seeded random weights). Source: run `runs/probe-smpl_proc_v1-20261020T060632Z` at
 commit `ae32db9` (clean; 450 s on 4 vCPU, encoding 80 s), config
-[`configs/probe.yaml`](configs/probe.yaml); copies of
+[`config.yaml`](docs/results/006-probe-smpl_proc_v1/config.yaml) (the run's resolved
+config; `configs/probe.yaml` now points at the next AE run's `best.pt`); copies of
 [`metrics.json`](docs/results/006-probe-smpl_proc_v1/metrics.json),
 [`run_info.json`](docs/results/006-probe-smpl_proc_v1/run_info.json) and the figures in
 [`docs/results/006-probe-smpl_proc_v1/`](docs/results/006-probe-smpl_proc_v1/).

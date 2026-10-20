@@ -196,6 +196,10 @@ Defaults chosen by the lead within the surrogate's scope; each is provisional.
 8. Q: Which checkpoint weights? → A: the final-epoch weights in `checkpoint.pt` of
    run `ae-smpl_proc_v1-20261020T030038Z` (surrogate ruling #3; that run has no
    `best.pt`).
+   *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): the published
+   006 run probed those final-epoch weights; train runs from 008 on score their best-val
+   weights (`best.pt` by default, named in their `metrics.json` `selection.checkpoint`),
+   the file to probe; `configs/probe.yaml` points at the re-baseline run's `best.pt`.)*
 9. Q: Latent cache? → A: `runs/probe-cache/<sha12(ckpt)>-<sha12(manifest)>-
    <sha12(split)>.pt` (one torch file: labels + latents of every encoder per split
    + the three full hashes, seed and encoder names; any mismatch → recompute).

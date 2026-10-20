@@ -2,7 +2,8 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `008-best-val-selection`)
 **Created**: 2026-10-20
-**Status**: Approved at surrogate scope (surrogate ruling 2026-10-20; operator sign-off pending).
+**Status**: Implemented 2026-10-20 (verification: [tasks.md](tasks.md) T014). Approved at
+surrogate scope (surrogate ruling 2026-10-20; operator sign-off pending).
 Approval basis: the operator's choice of option B for roadmap open question #13
 (2026-10-20), quoted below; the surrogate ruled on the clarification batch and accepted
 every lead default.

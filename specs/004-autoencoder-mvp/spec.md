@@ -59,6 +59,10 @@ After training, the final model is scored with the 003 image metrics on val and
 test; the same run also scores the mean image and PCA k=64 (fit on train) so the
 AE and the baselines sit side by side in one `metrics.json`, and a reconstruction
 figure in the 003 format (true | AE | mean image | PCA k=64) is written.
+*(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): the scored model
+is the selected weights, by default those of the epoch with the lowest val loss
+(`best.pt`), the final weights when val is empty or with `select_weights: final`;
+`metrics.json` names them in `selection`.)*
 
 **Why this priority**: Constitution V; the MVP "recognizable" check is visual.
 
@@ -90,6 +94,8 @@ and val loss decrease; the figure shows recognizable held-out bodies.
 - `context_pca_k` larger than the train data's rank (fixture) → PCA keeps the
   numerical rank; `k_effective` recorded (003 behaviour).
 - Empty val split → `val_loss` empty in the history, `samples: 0` in metrics.
+  *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): and the final
+  weights are scored, `selection.selected_by` = `"final (empty val)"`.)*
 - Run directory already exists → exit 4.
 
 ## Requirements *(mandatory)*
@@ -107,17 +113,28 @@ and val loss decrease; the figure shows recognizable held-out bodies.
   config.
 - **FR-003**: Training MUST fit on the train split only; the val loss (MSE, model in
   eval mode) is computed after every epoch and never used to change the run.
+  *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): val still
+  never changes training (epochs, lr, optimizer); it selects which epoch's weights are
+  scored (`select_weights`, default `best_val`).)*
 - **FR-004**: Each run MUST write `config.yaml`, `run_info.json` (003 fields +
   model parameter count, epochs, wall time), `history.csv` (per epoch: train loss,
   val loss, learning rate, epoch seconds), `checkpoint.pt` (model + optimizer state,
   epoch, resolved config; written at the end of every epoch), `metrics.json`
   (deterministic for the same machine) and `recon_<figure_split>.png`.
+  *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): also
+  `best.pt`, the weights of the epoch with the lowest finite val loss, written after
+  that epoch's `checkpoint.pt` whenever val has samples; it is the scored file by
+  default, and `metrics.json` `selection.checkpoint` names the scored file.)*
 - **FR-005**: Seeds for Python, NumPy and torch MUST be set from the config seed and
   logged (constitution III).
 - **FR-006**: After training, the final model MUST be scored on the configured eval
   splits (default val, test) with the 003 functions `image_mse`, `psnr`,
   `silhouette_iou` (threshold 0.075); the mean image and PCA with `context_pca_k`
   components (default 64), fit on train, MUST be scored in the same run.
+  *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): the selected
+  weights are scored in place of the final model: `best_val` (default) or `final`. Only
+  they are scored, test once, so their gain over the final weights is known on val
+  only.)*
 - **FR-007**: The figure MUST use the 003 grid layout (header labels; one row per
   evenly spaced sample) with columns true, AE, mean image, PCA k.
 - **FR-008**: CI MUST run a CPU smoke train on the committed fixture (replacing the
@@ -176,6 +193,12 @@ and val loss decrease; the figure shows recognizable held-out bodies.
    tuned on val or test.
 5. Q: Which weights are evaluated? → A: the final epoch's (no early stopping or
    best-val selection; val is logged only).
+   *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md), operator
+   choice B for roadmap question #13: runs score the weights of the epoch with the
+   lowest val loss by default (`select_weights: best_val`), the final weights when val
+   is empty or with `select_weights: final`; 60 epochs and the cosine schedule
+   unchanged, no early stopping. The published 004 run, scored on its final weights,
+   stays as reported.)*
 6. Q: Baselines in the AE run? → A: mean image + PCA `context_pca_k = 64` refit on
    train in the same run with the 003 code (exact PCA, deterministic), so the AE
    `metrics.json` holds AE and baselines side by side; they must equal the 003

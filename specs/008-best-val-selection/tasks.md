@@ -17,11 +17,11 @@
 
 ## Phase 1: Tests first (FR-009)
 
-- [ ] T002 [P] `tests/test_train_config.py`: (a) default `select_weights` = `best_val`;
+- [x] T002 [P] `tests/test_train_config.py`: (a) default `select_weights` = `best_val`;
   `"best"`, `""`, `True`, `None` → `ConfigError`; the shipped AE configs list
   `best_val`; FR-007: a config file without the key → `load_config` gives `best_val`,
   `load_run_config` gives `final`; a present key wins in `load_run_config`.
-- [ ] T003 [P] `tests/test_train_selection.py` (new; small model, split with a val pose,
+- [x] T003 [P] `tests/test_train_selection.py` (new; small model, split with a val pose,
   scripted val loss installed over `trainer.eval_loss`): (b) `best_val` /
   `weight_selection` on synthetic histories (tie → earliest, minimum at the last epoch,
   NaN at epoch 1 and in the middle, empty val, all NaN, `final`); (c) minimum at epoch 2
@@ -43,31 +43,38 @@
   `load_selected_weights` with a selection naming another epoch → `ConfigError`; (i)
   legacy run dir (`select_weights` removed from `config.yaml`, the checkpoint's and
   `best.pt`'s config) → CLI `--resume` exit 0, `selection` = `final` / `config`.
-- [ ] T004 [P] `tests/test_train.py`: `train_version` 2; the fixture run's `selection`
+- [x] T004 [P] `tests/test_train.py`: `train_version` 2; the fixture run's `selection`
   (empty val fallback) and its log line; CLI exit 2 for `select_weights: best` (message
   names the key, no run dir); the ruling #3 test's comment (the scored weights are now
   `best.pt`'s).
-- [ ] T005 [P] `tests/test_probe.py`: (j) a small fixture train run on a split with a val
+- [x] T005 [P] `tests/test_probe.py`: (j) a small fixture train run on a split with a val
   pose (CLI), then `strike-a-pose-eval probe --checkpoint <run>/<selection.checkpoint>`
   (= `best.pt`) → exit 0, `run_info.checkpoint.epoch` = `selection.epoch`.
-- [ ] T006 Run the new and changed tests on the unchanged code: they must fail (record
-  the count).
+- [x] T006 Run the new and changed tests on the unchanged code: they must fail (record
+  the count). → on the pre-008 code: `test_train_selection.py` and
+  `test_train_config.py` fail at collection (`best_val`, `LEGACY_VALUES` not
+  importable); `test_train.py` 3 failed (fixture run: no selection log line; bad
+  `select_weights`; the ruling #3 test: no `selection`), `test_probe.py` 1 failed (no
+  `selection`); 21 passed. The bad-`select_weights` test first passed for the wrong
+  reason (the old code rejects the key as unknown) and was tightened (finding 9).
 
 ## Phase 2: Implementation
 
-- [ ] T007 `src/strike_a_pose/train/config.py`: `WEIGHT_SELECTIONS`, `select_weights`
+- [x] T007 `src/strike_a_pose/train/config.py`: `WEIGHT_SELECTIONS`, `select_weights`
   field + validation, `LEGACY_VALUES`, `with_legacy_values`, `load_run_config` (plan
   "Design").
-- [ ] T008 `src/strike_a_pose/train/trainer.py`: `TRAIN_VERSION = 2`, file-name
+- [x] T008 `src/strike_a_pose/train/trainer.py`: `TRAIN_VERSION = 2`, file-name
   constants, `_is_new_best` / `best_val` / `weight_selection`, `best.pt` helpers, write
   order (checkpoint first), `reconcile_best` in `resume_training` (after the checks,
   before the session is recorded), `load_selected_weights` + selection log line at the
   evaluation call site, `selection` in `metrics.json`, resume through `load_run_config`
   and `with_legacy_values`.
-- [ ] T009 Configs: `configs/ae.yaml`, `configs/ae_fixture.yaml` (`select_weights:
+- [x] T009 Configs: `configs/ae.yaml`, `configs/ae_fixture.yaml` (`select_weights:
   best_val` + comments), `configs/probe.yaml` (placeholder `best.pt` path with the
   one-line comment; header).
-- [ ] T010 New and changed tests green; `ruff check`, `ruff format --check`.
+- [x] T010 New and changed tests green; `ruff check`, `ruff format --check`. → the four
+  modules: 68 passed in 29 s; the 13 new 008 tests take ≈ 8 s in total (small model,
+  ≈ 0.3–1.7 s each).
 
 ## Phase 3: Contracts and docs
 
@@ -75,10 +82,10 @@
   file roles, write order, resume reconciliation and legacy keys, `selection` block,
   val-only caveat, log line), 006 `probe-run.md` (`checkpoint` row). → in the plan
   commit.
-- [ ] T012 004 `spec.md` dated notes "amended 2026-10-20 by slice 008" (US2 intro,
+- [x] T012 004 `spec.md` dated notes "amended 2026-10-20 by slice 008" (US2 intro,
   FR-003, FR-004, FR-006, the empty-val edge case, clarification 5); 006 `spec.md`
   clarification 8 note.
-- [ ] T013 README (status line + table; Usage train paragraph and `best.pt` paragraph;
+- [x] T013 README (status line + table; Usage train paragraph and `best.pt` paragraph;
   probe usage; Results: published 004 / 006 numbers are final-epoch weights, runs from
   008 on report best-val weights, gain known on val only; 004 / 006 config links → the
   resolved copies under `docs/results/`), `specs/roadmap.md` (#13 struck: operator
@@ -88,14 +95,34 @@
 
 ## Phase 4: Verify and commit
 
-- [ ] T014 Local checks: `uv run --locked ruff check .`, `ruff format --check .`,
+- [x] T014 Local checks: `uv run --locked ruff check .`, `ruff format --check .`,
   `pytest` (count + wall time), `strike-a-pose-data validate tests/fixtures/smpl_fixture`,
   the three smoke commands into `<scratchpad>/runs-008-after`, SC-002 diff against T001
   (probe also on the T001 checkpoint); extra: a scratch fixture train on a split with a
   val pose + `strike-a-pose-eval probe --checkpoint <run>/best.pt` exits 0; `git diff
   a5bb162 -- docs/results pyproject.toml uv.lock .github` empty.
-- [ ] T015 Commits (`spec`, `plan`, `feat`, `docs`), no push (the orchestrator reviews,
-  pushes and watches CI).
+  → at `5b1befa` (+ docs): `ruff check .` clean; `ruff format --check .` 112 files
+  formatted; `pytest` 267 passed in 31 s (249 at `a5bb162`; +18);
+  `validate tests/fixtures/smpl_fixture` OK; the three smoke commands into
+  `runs-008-after` OK (9.7 s; the train run logs `scoring final weights: epoch 10, val -
+  (final (empty val); checkpoint.pt)`). SC-002 diff against T001: 003 `metrics.json`
+  byte-identical; 004 `metrics.json` differs in exactly 7 leaves, `train_version` 1 → 2
+  and the new `selection` block (`select_weights` `best_val`, `weights` `final`,
+  `selected_by` `final (empty val)`, `epoch` 10, `val_loss` null, `checkpoint`
+  `checkpoint.pt`), every number identical; its `history.csv` equal except `epoch_s`,
+  `recon_test.png` byte-identical, `checkpoint.pt` weights bit-identical, no `best.pt`
+  either side; `config.yaml` gains `select_weights: best_val` (and `run_root` names the
+  run root); 006 `metrics.json` differs only in `encoder.checkpoint_sha256` (the
+  checkpoint stores its config and `train_version`), both figures byte-identical, and
+  the 006 run on the T001 checkpoint is byte-identical to T001's. Extra: fixture split
+  with a val pose (`strike-a-pose-data split … --fractions 0.5 0.5 0`), CLI train →
+  `scoring best_val weights: epoch 10, val 0.13721 (val loss; best.pt)`, `best.pt`
+  written, val `ae` MSE 0.13721 = `selection.val_loss`; `strike-a-pose-eval probe
+  --checkpoint <run>/best.pt` exit 0 (`checkpoint.epoch` 10, path `…/best.pt`). `git
+  diff a5bb162 -- docs/results pyproject.toml uv.lock .github splits` empty.
+- [x] T015 Commits (`spec`, `plan`, `feat`, `docs`), no push (the orchestrator reviews,
+  pushes and watches CI). → `3245fab` spec, `9c66b51` plan, `5b1befa` feat, docs = the
+  commit holding this record.
 
 ## Dependencies
 
@@ -139,3 +166,9 @@ Findings and resolutions:
    do not collide with them.
 8. Terminology: "scored weights" = the weights evaluated and reported (`ae`); "selected
    epoch" = `selection.epoch`; "the rule" = `select_weights`.
+
+Found during implementation:
+
+9. The CLI test for `select_weights: best` passed on the pre-008 code, which rejects the
+   key as unknown (exit 2, message names the key) → it now also requires the allowed
+   values (`best_val`) in the message, and fails on the old code.

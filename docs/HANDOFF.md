@@ -1,4 +1,4 @@
-# Handoff — strike-a-pose (as of 2026-10-20, third session that day, after slice 007)
+# Handoff — strike-a-pose (as of 2026-10-20, after slice 008)
 
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
@@ -17,6 +17,17 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   `manifest_code`, and warn (`SplitCommitWarning`) when the same content was generated
   by other code; v1 files stay readable with the old strict check. The 004 resume
   check and the 006 latent cache still key on the raw manifest hash.
+- Slice 008 `best-val-selection` (roadmap #13, operator choice B, 2026-10-20)
+  implemented 2026-10-20; approved at surrogate scope, operator sign-off pending.
+  Training runs score the weights of the epoch with the lowest val loss (`best.pt`)
+  by default (`select_weights: best_val`), the final weights when val is empty (the
+  fixture, CI) or with `select_weights: final`; training is unchanged (60 epochs,
+  cosine). `metrics.json` names the scored weights in `selection` (`train_version` 2);
+  their gain over the final weights is known on val only. `checkpoint.pt` is written
+  before `best.pt`, and `--resume` repairs or refuses an inconsistent `best.pt`; run
+  dirs started before a config key existed resume with its legacy value
+  (`train.config.LEGACY_VALUES`). The published 004 / 006 numbers stay final-epoch
+  weights until the re-baseline run. `configs/probe.yaml` names a placeholder run dir.
 
 ## Next work (from roadmap open questions)
 
@@ -39,12 +50,20 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
    3 attempts); torch stays on PyPI; the switch waits for a session whose egress policy
    allows that host. Check with
    `curl -sS -o /dev/null -w "%{http_code}" https://download.pytorch.org/whl/cpu/`.
-3. **Need an operator choice:** #13 early stopping / fewer epochs default; #15 dataset
-   realism (arms-down, random betas, camera variation); #16 training improvements /
-   VAE. Candidate: per-region (hands/face/feet) image MSE. These, and the SMPL-asset
-   access problem (GitHub access to `domattioli/smpl-assets` was refused in this
-   session, which blocks F1), were put to the operator in this session's closing
-   message; nothing on them was started.
+3. **#13 answered** (operator choice B, 2026-10-20) and implemented in slice 008. Next
+   slice per the orchestrator: 009, per-region image metrics (#16 option (i)); it hooks
+   into the evaluation block after `load_selected_weights` in `train/trainer.py`, and
+   any new train config key must add its pre-009 value to `train.config.LEGACY_VALUES`
+   (008 plan, "Where slice 009 hooks in"). Not started in the 008 session: #15 dataset
+   realism (arms-down, random betas, camera variation), the other #16 options
+   (training improvements / VAE), and the SMPL-asset access problem (GitHub access to
+   `domattioli/smpl-assets` was refused in the 2026-10-20 sessions, which blocks F1).
+4. **Re-baseline run** (after SMPL access → F1 → 009): `strike-a-pose-train --config
+   configs/ae.yaml` (as committed: `select_weights: best_val`), launched detached and
+   resumable (see "Environment gotchas"); then set `checkpoint` in `configs/probe.yaml`
+   to that run's `best.pt` (its `metrics.json` `selection.checkpoint`) and run the
+   probe. README, roadmap and `docs/results/` then report best-val weights, compared
+   with the published final-weight 004 numbers with the val-only caveat.
 
 ## F1 commands
 
@@ -106,7 +125,8 @@ change (#15) must land *after* F1, because new config fields enter
   Claude GitHub App access to that repo and start the next session with it
   attached, or supply `SMPL_NEUTRAL.npz` another way (sha256 must equal the
   fixture manifest's `inputs.smpl_model.sha256`, `f408141b…`).
-- **#13 epochs / early stopping** (today: 60 epochs, cosine lr, final weights
+- **#13 epochs / early stopping**: *answered 2026-10-20, option B, implemented in
+  slice 008.* Options as put (then: 60 epochs, cosine lr, final weights
   evaluated; `best.pt` saved but informational; 004 val min 0.00217 at epoch 34,
   final 0.00221, i.e. 1.8 % above the minimum). Options: A keep; B report
   `best.pt` (best val loss) as the model, 60 epochs unchanged (small code: config

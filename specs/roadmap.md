@@ -4,6 +4,8 @@ Status: **Slice list + order APPROVED (operator, 2026-10-17).** MVP done (2026-1
 Q2 confirmed by surrogate ruling 2026-10-20; all surrogate rulings and autonomous clarifications approved by the operator 2026-10-21.
 Post-MVP: exactly one slice, 006 `latent-probe` (surrogate ruling 2026-10-20); stop after it.
 Then 007 `split-content-hash`, which implements the operator-approved open question #14
+(2026-10-20; approved at surrogate scope, operator sign-off pending), and 008
+`best-val-selection`, which implements the operator's choice B for open question #13
 (2026-10-20; approved at surrogate scope, operator sign-off pending).
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
@@ -33,12 +35,13 @@ rails (Kaggle), per-region (hands/face/feet) image MSE (surrogate ruling 2026-10
 training improvements / VAE, dataset realism (open questions below).
 
 Post-MVP slices (surrogate ruling 2026-10-20 #1: exactly one, then stop; 007 implements
-the operator-approved open question #14):
+the operator-approved open question #14, 008 the operator's choice B for #13):
 
 | # | Slug | Purpose | Depends on | Done when |
 |---|------|---------|------------|-----------|
 | 006 | `latent-probe` | Frozen 004 encoder → latents; linear (ridge) and small MLP probes for root-relative 3D joints (MPJPE mm), camera yaw (8-way), SMPL pose; eval CLI `strike-a-pose-eval probe` | 002, 003, 004 (checkpoint) | Probe numbers next to the 003 pose baselines from a logged run; CI green |
 | 007 | `split-content-hash` | Split files pin the manifest content (manifest without its generating `code`) instead of the raw bytes: `split_version` 2, `SplitCommitWarning` on a code mismatch, v1 read-only (open question #14) | 002 | Fixture split rewritten as v2 with the same pose lists; no numerical change; CI green; follow-up F1 rewrites `splits/smpl_proc_v1.json` once SMPL is available |
+| 008 | `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default: `select_weights: best_val \| final`, final weights when val is empty or never finite, `selection` block in `metrics.json` (`train_version` 2), resume-safe; 60 epochs and cosine lr unchanged (open question #13, option B) | 004 | Selection, fallback and resume tested on the fixture (scripted val curve); fixture smoke numbers unchanged; CI green; the published 004 / 006 numbers stay final weights until the re-baseline run |
 
 ## Open questions (batched; answer all at once)
 
@@ -63,8 +66,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
 
 12. PyTorch CPU wheel index: keep PyPI torch for now (the trusted-network allowance
     did not take effect in the 2026-10-20 session; 002 research R1). Switch?
-13. Early stopping / fewer epochs as the training default? (004 val minimum at
-    epoch 34 of 60; ruling #3 only adds an informational `best.pt`.)
+13. ~~Early stopping / fewer epochs as the training default? (004 val minimum at
+    epoch 34 of 60; ruling #3 only adds an informational `best.pt`.)~~ Operator choice
+    B, 2026-10-20 (report `best.pt`, the lowest val loss, as the evaluated model; 60
+    epochs and the cosine schedule unchanged), implemented in 008 `best-val-selection`.
 14. ~~Split-hash contract change. Proposal: hash the manifest *without*
     `code.commit` / `code.dirty`, store the commit informationally, and warn
     instead of refusing on a commit mismatch (today a regenerated-but-identical
@@ -235,3 +240,30 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   `download.pytorch.org` still refused (HTTP 403 at the proxy CONNECT, 3 attempts);
   torch stays on PyPI; the switch waits for a session whose egress policy allows that
   host (002 research R1).
+- 2026-10-20: slice 008 `best-val-selection` (autonomous run, Fable surrogate scope; spec
+  approved at surrogate scope, operator sign-off pending; approval basis: the operator's
+  choice B for open question #13, 2026-10-20). Training runs score the weights of the
+  epoch with the lowest finite val loss by default (`select_weights: best_val | final`),
+  read back from `best.pt` after an epoch / val-loss / config check, and fall back to the
+  final weights when val is empty (the fixture, so CI) or never finite; 60 epochs and the
+  cosine schedule unchanged, no early stopping; training itself is unchanged.
+  `metrics.json` gains a `selection` block (rule, applied weights, reason, epoch, val loss,
+  file) and `train_version` 2. Found while specifying and fixed: `best.pt` was written
+  before `checkpoint.pt`, safe on resume only on the same machine, so `checkpoint.pt` is
+  now written first and resume rewrites `best.pt` from it after a kill between the two
+  writes (and refuses when the selected weights are lost); a NaN val loss at epoch 1
+  pinned the best epoch (NaN is now never selected); a new config key made every older run
+  dir non-resumable ("checkpoint does not match config.yaml"), so a legacy-value table
+  resumes run dirs that predate a key with the value they started under
+  (`select_weights` → `final`). Surrogate ruling (batch Q1, option (a)): only the selected
+  weights are scored, test once; their gain over the final weights is known on val only,
+  the selecting split, as the README and the 004 contract state. The probe code is
+  unchanged; `configs/probe.yaml` points at the re-baseline run's `best.pt` (placeholder
+  path). Contracts updated in place: 004 `train-run.md` (Train v2), 006 `probe-run.md`
+  (`checkpoint` row); dated notes in the 004 and 006 specs. Implementation `5b1befa`;
+  pytest 267 passed (31 s; 249 before); fixture smoke before / after: the AE
+  `metrics.json` differs only in `train_version` and the `selection` block (every number,
+  the history, the figure and the weights identical), 003 byte-identical, 006 only in
+  `encoder.checkpoint_sha256` (byte-identical on the pre-008 checkpoint). The published
+  004 / 006 numbers (final weights of a pre-008 run) stay as reported until the
+  re-baseline run (after SMPL access, F1 and slice 009).

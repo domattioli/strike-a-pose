@@ -108,3 +108,30 @@ Slice 001 specifics (carried into its clarify step):
   mean image MSE 0.01403 / 0.01385 (IoU 0.416 / 0.420); PCA k=64 MSE 0.00459 /
   0.00452 (PSNR 23.7 / 23.8 dB, IoU 0.644 / 0.646); mean pose MPJPE 253.4 / 250.3 mm
   (2D 18.4 / 18.2 px); pose PCA k=8 94.0 / 93.6 mm. Context for 004, not a bar.
+- 2026-10-20: slice 004 `autoencoder-mvp` (autonomous run, operator delegation
+  2026-10-20; clarifications at lead defaults in its spec, plus the operator's
+  restart-resilience requirement, Session 2026-10-20b). **MVP done.** Packages
+  `strike_a_pose.models` (`ConvAutoencoder`, latent 64, 3.1 M parameters) and
+  `strike_a_pose.train` (strict YAML config, seeded Adam/MSE trainer with cosine lr,
+  full-state end-of-epoch checkpoint, CLI `strike-a-pose-train --config` /
+  `--resume RUN_DIR`). Contract: `specs/004-autoencoder-mvp/contracts/train-run.md`.
+  Cross-slice touches: 003 figure/scoring helpers moved to
+  `strike_a_pose.eval.report` (behaviour-preserving, 003 byte test guards it); 005's
+  `ci.yml` smoke-train placeholder replaced by a fixture train step.
+  Full run `runs/ae-smpl_proc_v1-20261020T030038Z` (commit `f9619c6`, clean; resumed
+  across two container restarts, code unchanged; copy in
+  `docs/results/004-ae-smpl_proc_v1/`): 60 epochs, 84 min compute on 4 vCPU (2 h 45 min
+  calendar incl. ≈ 80 min with the process dead). val / test — AE MSE 0.00221 /
+  0.00219 (PSNR 27.1 dB, IoU 0.879 / 0.881) vs PCA k=64 0.00459 / 0.00452 (IoU 0.644 /
+  0.646) and mean image 0.01403 / 0.01385 (baselines identical to 003). Train MSE
+  0.0352 → 0.00106; val 0.0100 → min 0.00217 (epoch 34) → 0.00221: mild overfitting,
+  final weights kept as specified. Held-out reconstructions recognizable but blurred;
+  hands/fingers, faces and feet are lost, crossing limbs merge (candidate topics for
+  post-MVP slices, not acted on).
+  Lesson (process): the agent container is reclaimed when the session idles, which
+  kills background jobs (two kills during this run). Long jobs must be resumable
+  (end-of-epoch checkpoint + `--resume`), launched detached with the resume command
+  written down in tasks.md, and the session kept active (or heartbeated) while they
+  run; plan wall-clock budgets with restarts in mind.
+  PyTorch CPU wheel index re-tested at the end of the slice: still 403 → unchanged
+  (open operator question, 002 research R1).

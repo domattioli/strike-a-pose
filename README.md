@@ -6,7 +6,9 @@ library driven by CLI commands and versioned configs, with reproducible runs.
 
 ## Status
 
-MVP in progress (plan: [`specs/roadmap.md`](specs/roadmap.md)).
+MVP done (2026-10-20): the image autoencoder trains from a config, its loss
+decreases and held-out reconstructions are recognizable (plan:
+[`specs/roadmap.md`](specs/roadmap.md); numbers under [Results](#results)).
 
 | Slice | What | State |
 |---|---|---|
@@ -14,7 +16,7 @@ MVP in progress (plan: [`specs/roadmap.md`](specs/roadmap.md)).
 | 002 `data-pipeline` | Dataset loader, transforms, frozen split (`strike_a_pose.data`) | implemented |
 | 005 `repo-foundation` | CI, README, packaging metadata | implemented |
 | 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented |
-| 004 `autoencoder-mvp` | Config-driven AE train/eval, CI smoke train | planned |
+| 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented |
 
 ## Install
 
@@ -93,14 +95,27 @@ same run) on `val` and `test` and writes a reconstruction figure
 (contract: [`specs/004-autoencoder-mvp/contracts/train-run.md`](specs/004-autoencoder-mvp/contracts/train-run.md)):
 
 ```bash
-uv run strike-a-pose-train --config configs/ae.yaml           # full dataset (~1.5 h, 4 vCPU)
+uv run strike-a-pose-train --config configs/ae.yaml           # full dataset (~85 min, 4 vCPU)
 uv run strike-a-pose-train --config configs/ae_fixture.yaml   # 16-sample fixture smoke (seconds)
 uv run strike-a-pose-train --resume runs/<run-dir>            # continue an interrupted run
 ```
 
 `--resume` restores model, optimizer, lr schedule, RNG states and history from the
 last end-of-epoch `checkpoint.pt`; the finished run equals an uninterrupted one on
-the same machine and thread count.
+the same machine and thread count. Long runs can be killed (e.g. a container
+restart): launch them detached and resume the same run dir rather than starting
+over:
+
+```bash
+mkdir -p runs
+setsid nohup uv run --locked strike-a-pose-train --config configs/ae.yaml \
+    > runs/ae.log 2>&1 < /dev/null &        # prints the run dir + resume command
+tail -3 runs/ae.log                          # progress, one line per epoch
+setsid nohup uv run --locked strike-a-pose-train --resume runs/<run-dir> \
+    > runs/ae-resume.log 2>&1 < /dev/null &  # after a kill (no metrics.json yet)
+```
+
+Never run two `--resume` processes on one run dir (there is no lock).
 
 Exit codes and the on-disk layout are specified in
 [`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).
@@ -128,6 +143,33 @@ its [`metrics.json`](docs/results/003-baselines-smpl_proc_v1/metrics.json) and
 
 All k values (image 8–128, pose 4–32) are in `metrics.json` and
 [`specs/003-baselines-and-metrics/tasks.md`](specs/003-baselines-and-metrics/tasks.md).
+
+Autoencoder (004) on `smpl_proc_v1`: `ConvAutoencoder` (latent 64, 3.1 M
+parameters) trained 60 epochs on train with config
+[`configs/ae.yaml`](configs/ae.yaml); final-epoch weights scored on val and test,
+with the mean image and PCA k=64 refit on train in the same run (identical to the
+003 numbers above). Source: run `runs/ae-smpl_proc_v1-20261020T030038Z` at commit
+`f9619c6` (clean; resumed across two container restarts with unchanged code); copies of
+[`metrics.json`](docs/results/004-ae-smpl_proc_v1/metrics.json),
+[`run_info.json`](docs/results/004-ae-smpl_proc_v1/run_info.json),
+[`history.csv`](docs/results/004-ae-smpl_proc_v1/history.csv) and the figures in
+[`docs/results/004-ae-smpl_proc_v1/`](docs/results/004-ae-smpl_proc_v1/).
+
+| Model | val MSE | test MSE | val / test PSNR (dB) | val / test silhouette IoU |
+|---|---|---|---|---|
+| **autoencoder (latent 64)** | **0.00221** | **0.00219** | **27.15 / 27.13** | **0.879 / 0.881** |
+| mean image | 0.01403 | 0.01385 | 18.65 / 18.71 | 0.416 / 0.420 |
+| PCA k=64 | 0.00459 | 0.00452 | 23.73 / 23.79 | 0.644 / 0.646 |
+
+Training took 84 min of compute on 4 vCPU (78 s/epoch + data loading and
+evaluation). Train MSE fell 0.0352 → 0.00106; val MSE fell 0.0100 → its minimum
+0.00217 at epoch 34 and ended at 0.00221: val flattens from about epoch 30 while
+train keeps falling, i.e. mild overfitting
+([loss curve](docs/results/004-ae-smpl_proc_v1/loss_curve.png)). In the
+[val reconstructions](docs/results/004-ae-smpl_proc_v1/recon_val.png) all six
+poses shown are recognizable (body orientation, arm and leg angles), but the images are
+blurred: faces and hands lose all detail (fingers vanish), feet and wrists are
+soft, and crossing or touching limbs merge.
 
 ## Development checks
 

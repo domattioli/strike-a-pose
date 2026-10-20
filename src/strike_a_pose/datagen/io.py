@@ -70,7 +70,8 @@ def load_sample(dataset_dir: Path | str, sample_id: str) -> dict:
     }
 
 
-def _check_labels(lab: dict, sid: str) -> list[str]:
+def check_labels(lab: dict, sid: str) -> list[str]:
+    """Problems with one label dict: key set, array shapes, SC-003 invariant."""
     errs = []
     if set(lab) != LABEL_KEYS:
         return [f"{sid}: label keys {sorted(set(lab) ^ LABEL_KEYS)} mismatch"]
@@ -126,5 +127,5 @@ def validate_dataset(dataset_dir: Path | str) -> list[str]:
         raw = (d / s["labels"]).read_bytes()
         if hashlib.sha256(raw).hexdigest() != s["labels_sha256"]:
             errs.append(f"{sid}: labels sha256 mismatch")
-        errs.extend(_check_labels(json.loads(raw), sid))
+        errs.extend(check_labels(json.loads(raw), sid))
     return errs

@@ -61,7 +61,7 @@ Slice 001 specifics (carried into its clarify step):
   first full run timing (T025).
 - 2026-10-20: slice 001 amended (operator decision): AMASS skipped for MVP.
   New default `pose_source: procedural` — per-joint uniform rotations within a
-  documented range table (`proc-v1`, research R9), recorded in the manifest;
+  the predecessor's range table + k≥5 sparsification (`predecessor-v1`, research R9), recorded in the manifest;
   AMASS kept as optional config source. Fixture (T022) regenerated from real
   SMPL with the procedural source and committed. Default dataset renamed
   `smpl_proc_v1`.

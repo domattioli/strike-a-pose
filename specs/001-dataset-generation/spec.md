@@ -94,10 +94,11 @@ fixture manifest and read every sample.
   config file and an explicit seed.
 - **FR-002** *(amended 2026-10-20)*: System MUST pose the SMPL body model with a
   configurable number of poses (default 2,000) from a config-selected pose source:
-  - `procedural` (**default**): each body joint's rotation is sampled uniformly,
-    per SMPL joint-local axis, within a hardcoded, documented, anatomically
-    plausible range table (degrees; versioned, e.g. `proc-v1`), seeded and
-    deterministic. Root orientation zero; hand joints zero.
+  - `procedural` (**default**): the predecessor's sampler (body-model-visualizer
+    `generate_random_slider_vals`): per joint and SMPL joint-local axis, integer
+    degrees uniform in a documented `[-A, B)` range (research R9), Euler `'xyz'`
+    → axis-angle, then sparsified (keep k ≥ 5 of the 69 values, zero the
+    rest); seeded and deterministic; version `predecessor-v1`. Root orientation zero.
   - `amass` (optional): poses sampled from configured AMASS sub-collections
     after fixed frame-stride subsampling (root zeroed, hands zero).
   The manifest MUST record the pose source and, for `procedural`, the ranges
@@ -173,6 +174,11 @@ All 8 batched questions accepted at their proposed defaults (operator).
   orientation zero, hands/fingers zero, mean shape. AMASS remains an optional,
   config-selectable source (not deleted). The fixture is regenerated with the
   procedural source and needs only SMPL.
+- Update (operator, same day): the predecessor's actual sampler was found; use
+  its exact table and k ≥ 5 sparsification rule (research R9) instead of
+  self-chosen ranges. Keep mean shape and the existing camera ring;
+  predecessor cameras noted in research as an option only. Its table gives
+  the SMPL hand joints (22/23) non-zero ranges; kept faithful (flagged).
 
 ## Assumptions
 

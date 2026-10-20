@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+dev = ["pytest>=8.0", "ruff>=0.6", "scipy>=1.13"]  # scipy: test-only reference
 
 [project.scripts]
 strike-a-pose-data = "strike_a_pose.datagen.cli:main"

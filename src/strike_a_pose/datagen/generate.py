@@ -19,7 +19,7 @@ from .assets import require_dir, require_file, sha256_file
 from .cameras import camera_ring, project, visibility
 from .config import GenerationConfig
 from .io import SCHEMA_VERSION, write_json
-from .procedural import RANGES_VERSION, ranges_table, sample_procedural_poses
+from .procedural import RANGES_VERSION, SPARSIFY_MIN_KEEP, ranges_table, sample_procedural_poses
 from .render import render
 from .skeleton import SKELETON_NAME, SMPL24_JOINT_NAMES, SMPL24_PARENTS
 from .smpl import SMPLModel
@@ -85,7 +85,8 @@ def generate_dataset(
         poses = sample_procedural_poses(cfg.num_poses, seed)
         pose_input = {
             "type": "procedural", "ranges_version": RANGES_VERSION,
-            "euler_order": "intrinsic XYZ (R = Rx @ Ry @ Rz), SMPL joint-local axes",
+            "euler_order": "scipy xyz (extrinsic, R = Rz @ Ry @ Rx), SMPL joint-local axes",
+            "sparsify_min_keep": SPARSIFY_MIN_KEEP,
             "ranges_deg": ranges_table(),
         }  # fmt: skip
 

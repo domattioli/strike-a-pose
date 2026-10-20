@@ -59,7 +59,7 @@ Procedural poses: `ProceduralPose` {`index`, `euler_deg` [24][3], `pose` [72]}
 See contract. Key fields: `schema_version`, `dataset_name`, `complete`,
 `seed`, `config`, `code` {`commit`, `dirty`}, `inputs` {`smpl_model`
 {`filename`, `sha256`}, `pose_source` — procedural: {`type`: "procedural", `ranges_version`,
-`euler_order`, `ranges_deg` [{`joint`, `index`, `x_deg`, `y_deg`, `z_deg`}]};
+`euler_order`, `sparsify_min_keep`, `ranges_deg` [{`joint`, `index`, `x_deg`, `y_deg`, `z_deg`}]};
 amass: {`type`: "amass", `files` [{`file`, `sha256`}] (used files only, sorted)}},
 `skeleton` {`name`, `joints`, `parents`}, `cameras` [Camera], `counts`
 {`poses`, `cameras`, `samples`}, `samples` [{`id`, `image`, `mask`, `labels`,

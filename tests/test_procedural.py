@@ -25,23 +25,39 @@ def _aa_to_matrix(v):
 def test_ranges_table_well_formed():
     assert sorted(RANGES_DEG) == list(range(24))
     for axes in RANGES_DEG.values():
-        assert len(axes) == 3 and all(lo <= hi and -180 < lo and hi < 180 for lo, hi in axes)
-    for j in (0, 22, 23):
-        assert all(lo == hi == 0 for lo, hi in RANGES_DEG[j])
+        assert len(axes) == 3 and all(lo <= 0 <= hi and isinstance(lo, int) for lo, hi in axes)
+    assert RANGES_DEG[0] == ((0, 0), (0, 0), (0, 0))
+    assert RANGES_DEG[18] == ((-60, 110), (-145, 0), (-35, 5))  # spot-check vs predecessor
 
 
-def test_ranges_respected_and_pose_matches_euler():
+def test_ranges_respected_sparsified_and_pose_matches_euler():
     poses = sample_procedural_poses(300, seed=7)
+    frac = []
     for p in poses:
         deg = np.array(p.euler_deg)
         aa = np.array(p.pose).reshape(24, 3)
+        assert (deg == np.round(deg)).all() and not deg[0].any()
         for j in range(24):
             for a in range(3):
                 lo, hi = RANGES_DEG[j][a]
-                assert lo - 1e-9 <= deg[j, a] <= hi + 1e-9
+                v = deg[j, a]
+                assert v == 0 or lo <= v < hi
             r = euler_xyz_to_matrix(np.radians(deg[j]))
             assert np.allclose(_aa_to_matrix(aa[j]), r, atol=1e-6)
-        assert not aa[[0, 22, 23]].any()
+        frac.append(np.count_nonzero(deg[1:]) / 69)
+    # k uniform in [5, 69) kept -> mean kept fraction ~ 0.53
+    assert 0.4 < np.mean(frac) < 0.65 and min(frac) < 0.2 and max(frac) > 0.85
+
+
+def test_matches_scipy_from_euler_xyz():
+    rot = pytest.importorskip("scipy.spatial.transform").Rotation
+    rng = np.random.default_rng(0)
+    for ang in rng.uniform(-170, 170, (200, 3)):
+        ref = rot.from_euler("xyz", ang, degrees=True)
+        assert np.allclose(euler_xyz_to_matrix(np.radians(ang)), ref.as_matrix(), atol=1e-9)
+        assert np.allclose(
+            matrix_to_axis_angle(euler_xyz_to_matrix(np.radians(ang))), ref.as_rotvec(), atol=1e-6
+        )
 
 
 def test_axis_angle_near_pi():

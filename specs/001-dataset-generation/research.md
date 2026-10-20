@@ -98,35 +98,43 @@ lockfile). Runtime deps: numpy, pillow, pyyaml. Dev: pytest, ruff.
 
 ## R9. Procedural pose source (amendment 2026-10-20)
 
-- Decision: default pose source samples, per joint and per local axis (x, y, z),
-  an angle uniformly from a hardcoded range table (`procedural.RANGES_DEG`,
-  version `proc-v1`), composes intrinsic XYZ Euler (`R = Rx @ Ry @ Rz`) and
-  converts to axis-angle. `numpy.random.default_rng(seed)`, one `uniform`
-  draw of shape (24, 3) per pose, in pose order → deterministic.
-- SMPL rest frame: +Y up, faces +Z, +X = subject's left; rest is a T-pose.
-- Ranges (degrees, x / y / z; right side mirrors y and z of the left):
+Source: predecessor body-model-visualizer `generate_random_slider_vals` +
+`refine_random_sliders` (operator-provided 2026-10-20). Faithful port; this
+replaces an interim self-chosen table that was never released.
 
-| Joint | x | y | z |
+- Per non-root joint and axis: integer degrees uniform in `[-A, B)` (upper
+  exclusive), `numpy.random.default_rng(seed).integers`.
+- Sparsification: of the 69 values, draw `k` uniform integer in `[0, 69)` until
+  `k >= 5`; keep `k` randomly chosen entries (without replacement), zero the rest.
+- Euler `'xyz'` degrees → rotation as scipy `Rotation.from_euler('xyz')`
+  (lower-case = extrinsic, `R = Rz @ Ry @ Rx`) → rotvec, implemented in NumPy;
+  scipy is a dev/test-only dependency used to verify equivalence.
+- Root orientation zero; mean shape (predecessor randomized betas — not adopted).
+- Version string `predecessor-v1`; manifest records it plus the full table.
+
+| SMPL joint | x | y | z |
 |---|---|---|---|
-| pelvis (root) | 0 | 0 | 0 |
-| L_hip / R_hip | -90..20 (− = thigh forward) | -25..25 | -10..40 / -40..10 (abduction) |
-| L_knee / R_knee | 0..120 (flexion) | 0 | 0 |
-| L_ankle / R_ankle | -20..30 | -10..10 | -10..10 |
-| L_foot / R_foot | -10..10 | 0 | 0 |
-| spine1 | -10..30 (+ = forward bend) | -15..15 | -15..15 |
-| spine2, spine3 | -5..15 | -10..10 | -10..10 |
-| neck | -20..30 | -30..30 | -15..15 |
-| head | -20..20 | -30..30 | -15..15 |
-| L_collar / R_collar | 0 | -10..10 | -10..15 / -15..10 |
-| L_shoulder / R_shoulder | -30..30 (twist) | -80..20 / -20..80 (forward) | -80..30 / -30..80 (down from T-pose) |
-| L_elbow / R_elbow | 0 | -130..0 / 0..130 (flexion) | 0 |
-| L_wrist / R_wrist | -20..20 | -10..10 | -30..30 |
-| L_hand / R_hand | 0 | 0 | 0 |
+| 1 L_hip / 2 R_hip | [-130,80) | [-20,20) | [-10,10) |
+| 3 spine1 | [-50,100) | [-75,75) | [-15,15) |
+| 4 L_knee / 5 R_knee | [0,130) | [-20,20) | 0 |
+| 6 spine2 | [-20,20) | [-15,15) | [-20,20) |
+| 7 L_ankle / 8 R_ankle | [-30,70) | [-30,30) | [-25,30) |
+| 9 spine3 | [-35,25) | [-50,50) | [-45,45) |
+| 10 L_foot / 11 R_foot | [-40,40) | 0 | [-20,20) |
+| 12 neck | [-45,35) | [-50,50) | [-20,20) |
+| 13 L_collar / 14 R_collar | [-10,10) | [-10,10) | [-30,30) |
+| 15 head | [-30,30) | [-30,30) | [-30,30) |
+| 16 L_shoulder / 17 R_shoulder | [-20,20) | [-40,20) | [-50,50) |
+| 18 L_elbow | [-60,110) | [-145,0) | [-35,5) |
+| 19 R_elbow | [-60,110) | [0,145) | [-35,5) |
+| 20 L_wrist / 21 R_wrist | [-50,50) | [-35,35) | [-50,50) |
+| 22 L_hand / 23 R_hand | [-25,25) | [-15,15) | [-90,45) |
 
-- Ranges are ad hoc (predecessor's were unavailable). Checked by rendering a
-  12-pose sheet on real SMPL: knees/elbows bend the right way, no obvious
-  limb-through-torso. Joint limits are independent per axis, so mild
-  self-intersection (e.g. hand into torso at extreme shoulder+elbow) is
-  possible and accepted for the MVP.
-- Any change to the table bumps `RANGES_VERSION`.
-- Alternative kept: AMASS (R3/R4), selected with `pose_source: amass`.
+- Visual check (12 poses, real SMPL): knees/elbows bend plausibly. Observations,
+  kept faithful: shoulder z is ±50° around the SMPL T-pose, so arms are never
+  lowered to the sides; left/right shoulder and wrist ranges are not mirrored;
+  some strong spine bends; hand joints 22/23 are non-zero (predecessor table).
+- Predecessor cameras (option only, not adopted; we keep our ring): look-at
+  (0,1,0), up +Y, eyes at y=2: Front (0,2,3), FL (4/3,2,8/3), FR (-4/3,2,8/3),
+  Back (0,2,-3), BL (4/3,2,-8/3), BR (-4/3,2,-8/3), SideL (3,2,0), SideR (-3,2,0);
+  vertical FOV 60°; feet translated to y=0; unlit inverted silhouette.

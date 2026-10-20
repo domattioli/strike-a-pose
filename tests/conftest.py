@@ -66,7 +66,7 @@ def synthetic_amass(tmp_path: Path) -> Path:
 @pytest.fixture
 def small_cfg(synthetic_smpl_npz: Path, synthetic_amass: Path, tmp_path: Path):
     return config_from_dict({
-        "dataset_name": "synth", "output_root": str(tmp_path / "out"),
+        "dataset_name": "synth", "pose_source": "amass", "output_root": str(tmp_path / "out"),
         "smpl_model_path": str(synthetic_smpl_npz), "amass_root": str(synthetic_amass),
         "amass_subsets": ["SubA", "SubB"], "num_poses": 2, "frame_stride": 10,
         "image": {"height": 64, "width": 48},

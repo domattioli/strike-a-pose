@@ -1,12 +1,11 @@
 # Committed test fixture (FR-009): 2 poses x 8 cameras = 16 samples.
-# Run (operator, needs SMPL + AMASS):
+# Procedural pose source (Clarifications 2026-10-20); needs only SMPL.
+# Run (from repo root):
 #   strike-a-pose-data generate --config configs/fixture.yaml --seed 0 --output-root tests/fixtures
 dataset_name: smpl_fixture
 smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
-amass_root: assets/amass
-amass_subsets: [BMLmovi]
+pose_source: procedural
 num_poses: 2
-frame_stride: 30
 num_betas: 10
 image: {height: 256, width: 192}
 camera_ring: {count: 8, distance_m: 3.5, height_m: 0.0, focal_px: 320.0}

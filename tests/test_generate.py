@@ -24,7 +24,7 @@ def test_generate_us1(small_cfg):
     assert len(m["samples"]) == 16 and m["samples"][0]["id"] == "00000_Front_0"
     assert validate_dataset(out) == []
     assert m["seed"] == 3 and m["config"]["num_poses"] == 2
-    assert len(m["inputs"]["smpl_model"]["sha256"]) == 64 and m["inputs"]["amass"]
+    assert len(m["inputs"]["smpl_model"]["sha256"]) == 64 and m["inputs"]["pose_source"]["files"]
     assert m["code"]["commit"]
     for s in m["samples"]:
         smp = load_sample(out, s["id"])

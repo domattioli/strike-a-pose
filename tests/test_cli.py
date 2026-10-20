@@ -35,6 +35,6 @@ def test_generate_exists_validate(small_cfg, tmp_path):
 
 def test_config_errors(tmp_path):
     p = tmp_path / "c.yaml"
-    p.write_text("dataset_name: x\n")
+    p.write_text("dataset_name: x\npose_source: amass\n")  # no amass_subsets
     assert main(["generate", "--config", str(p), "--seed", "0"]) == 2
     assert main(["generate", "--config", str(tmp_path / "nope.yaml"), "--seed", "0"]) == 2

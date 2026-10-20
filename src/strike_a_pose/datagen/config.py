@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+POSE_SOURCES = ("procedural", "amass")
+
 
 class ConfigError(ValueError):
     pass
@@ -29,7 +31,8 @@ class CameraRingConfig:
 @dataclass(frozen=True)
 class GenerationConfig:
     dataset_name: str
-    amass_subsets: tuple[str, ...]
+    pose_source: str = "procedural"  # "procedural" (default) | "amass"
+    amass_subsets: tuple[str, ...] = ()
     output_root: str = "data/generated"
     smpl_model_path: str = "assets/smpl/SMPL_NEUTRAL.npz"
     amass_root: str = "assets/amass"
@@ -62,13 +65,14 @@ def config_from_dict(data: dict[str, Any]) -> GenerationConfig:
         ring = CameraRingConfig(
             **_build(CameraRingConfig, data.pop("camera_ring", {}), "camera_ring")
         )
-        subsets = data.pop("amass_subsets", None)
-        if (
-            not isinstance(subsets, list)
-            or not subsets
-            or not all(isinstance(s, str) for s in subsets)
-        ):
-            raise ConfigError("amass_subsets: required non-empty list of strings")
+        source = data.get("pose_source", "procedural")
+        if source not in POSE_SOURCES:
+            raise ConfigError(f"pose_source must be one of {list(POSE_SOURCES)}")
+        subsets = data.pop("amass_subsets", [] if source == "procedural" else None)
+        if not isinstance(subsets, list) or not all(isinstance(s, str) for s in subsets):
+            raise ConfigError("amass_subsets: must be a list of strings")
+        if source == "amass" and not subsets:
+            raise ConfigError("amass_subsets: required non-empty list when pose_source is amass")
         cfg = GenerationConfig(amass_subsets=tuple(subsets), image=image, camera_ring=ring, **data)
     except TypeError as e:
         raise ConfigError(str(e)) from e

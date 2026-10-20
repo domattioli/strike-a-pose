@@ -17,12 +17,22 @@ def test_defaults_and_files():
     assert load_config("configs/fixture.yaml").num_poses * 8 <= 16
 
 
+def test_pose_source_selection():
+    assert config_from_dict({"dataset_name": "x"}).pose_source == "procedural"
+    a = config_from_dict({"dataset_name": "x", "pose_source": "amass", "amass_subsets": ["A"]})
+    assert a.pose_source == "amass" and a.amass_subsets == ("A",)
+    for name in ("default", "fixture"):
+        assert load_config(f"configs/{name}.yaml").pose_source == "procedural"
+
+
 @pytest.mark.parametrize(
     "bad",
     [
         {"dataset_name": "x", "amass_subsets": ["A"], "bogus": 1},
         {"dataset_name": "x y", "amass_subsets": ["A"]},
-        {"dataset_name": "x", "amass_subsets": []},
+        {"dataset_name": "x", "pose_source": "amass", "amass_subsets": []},
+        {"dataset_name": "x", "pose_source": "amass"},
+        {"dataset_name": "x", "pose_source": "mocap"},
         {"dataset_name": "x", "amass_subsets": ["A"], "num_poses": 0},
         {"dataset_name": "x", "amass_subsets": ["A"], "image": {"height": 10, "depth": 3}},
         {"dataset_name": "x", "amass_subsets": ["A"], "camera_ring": {"focal_px": -1}},

@@ -1,0 +1,77 @@
+import numpy as np
+import pytest
+
+from strike_a_pose.datagen.config import config_from_dict
+from strike_a_pose.datagen.generate import generate_dataset
+from strike_a_pose.datagen.io import load_manifest, load_sample, validate_dataset
+from strike_a_pose.datagen.procedural import (
+    RANGES_DEG,
+    RANGES_VERSION,
+    euler_xyz_to_matrix,
+    matrix_to_axis_angle,
+    sample_procedural_poses,
+)
+
+
+def _aa_to_matrix(v):
+    t = np.linalg.norm(v)
+    if t < 1e-12:
+        return np.eye(3)
+    k = v / t
+    kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return np.eye(3) + np.sin(t) * kx + (1 - np.cos(t)) * kx @ kx
+
+
+def test_ranges_table_well_formed():
+    assert sorted(RANGES_DEG) == list(range(24))
+    for axes in RANGES_DEG.values():
+        assert len(axes) == 3 and all(lo <= hi and -180 < lo and hi < 180 for lo, hi in axes)
+    for j in (0, 22, 23):
+        assert all(lo == hi == 0 for lo, hi in RANGES_DEG[j])
+
+
+def test_ranges_respected_and_pose_matches_euler():
+    poses = sample_procedural_poses(300, seed=7)
+    for p in poses:
+        deg = np.array(p.euler_deg)
+        aa = np.array(p.pose).reshape(24, 3)
+        for j in range(24):
+            for a in range(3):
+                lo, hi = RANGES_DEG[j][a]
+                assert lo - 1e-9 <= deg[j, a] <= hi + 1e-9
+            r = euler_xyz_to_matrix(np.radians(deg[j]))
+            assert np.allclose(_aa_to_matrix(aa[j]), r, atol=1e-6)
+        assert not aa[[0, 22, 23]].any()
+
+
+def test_axis_angle_near_pi():
+    r = euler_xyz_to_matrix(np.radians([179.9999999, 0, 0]))
+    assert np.allclose(_aa_to_matrix(matrix_to_axis_angle(r)), r, atol=1e-6)
+
+
+def test_deterministic():
+    a, b = sample_procedural_poses(5, seed=3), sample_procedural_poses(5, seed=3)
+    assert a == b and a != sample_procedural_poses(5, seed=4)
+
+
+@pytest.fixture
+def proc_cfg(synthetic_smpl_npz, tmp_path):
+    return config_from_dict({
+        "dataset_name": "proc", "output_root": str(tmp_path / "out"),
+        "smpl_model_path": str(synthetic_smpl_npz), "amass_root": str(tmp_path / "no_amass"),
+        "num_poses": 2, "image": {"height": 64, "width": 48},
+        "camera_ring": {"count": 8, "distance_m": 3.5, "height_m": 0.0, "focal_px": 80.0},
+    })  # fmt: skip
+
+
+def test_generate_procedural_without_amass(proc_cfg, tmp_path):
+    out = generate_dataset(proc_cfg, seed=0)
+    assert validate_dataset(out) == []
+    m = load_manifest(out)
+    src = m["inputs"]["pose_source"]
+    assert src["type"] == "procedural" and src["ranges_version"] == RANGES_VERSION
+    assert len(src["ranges_deg"]) == 24 and "amass" not in m["inputs"]
+    lab = load_sample(out, m["samples"][0]["id"])["labels"]
+    assert lab["pose_source"]["type"] == "procedural"
+    again = generate_dataset(proc_cfg, seed=0, output_root=tmp_path / "b")
+    assert (out / "manifest.json").read_bytes() == (again / "manifest.json").read_bytes()

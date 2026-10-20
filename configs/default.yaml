@@ -1,12 +1,13 @@
-# Default synthetic dataset (spec 001, Clarifications 2026-10-17).
+# Default synthetic dataset (spec 001, Clarifications 2026-10-17 + 2026-10-20).
 # Run: strike-a-pose-data generate --config configs/default.yaml --seed 0
-dataset_name: smpl_amass_v1
+dataset_name: smpl_proc_v1
 output_root: data/generated
 smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
-amass_root: assets/amass
-amass_subsets: [BMLmovi, CMU]   # one or two small sub-collections (SMPL+H G)
+pose_source: procedural          # or "amass" (then set amass_root/amass_subsets/frame_stride)
+# amass_root: assets/amass
+# amass_subsets: [BMLmovi, CMU]  # one or two small sub-collections (SMPL+H G)
+# frame_stride: 30
 num_poses: 2000
-frame_stride: 30
 num_betas: 10
 image: {height: 256, width: 192}
 camera_ring: {count: 8, distance_m: 3.5, height_m: 0.0, focal_px: 320.0}

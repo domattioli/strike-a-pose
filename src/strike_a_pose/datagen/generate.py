@@ -19,6 +19,7 @@ from .assets import require_dir, require_file, sha256_file
 from .cameras import camera_ring, project, visibility
 from .config import GenerationConfig
 from .io import SCHEMA_VERSION, write_json
+from .procedural import RANGES_VERSION, ranges_table, sample_procedural_poses
 from .render import render
 from .skeleton import SKELETON_NAME, SMPL24_JOINT_NAMES, SMPL24_PARENTS
 from .smpl import SMPLModel
@@ -65,10 +66,32 @@ def generate_dataset(
     started = datetime.now(UTC).isoformat()
     # 1. assets first: fail fast, write nothing.
     smpl_path = require_file(Path(cfg.smpl_model_path), "SMPL model file")
-    amass_root = require_dir(Path(cfg.amass_root), "AMASS root directory")
+    if cfg.pose_source == "amass":
+        amass_root = require_dir(Path(cfg.amass_root), "AMASS root directory")
     if body_model is None:
         body_model = SMPLModel.load(smpl_path)
-    poses = sample_poses(amass_root, cfg.amass_subsets, cfg.frame_stride, cfg.num_poses, seed)
+    if cfg.pose_source == "amass":
+        poses = sample_poses(amass_root, cfg.amass_subsets, cfg.frame_stride, cfg.num_poses, seed)
+        used = sorted({p.source_file for p in poses})
+        pose_input = {
+            "type": "amass",
+            "files": [{"file": f, "sha256": sha256_file(amass_root / f)} for f in used],
+        }
+
+        def source_label(rec):
+            return {"type": "amass", "file": rec.source_file, "frame": rec.frame,
+                    "root_orient": list(rec.source_root_orient)}  # fmt: skip
+    else:
+        poses = sample_procedural_poses(cfg.num_poses, seed)
+        pose_input = {
+            "type": "procedural", "ranges_version": RANGES_VERSION,
+            "euler_order": "intrinsic XYZ (R = Rx @ Ry @ Rz), SMPL joint-local axes",
+            "ranges_deg": ranges_table(),
+        }  # fmt: skip
+
+        def source_label(rec):
+            return {"type": "procedural", "ranges_version": RANGES_VERSION,
+                    "euler_deg": [list(e) for e in rec.euler_deg]}  # fmt: skip
 
     # 2. output dir
     out = Path(output_root if output_root is not None else cfg.output_root) / cfg.dataset_name
@@ -80,7 +103,6 @@ def generate_dataset(
     random.seed(seed)
     np.random.seed(seed % 2**32)
     cams = camera_ring(cfg.camera_ring, cfg.image.height, cfg.image.width)
-    used = sorted({p.source_file for p in poses})
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "dataset_name": cfg.dataset_name,
@@ -90,7 +112,7 @@ def generate_dataset(
         "code": git_commit(),
         "inputs": {
             "smpl_model": {"filename": smpl_path.name, "sha256": sha256_file(smpl_path)},
-            "amass": [{"file": f, "sha256": sha256_file(amass_root / f)} for f in used],
+            "pose_source": pose_input,
         },
         "skeleton": {
             "name": SKELETON_NAME,
@@ -120,8 +142,7 @@ def generate_dataset(
             labels = {
                 "schema_version": SCHEMA_VERSION, "sample_id": sid, "pose_index": rec.index,
                 "camera_name": cam.name,
-                "pose_source": {"file": rec.source_file, "frame": rec.frame,
-                                "root_orient": list(rec.source_root_orient)},
+                "pose_source": source_label(rec),
                 "pose": list(rec.pose), "betas": betas,
                 "joints_3d_world": joints, "joints_3d_cam": xc, "keypoints_2d": uv,
                 "visibility": visibility(xc, uv, cam.height, cam.width),

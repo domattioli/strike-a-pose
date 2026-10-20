@@ -2,7 +2,7 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `003-baselines-and-metrics`)
 **Created**: 2026-10-20
-**Status**: Approved (autonomous run, operator delegation 2026-10-20)
+**Status**: Approved (autonomous run, operator delegation 2026-10-20); Operator sign-off 2026-10-21 ("approve all")
 **Input**: Roadmap slice 003 + lead brief 2026-10-20: "package `strike_a_pose.eval`:
 metrics — image reconstruction (per-pixel MSE + PSNR and/or silhouette IoU on
 thresholded output), MPJPE (root-relative, metres → mm), 2D keypoint error (px);

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `006-latent-probe`)
 **Created**: 2026-10-20
-**Status**: Implemented 2026-10-20 (approved by surrogate ruling, operator sign-off pending); full run recorded in [tasks.md](tasks.md) T013, results in `docs/results/006-probe-smpl_proc_v1/`. Approval basis: surrogate
+**Status**: Implemented 2026-10-20 (approved by surrogate ruling, operator sign-off 2026-10-21 ("approve all")); full run recorded in [tasks.md](tasks.md) T013, results in `docs/results/006-probe-smpl_proc_v1/`. Approval basis: surrogate
 rulings 2026-10-20 #1 (exactly one post-MVP slice) and #2 (images as model input),
 recorded in [`../roadmap.md`](../roadmap.md); provisional and overturnable.
 **Input**: Roadmap post-MVP slice 006 + lead brief 2026-10-20 (Fable surrogate

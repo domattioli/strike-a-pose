@@ -2,7 +2,7 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `005-repo-foundation`)
 **Created**: 2026-10-20
-**Status**: Approved (autonomous run, operator delegation 2026-10-20)
+**Status**: Approved (autonomous run, operator delegation 2026-10-20); Operator sign-off 2026-10-21 ("approve all")
 **Input**: Roadmap slice 005 + lead brief 2026-10-20: "GitHub Actions CI on push +
 pull_request; Python 3.11 and 3.13 matrix; install with uv from the lockfile; run
 `ruff check`, `ruff format --check`, `pytest`; must pass without SMPL/AMASS; smoke

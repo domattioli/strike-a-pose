@@ -1,7 +1,7 @@
 # strike-a-pose Roadmap (spec of specs)
 
 Status: **Slice list + order APPROVED (operator, 2026-10-17).** MVP done (2026-10-20).
-Q2 confirmed by surrogate ruling 2026-10-20 (provisional, operator may overturn).
+Q2 confirmed by surrogate ruling 2026-10-20; all surrogate rulings and autonomous clarifications approved by the operator 2026-10-21.
 Post-MVP: exactly one slice, 006 `latent-probe` (surrogate ruling 2026-10-20); stop after it.
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
@@ -177,7 +177,7 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
      early-stopping / fewer-epochs default; split-hash contract change; dataset
      realism; training improvements / VAE.
 - 2026-10-20: slice 006 `latent-probe` (autonomous run, Fable surrogate scope;
-  spec approved by surrogate ruling, operator sign-off pending). Module
+  spec approved by surrogate ruling, operator sign-off 2026-10-21 ("approve all")). Module
   `strike_a_pose.eval.probe` + subcommand `strike-a-pose-eval probe` (configs
   `probe.yaml`, `probe_fixture.yaml`; contract `specs/006-latent-probe/contracts/probe-run.md`):
   frozen 004 encoder → hash-keyed latent cache → closed-form ridge + small MLP probes
@@ -197,3 +197,11 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   PCA). Per surrogate ruling #1 work stops here; open questions 12–16 remain.
   New observation for the operator: the MLP weight-decay grid picked its edge value
   (1e-3) for 3 of 4 targets; not widened after test was seen.
+- 2026-10-21: operator "approve all": signs off slices 002–006 (incl. every
+  autonomous-run clarification recorded in their specs) and all surrogate rulings
+  2026-10-20 (#1–#6). Open-question dispositions: #12 approved — switch torch to the
+  CPU wheel index once `download.pytorch.org` is reachable from a session; #14
+  approved — implement the split-hash proposal (hash manifest without
+  `code.commit`/`code.dirty`, commit informational, warn on commit mismatch,
+  refuse on content mismatch); #13, #15, #16 still need a concrete choice (they are
+  options, not single proposals) — carried to the next session.

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `004-autoencoder-mvp`)
 **Created**: 2026-10-20
-**Status**: Implemented 2026-10-20 (approved: autonomous run, operator delegation 2026-10-20); full run recorded in [tasks.md](tasks.md) T015, results in `docs/results/004-ae-smpl_proc_v1/`
+**Status**: Implemented 2026-10-20 (approved: autonomous run, operator delegation 2026-10-20; Operator sign-off 2026-10-21 ("approve all")); full run recorded in [tasks.md](tasks.md) T015, results in `docs/results/004-ae-smpl_proc_v1/`
 **Input**: Roadmap slice 004 + lead brief 2026-10-20: "plain convolutional
 autoencoder, latent 64, deterministic (VAE out of scope); config-driven training
 CLI that seeds Python/NumPy/torch and writes a run dir via `strike_a_pose.runlog`

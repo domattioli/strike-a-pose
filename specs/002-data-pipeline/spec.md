@@ -2,7 +2,7 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `002-data-pipeline`)
 **Created**: 2026-10-20
-**Status**: Approved (autonomous run, operator delegation 2026-10-20)
+**Status**: Approved (autonomous run, operator delegation 2026-10-20); Operator sign-off 2026-10-21 ("approve all")
 **Input**: Roadmap slice 002 + lead brief 2026-10-20: "package `strike_a_pose.data`:
 PyTorch `Dataset` reading a 001 dataset via its manifest (validate on load, fail
 clearly); returns image (+ mask) and labels (2D/3D keypoints, visibility, pose

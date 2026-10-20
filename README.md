@@ -10,7 +10,7 @@ MVP done (2026-10-20): the image autoencoder trains from a config, its loss
 decreases and held-out reconstructions are recognizable (plan:
 [`specs/roadmap.md`](specs/roadmap.md); numbers under [Results](#results)).
 Post-MVP slice 006 (latent probe) done 2026-10-20 under provisional surrogate
-rulings (operator sign-off pending); no further slice is planned until the operator
+rulings (operator sign-off 2026-10-21); no further slice is planned until the operator
 answers the roadmap's open questions.
 
 | Slice | What | State |
@@ -20,7 +20,7 @@ answers the roadmap's open questions.
 | 005 `repo-foundation` | CI, README, packaging metadata | implemented |
 | 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented |
 | 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented |
-| 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator sign-off pending) |
+| 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) |
 
 ## Install
 

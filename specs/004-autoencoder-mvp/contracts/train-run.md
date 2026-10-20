@@ -58,7 +58,11 @@ strike-a-pose-train --resume RUN_DIR
 own `config.yaml` (no overrides); the finished run equals an uninterrupted one on
 the same machine/thread count. Exit 2: finished run (`metrics.json` exists), no
 checkpoint, or checkpoint/config mismatch; exit 1: dataset manifest or split hash
-differs from `run_info.json`.
+differs from `run_info.json`. The manifest check uses the raw manifest hash
+(`dataset.manifest_sha256`, SHA-256 of the `manifest.json` bytes, which include the
+generating `code` commit), not the content hash the 002 split file uses: a dataset
+regenerated at another commit does not resume, by design, because the manifest does
+not hash the images (slice 007, 2026-10-20).
 
 Exit codes: 0 OK (prints run dir, final losses, headline metrics); 1 dataset or split
 invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
@@ -69,7 +73,7 @@ invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
 | File | Content |
 |---|---|
 | `config.yaml` | resolved config (overrides applied) |
-| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset`, `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure`, `sessions` (one per process: `started_utc`, `start_epoch`, `argv`, `git`); `wall_s`/`train_wall_s` sum the sessions |
+| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset` (incl. `manifest_content_sha256`, slice 007), `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure`, `sessions` (one per process: `started_utc`, `start_epoch`, `argv`, `git`); `wall_s`/`train_wall_s` sum the sessions |
 | `history.csv` | header `epoch,train_loss,val_loss,lr,epoch_s`; one row per epoch (1-based); `val_loss` empty when val is empty; `lr` = rate at the epoch's last step |
 | `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels}, "optimizer": state_dict, "scheduler": state_dict \| null, "rng": {"shuffle", "torch", "numpy", "python"}, "history": [row, …], "elapsed_s": float, "train_wall_s": float, "epoch": int, "config": dict, "train_version": 1}`; written atomically after every epoch (never committed) |
 | `best.pt` | additive (surrogate ruling 2026-10-20 #3): `{"model", "model_hparams", "epoch", "val_loss", "config", "train_version": 1}` of the epoch with the lowest val loss so far (earliest on ties), written atomically before that epoch's `checkpoint.pt`; absent when val is empty; loads with `load_checkpoint`; **not** evaluated (the final weights are), never committed. On resume the best-so-far is recomputed from the checkpointed history. |

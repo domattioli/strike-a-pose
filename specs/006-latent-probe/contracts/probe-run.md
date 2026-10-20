@@ -44,7 +44,11 @@ size); 4 run dir exists. Inputs are checked before the run dir is created.
 ## Latent cache
 
 `<cache_dir>/<ckpt12>-<manifest12>-<split12>.pt` (first 12 hex digits of each
-SHA-256). Content: `{"probe_version": 1, "checkpoint_sha256", "manifest_sha256",
+SHA-256). `manifest` is the raw manifest hash (SHA-256 of the `manifest.json` bytes,
+which include the generating `code` commit), not the content hash the 002 split file
+uses: a dataset regenerated at another commit misses the cache, by design, because
+the manifest does not hash the images (slice 007, 2026-10-20).
+Content: `{"probe_version": 1, "checkpoint_sha256", "manifest_sha256",
 "split_sha256", "seed", "encoders": [names], "splits": {split: {"latents": {encoder:
 float32 [n, latent_dim]}, "joints_world" [n,24,3], "joints_cam" [n,24,3], "kp2d"
 [n,24,2], "visible" [n,24], "K", "R", "t", "camera_index" [n], "pose" [n,72],
@@ -56,7 +60,7 @@ and the encoder set match; otherwise recomputed and overwritten. Never committed
 | File | Content |
 |---|---|
 | `config.yaml` | resolved config (overrides applied) |
-| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset`, `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `checkpoint` (`path`, `sha256`, `epoch`, `train_run_git` from the checkpoint's run dir if present), `cache` (`path`, `hit`), `encode_s`, `figures` |
+| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset` (incl. `manifest_content_sha256`, slice 007), `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `checkpoint` (`path`, `sha256`, `epoch`, `train_run_git` from the checkpoint's run dir if present), `cache` (`path`, `hit`), `encode_s`, `figures` |
 | `metrics.json` | below |
 | `skeleton_<figure_split>.png` | rows = evenly spaced samples; columns: true, ridge, mlp (trained encoder, `joints_world`) drawn on the input image (true skeleton blue, prediction orange) |
 | `yaw_confusion_<figure_split>.png` | 8×8 count grids (rows true, columns predicted) for the trained-encoder ridge and MLP yaw probes |

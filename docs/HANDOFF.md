@@ -91,6 +91,60 @@ print("pose assignment unchanged; split_version 1 -> 2")
 EOF
 ```
 
+## Operator decisions requested (2026-10-20 closing message)
+
+Put to the operator in one batch; nothing below was started. Sequencing that
+applies to every option needing numbers: SMPL access → F1 (regenerate
+`smpl_proc_v1`, rewrite its split as v2) → retrain (≈ 85 min CPU per AE run on
+4 vCPU, 2–3 h wall-clock with container restarts; probe ≈ 8 min, baselines
+≈ 3 min). No checkpoint or dataset exists in a fresh container. Any generator
+change (#15) must land *after* F1, because new config fields enter
+`manifest.config` and F1's provenance check could then never match `9000c915…`.
+
+- **SMPL access**: `domattioli/smpl-assets` was not reachable from this session
+  (GitHub access refused; not in the session's repo list). Options: grant the
+  Claude GitHub App access to that repo and start the next session with it
+  attached, or supply `SMPL_NEUTRAL.npz` another way (sha256 must equal the
+  fixture manifest's `inputs.smpl_model.sha256`, `f408141b…`).
+- **#13 epochs / early stopping** (today: 60 epochs, cosine lr, final weights
+  evaluated; `best.pt` saved but informational; 004 val min 0.00217 at epoch 34,
+  final 0.00221, i.e. 1.8 % above the minimum). Options: A keep; B report
+  `best.pt` (best val loss) as the model, 60 epochs unchanged (small code: config
+  flag, fallback to final weights when val is empty as in the fixture,
+  `configs/probe.yaml` repointed, 004 FR-006/Q5 amended; gain on the 004 curve
+  1.8 % val MSE ≈ 0.08 dB, one seed, measured on the selecting split); C early
+  stopping on val with patience P (P = 10 on the 004 curve stops after epoch 44,
+  ≈ 25 % less compute, same epoch-34 weights as B; changes 004 FR-003 "val never
+  changes the run" and the resume logic); D fewer epochs (e.g. 40; a 40-epoch
+  cosine run is not epoch 40 of the 60-epoch run, result unknown). Lead
+  recommendation: B, landed before the one re-baseline run that F1 forces anyway.
+- **#15 dataset realism** (today: predecessor range table, arms near the SMPL
+  rest pose, mean shape, 8-camera level ring at 3.5 m; none of the options is
+  config-selectable yet, each needs code + tests + 001 FR-002/FR-003 and layout
+  contract amendments + operator sign-off, and its own dataset version
+  `smpl_proc_v2…`). Options: (a) arms-down range table (reopens the 001 answer
+  "keep arms-out limitation"; most limb–torso overlap); (b) random betas per pose
+  (changes bone lengths, so MPJPE is not comparable with v1); (c) camera ring
+  jitter — look-at the body, pitch ≤ ~5°, distance ≥ 3.5 m, height small, with an
+  in-frame check (a 15° pitch or +0.3 m height pushes feet past the 256-px edge);
+  (d) more poses (`num_poses`, config only; train has 1,600 distinct poses;
+  2× doubles generation and epoch time and needs `context_pca_k: null`, PCA
+  memory); AMASS mocap poses (config-selectable today, arms-down for free, needs
+  the AMASS download + license). Lead recommendation: one change per dataset
+  version, (a) first.
+- **#16 training improvements / VAE** (today: plain MSE, Adam + cosine,
+  BatchNorm, no dropout / weight decay / augmentation, sigmoid grey output).
+  Options: (i) per-region MSE metrics (hands / feet / head box; no face joint in
+  SMPL-24) — metrics only, lands before the re-baseline run; (ii) regularization
+  (weight decay, small shifts, bottleneck dropout: 3 runs); (iii) loss shaping
+  (mask-weighted MSE is small; a silhouette BCE term needs a mask head or soft
+  threshold); (iv) VAE (model, loss, config, probe and checkpoint loading
+  changes; reconstruction usually slightly worse at equal latent size; enables
+  sampling / interpolation); (v) capacity sweep (latent 32 / 128; wider channels
+  ≈ 2.5× slower). Every option after a #15 dataset change needs a matching plain
+  AE control run on that dataset. Lead recommendation: (i) first, then (iii) or
+  (iv) by goal (detail vs generation).
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

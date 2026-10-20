@@ -6,13 +6,18 @@ build-backend = "hatchling.build"
 name = "strike-a-pose"
 version = "0.1.0"
 description = "Compact latent representations of human pose (successor to Conv_AE-Human_Pose)."
+readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
+authors = [{ name = "Dominik Mattioli" }]
 dependencies = [
     "numpy>=1.26",   # arrays, SMPL LBS, rasterizer
     "pillow>=10.0",  # PNG I/O
     "pyyaml>=6.0",   # config files
 ]
+
+[project.urls]
+Repository = "https://github.com/domattioli/strike-a-pose"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6", "scipy>=1.13"]  # scipy: test-only reference

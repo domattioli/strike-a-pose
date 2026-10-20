@@ -5,17 +5,17 @@ commands run locally on 3.11 + 3.13 and the GitHub Actions run.
 
 ## Phase 1: US1 — CI on every push (P1)
 
-- [ ] T001 [US1] `.github/workflows/ci.yml` exactly per plan "Design" (triggers, concurrency, read-only permissions, 3.11/3.13 matrix no fail-fast, timeout 10, checkout@v5, setup-uv@v7 with cache, `uv sync --locked`, ruff check, ruff format --check, pytest, validate fixture, commented slice-004 smoke-train placeholder).
-- [ ] T002 [US1] Validate YAML parses (`python -c "import yaml; yaml.safe_load(...)"`) and has the expected keys.
+- [x] T001 [US1] `.github/workflows/ci.yml` exactly per plan "Design" (triggers, concurrency, read-only permissions, 3.11/3.13 matrix no fail-fast, timeout 10, checkout@v5, setup-uv@v7 with cache, `uv sync --locked`, ruff check, ruff format --check, pytest, validate fixture, commented slice-004 smoke-train placeholder).
+- [x] T002 [US1] Validate YAML parses (`python -c "import yaml; yaml.safe_load(...)"`) and has the expected keys.
 
 ## Phase 2: US2 — README + metadata (P2)
 
-- [ ] T003 [P] [US2] `README.md` per FR-007.
-- [ ] T004 [P] [US2] `pyproject.toml`: `readme`, `authors`, `[project.urls]` (FR-008); `uv lock --check` still passes.
+- [x] T003 [P] [US2] `README.md` per FR-007.
+- [x] T004 [P] [US2] `pyproject.toml`: `readme`, `authors`, `[project.urls]` (FR-008); `uv lock --check` still passes.
 
 ## Phase 3: Verify + record
 
-- [ ] T005 Run locally, Python 3.11 and 3.13 (separate venvs): `uv sync --locked`, `ruff check .`, `ruff format --check .`, `pytest`, `strike-a-pose-data validate tests/fixtures/smpl_fixture` — all green.
+- [x] T005 Run locally, Python 3.11 and 3.13 (separate venvs): `uv sync --locked`, `ruff check .`, `ruff format --check .`, `pytest`, `strike-a-pose-data validate tests/fixtures/smpl_fixture` — all green.
 - [ ] T006 Push; confirm GitHub Actions run for the head SHA is green on both legs (SC-001) and each leg < 5 min (SC-003); fix and re-push until green.
 - [ ] T007 Roadmap changelog entry for slice 005.
 

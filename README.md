@@ -89,6 +89,30 @@ tensors. Baseline numbers for `smpl_proc_v1` are under [Results](#results).
 Exit codes and the on-disk layout are specified in
 [`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).
 
+## Results
+
+Baselines on `smpl_proc_v1` (fit on train, 12,800 images; val / test 1,600 images
+each; images in [0, 1]; MPJPE root-relative). Context for the autoencoder (004),
+not a bar to beat. Source: run `runs/baselines-smpl_proc_v1-20261020T022918Z` at
+commit `aded3a4`, config [`configs/baselines.yaml`](configs/baselines.yaml); copy of
+its [`metrics.json`](docs/results/003-baselines-smpl_proc_v1/metrics.json) and
+[`run_info.json`](docs/results/003-baselines-smpl_proc_v1/run_info.json) committed.
+
+| Baseline | val MSE | test MSE | val / test PSNR (dB) | val / test silhouette IoU |
+|---|---|---|---|---|
+| mean image | 0.01403 | 0.01385 | 18.65 / 18.71 | 0.416 / 0.420 |
+| PCA k=64 (= AE latent size) | 0.00459 | 0.00452 | 23.73 / 23.79 | 0.644 / 0.646 |
+| PCA k=128 | 0.00327 | 0.00321 | 25.19 / 25.25 | 0.701 / 0.704 |
+
+| Baseline (3D joints) | val / test MPJPE (mm) | val / test 2D error (px) |
+|---|---|---|
+| mean pose | 253.4 / 250.3 | 18.35 / 18.17 |
+| PCA k=8 | 94.0 / 93.6 | 6.83 / 6.78 |
+| PCA k=16 | 34.2 / 34.6 | 2.50 / 2.52 |
+
+All k values (image 8–128, pose 4–32) are in `metrics.json` and
+[`specs/003-baselines-and-metrics/tasks.md`](specs/003-baselines-and-metrics/tasks.md).
+
 ## Development checks
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on

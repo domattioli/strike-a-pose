@@ -88,3 +88,23 @@ Slice 001 specifics (carried into its clarify step):
   from the agent session (egress policy), so Linux installs pull CUDA runtime
   wheels; switching to the CPU index is an open operator question (002 research R1).
   Note for 004: the fixture split has train 1 pose / val 0 / test 1 (8 samples each).
+- 2026-10-20: 001 T025 done (slice 003, operator delegation): full `smpl_proc_v1`
+  generated at `406b68f` in 290 s on 4 vCPU (16,000 samples, 351 MB; SC-004 met);
+  frozen split `splits/smpl_proc_v1.json` (1600/200/200 poses). The split pins the
+  manifest SHA-256, which includes `code.commit` → valid only for that config + seed
+  + commit (README).
+- 2026-10-20: slice 003 `baselines-and-metrics` (autonomous run, operator delegation
+  2026-10-20; clarifications at lead defaults in its spec). Package
+  `strike_a_pose.eval`: metrics (`image_mse`, `psnr`, `silhouette_iou` @ 0.075,
+  root-relative `mpjpe` → mm, `keypoint_error_2d` px; NumPy or torch), exact PCA
+  (Gram/covariance eigh, rank clamp), mean/PCA baselines fit on train only, CLI
+  `strike-a-pose-eval baseline --config` writing run dirs under git-ignored `runs/`
+  (resolved config, run_info with commit/seed/env/hashes, `metrics.json`, recon
+  figure). Shared run helpers in `strike_a_pose.runlog` (for 004). CI gains a fixture
+  baseline smoke step (additive edit to 005's workflow). Contract:
+  `specs/003-baselines-and-metrics/contracts/eval-run.md`.
+  Full-dataset run `runs/baselines-smpl_proc_v1-20261020T022918Z` (commit `aded3a4`,
+  clean; 182 s; copy in `docs/results/003-baselines-smpl_proc_v1/`): val / test —
+  mean image MSE 0.01403 / 0.01385 (IoU 0.416 / 0.420); PCA k=64 MSE 0.00459 /
+  0.00452 (PSNR 23.7 / 23.8 dB, IoU 0.644 / 0.646); mean pose MPJPE 253.4 / 250.3 mm
+  (2D 18.4 / 18.2 px); pose PCA k=8 94.0 / 93.6 mm. Context for 004, not a bar.

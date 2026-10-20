@@ -1,0 +1,205 @@
+{
+  "dataset": {
+    "manifest_sha256": "9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588",
+    "name": "smpl_proc_v1",
+    "split_file_sha256": "4b539833405f73b98b07e79b5c1005d04abeca7027e496162ceb3e99aff555ab"
+  },
+  "fit": {
+    "image_pca": {
+      "explained_variance_ratio": {
+        "128": 0.764428,
+        "16": 0.456563,
+        "32": 0.568661,
+        "64": 0.669502,
+        "8": 0.335125
+      },
+      "n_components": 128,
+      "numerical_rank": 12794
+    },
+    "pose_pca": {
+      "explained_variance_ratio": {
+        "16": 0.979052,
+        "32": 0.9982,
+        "4": 0.548666,
+        "8": 0.858868
+      },
+      "n_components": 32,
+      "numerical_rank": 60
+    },
+    "poses": 1600,
+    "samples": 12800,
+    "split": "train"
+  },
+  "metrics_version": 1,
+  "splits": {
+    "test": {
+      "image": {
+        "mean_image": {
+          "image_mse": 0.0138466,
+          "psnr_db": 18.7144,
+          "silhouette_iou": 0.419706
+        },
+        "pca_k128": {
+          "image_mse": 0.00321394,
+          "k": 128,
+          "k_effective": 128,
+          "psnr_db": 25.2477,
+          "silhouette_iou": 0.703994
+        },
+        "pca_k16": {
+          "image_mse": 0.00747997,
+          "k": 16,
+          "k_effective": 16,
+          "psnr_db": 21.5582,
+          "silhouette_iou": 0.540165
+        },
+        "pca_k32": {
+          "image_mse": 0.00592123,
+          "k": 32,
+          "k_effective": 32,
+          "psnr_db": 22.6108,
+          "silhouette_iou": 0.596397
+        },
+        "pca_k64": {
+          "image_mse": 0.00451764,
+          "k": 64,
+          "k_effective": 64,
+          "psnr_db": 23.7874,
+          "silhouette_iou": 0.646362
+        },
+        "pca_k8": {
+          "image_mse": 0.00918041,
+          "k": 8,
+          "k_effective": 8,
+          "psnr_db": 20.6156,
+          "silhouette_iou": 0.499044
+        }
+      },
+      "pose": {
+        "mean_pose": {
+          "kp2d_px": 18.1691,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 250.337
+        },
+        "pca_k16": {
+          "k": 16,
+          "k_effective": 16,
+          "kp2d_px": 2.51808,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 34.563
+        },
+        "pca_k32": {
+          "k": 32,
+          "k_effective": 32,
+          "kp2d_px": 0.842455,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 11.5455
+        },
+        "pca_k4": {
+          "k": 4,
+          "k_effective": 4,
+          "kp2d_px": 13.1172,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 170.219
+        },
+        "pca_k8": {
+          "k": 8,
+          "k_effective": 8,
+          "kp2d_px": 6.77744,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 93.6431
+        }
+      },
+      "poses": 200,
+      "samples": 1600
+    },
+    "val": {
+      "image": {
+        "mean_image": {
+          "image_mse": 0.0140267,
+          "psnr_db": 18.6527,
+          "silhouette_iou": 0.416363
+        },
+        "pca_k128": {
+          "image_mse": 0.00326842,
+          "k": 128,
+          "k_effective": 128,
+          "psnr_db": 25.1886,
+          "silhouette_iou": 0.701364
+        },
+        "pca_k16": {
+          "image_mse": 0.00760851,
+          "k": 16,
+          "k_effective": 16,
+          "psnr_db": 21.4764,
+          "silhouette_iou": 0.536824
+        },
+        "pca_k32": {
+          "image_mse": 0.0060331,
+          "k": 32,
+          "k_effective": 32,
+          "psnr_db": 22.5356,
+          "silhouette_iou": 0.595313
+        },
+        "pca_k64": {
+          "image_mse": 0.00459007,
+          "k": 64,
+          "k_effective": 64,
+          "psnr_db": 23.7286,
+          "silhouette_iou": 0.644424
+        },
+        "pca_k8": {
+          "image_mse": 0.00937238,
+          "k": 8,
+          "k_effective": 8,
+          "psnr_db": 20.5181,
+          "silhouette_iou": 0.495132
+        }
+      },
+      "pose": {
+        "mean_pose": {
+          "kp2d_px": 18.3535,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 253.425
+        },
+        "pca_k16": {
+          "k": 16,
+          "k_effective": 16,
+          "kp2d_px": 2.50496,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 34.2345
+        },
+        "pca_k32": {
+          "k": 32,
+          "k_effective": 32,
+          "kp2d_px": 0.800224,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 10.8818
+        },
+        "pca_k4": {
+          "k": 4,
+          "k_effective": 4,
+          "kp2d_px": 13.1376,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 170.252
+        },
+        "pca_k8": {
+          "k": 8,
+          "k_effective": 8,
+          "kp2d_px": 6.82733,
+          "kp2d_samples": 1600,
+          "mpjpe_mm": 94.0266
+        }
+      },
+      "poses": 200,
+      "samples": 1600
+    }
+  },
+  "units": {
+    "image_mse": "per-pixel mean squared error, images in [0, 1] (PCA output clamped to [0, 1])",
+    "kp2d_px": "px, mean over visible joints; prediction + true root projected with true camera",
+    "mpjpe_mm": "mm, root-relative (pelvis) 3D joint error, world frame (= camera frame)",
+    "psnr_db": "dB, 10*log10(1/max(MSE, 1e-10)) per image, averaged over images",
+    "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean"
+  }
+}

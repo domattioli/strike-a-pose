@@ -117,6 +117,7 @@ def test_verify_full_passes_on_fixture():
         (lambda m: m["samples"][1].update(id=m["samples"][0]["id"]), "duplicate"),
         (lambda m: m["skeleton"].update(name="coco17"), "skeleton"),
         (lambda m: m.update(skeleton=None), "malformed manifest"),
+        (lambda m: m["config"].pop("image"), "malformed manifest"),
     ],
 )
 def test_bad_manifest(copy, edit, match):

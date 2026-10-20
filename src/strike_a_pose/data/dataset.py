@@ -108,7 +108,10 @@ class PoseImageDataset(Dataset):
         self.split = split
         try:
             m, entries, errs = _index_manifest(self.dataset_dir)
-        except (KeyError, TypeError, AttributeError) as err:
+            if not errs:
+                img = m["config"]["image"]
+                self.image_size = (int(img["height"]), int(img["width"]))
+        except (KeyError, TypeError, AttributeError, ValueError) as err:
             msg = f"invalid dataset {self.dataset_dir}: malformed manifest ({err!r})"
             raise DatasetError(msg) from err
         if not errs and verify:
@@ -118,7 +121,6 @@ class PoseImageDataset(Dataset):
         self.manifest = m
         self.manifest_sha256 = manifest_sha256(self.dataset_dir)
         self.cameras = [c["name"] for c in m["cameras"]]
-        self.image_size = (int(m["config"]["image"]["height"]), int(m["config"]["image"]["width"]))
         if split_file is not None:
             try:
                 sp = load_split(split_file)

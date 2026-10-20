@@ -5,32 +5,32 @@ Tests are written with (before) each module (constitution IV).
 
 ## Phase 1: Setup
 
-- [ ] T001 Add `torch>=2.5` with `uv add` (PyPI, research R1); `uv lock --check` and `uv sync --locked` pass; confirm `import torch` on CPU.
-- [ ] T002 `datagen/io.py`: rename `_check_labels` → `check_labels` (+ call site); existing tests stay green.
+- [x] T001 Add `torch>=2.5` with `uv add` (PyPI, research R1); `uv lock --check` and `uv sync --locked` pass; confirm `import torch` on CPU.
+- [x] T002 `datagen/io.py`: rename `_check_labels` → `check_labels` (+ call site); existing tests stay green.
 
 ## Phase 2: US3 — normalization helpers (P2, but a dependency of US1)
 
-- [ ] T003 [P] [US3] `tests/test_data_transforms.py`: uint8 image round trip exact; range/shape/dtype; rejects bad input; mask → bool; `root_relative` zeroes root and `add_root` inverts, NumPy + torch + batched; 2D normalize: (0,0)→(−1,−1), (W,H)→(1,1), centre→0; round trip NumPy + torch.
-- [ ] T004 [US3] `src/strike_a_pose/data/transforms.py` per plan.
+- [x] T003 [P] [US3] `tests/test_data_transforms.py`: uint8 image round trip exact; range/shape/dtype; rejects bad input; mask → bool; `root_relative` zeroes root and `add_root` inverts, NumPy + torch + batched; 2D normalize: (0,0)→(−1,−1), (W,H)→(1,1), centre→0; round trip NumPy + torch.
+- [x] T004 [US3] `src/strike_a_pose/data/transforms.py` per plan.
 
 ## Phase 3: US2 — frozen split (P1)
 
-- [ ] T005 [P] [US2] `tests/test_data_split.py` (synthetic manifests, 100 poses × 8 cams, no files): determinism (same inputs → identical dict and bytes), seed sensitivity, disjoint + cover, counts rule (`round`, ≥1 if f>0, train ≥1), bad fractions → `SplitError`, `parse_sample_id` incl. camera names with `_`, `write_split` refuses existing file, `load_split` rejects overlap / bad version, `check_split_for` reports hash and coverage mismatch.
-- [ ] T006 [US2] `src/strike_a_pose/data/split.py` per plan/contract.
-- [ ] T007 [US2] CLI `split` subcommand in `datagen/cli.py` per contract; tests in `tests/test_cli.py`: writes + exit 0, second run exit 4, `--overwrite` exit 0, corrupt dataset exit 1, bad fractions exit 2, fixture split equals committed `splits/smpl_fixture.json`.
-- [ ] T008 [US2] Generate + commit `splits/smpl_fixture.json` (`--seed 0 --fractions 0.5 0 0.5`).
+- [x] T005 [P] [US2] `tests/test_data_split.py` (synthetic manifests, 100 poses × 8 cams, no files): determinism (same inputs → identical dict and bytes), seed sensitivity, disjoint + cover, counts rule (`round`, ≥1 if f>0, train ≥1), bad fractions → `SplitError`, `parse_sample_id` incl. camera names with `_`, `write_split` refuses existing file, `load_split` rejects overlap / bad version, `check_split_for` reports hash and coverage mismatch.
+- [x] T006 [US2] `src/strike_a_pose/data/split.py` per plan/contract.
+- [x] T007 [US2] CLI `split` subcommand in `datagen/cli.py` per contract; tests in `tests/test_cli.py`: writes + exit 0, second run exit 4, `--overwrite` exit 0, corrupt dataset exit 1, bad fractions exit 2, fixture split equals committed `splits/smpl_fixture.json`.
+- [x] T008 [US2] Generate + commit `splits/smpl_fixture.json` (`--seed 0 --fractions 0.5 0 0.5`).
 
 ## Phase 4: US1 — dataset loader (P1)
 
-- [ ] T009 [P] [US1] `tests/test_data_dataset.py` on the fixture: len 16; contract keys, shapes, dtypes; image in [0,1] and equals PNG/255; mask equals `image > 0`; labels equal JSON; camera_index matches ring; `default_collate` batch via `DataLoader(batch_size=4)`; transform applied; split train/test sample sets (8 each, all 8 cameras of one pose, disjoint); `verify=True` passes; SC-001 timing < 5 s.
-- [ ] T010 [P] [US1] Error-path tests on temp copies of the fixture: missing dir/manifest, `complete: false`, schema_version 2, missing PNG listed, counts mismatch, unknown camera in id, label sha mismatch only caught with `verify=True`, malformed label shape on item read, wrong image size on item read, split without split_file, unknown split name, split file for another manifest (hash mismatch).
-- [ ] T011 [US1] `src/strike_a_pose/data/dataset.py` + `data/__init__.py` per plan/contract.
+- [x] T009 [P] [US1] `tests/test_data_dataset.py` on the fixture: len 16; contract keys, shapes, dtypes; image in [0,1] and equals PNG/255; mask equals `image > 0`; labels equal JSON; camera_index matches ring; `default_collate` batch via `DataLoader(batch_size=4)`; transform applied; split train/test sample sets (8 each, all 8 cameras of one pose, disjoint); `verify=True` passes; SC-001 timing < 5 s.
+- [x] T010 [P] [US1] Error-path tests on temp copies of the fixture: missing dir/manifest, `complete: false`, schema_version 2, missing PNG listed, counts mismatch, unknown camera in id, label sha mismatch only caught with `verify=True`, malformed label shape on item read, wrong image size on item read, split without split_file, unknown split name, split file for another manifest (hash mismatch).
+- [x] T011 [US1] `src/strike_a_pose/data/dataset.py` + `data/__init__.py` per plan/contract.
 
 ## Phase 5: Verify + record
 
-- [ ] T012 Local: `uv sync --locked`, `ruff check .`, `ruff format --check .`, `pytest` (3.13; and 3.11 venv), `strike-a-pose-data validate tests/fixtures/smpl_fixture`.
-- [ ] T013 Push; CI run for head SHA green on both legs; record per-leg wall time vs SC-004.
-- [ ] T014 README (status row, usage: split + loader snippet), roadmap changelog, this file's verification record.
+- [x] T012 Local: `uv sync --locked`, `ruff check .`, `ruff format --check .`, `pytest` (3.13; and 3.11 venv), `strike-a-pose-data validate tests/fixtures/smpl_fixture`.
+- [x] T013 Push; CI run for head SHA green on both legs; record per-leg wall time vs SC-004.
+- [x] T014 README (status row, usage: split + loader snippet), roadmap changelog, this file's verification record.
 
 ## Dependencies
 
@@ -68,3 +68,14 @@ Findings and resolutions:
 8. Spec says datasets follow layout v1; loader rejects other schema versions
    (T010 covers schema_version 2).
 No constitution violations; Complexity Tracking empty.
+
+## Verification record (2026-10-20)
+
+- Local (T012): Python 3.13.16 (project venv) and 3.11 (separate venv from
+  `uv.lock`): `uv lock --check` ok, `uv sync --locked` ok, ruff check clean, format
+  clean, 90 passed, fixture `validate` OK; README loader snippet runs.
+- CI (T013): run 39357737620 on 127ad51 green on both legs (py3.11 ≈ 36 s, py3.13
+  ≈ 38 s; install step 20 s / 26 s; 89 tests) — SC-004 met with PyPI torch.
+  Final head re-checked after docs commit (see roadmap / final report).
+- Post-implementation fix: malformed `config.image` in a manifest now raises
+  `DatasetError` (was a bare `KeyError`); test added (90 tests).

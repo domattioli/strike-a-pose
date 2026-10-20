@@ -18,8 +18,10 @@
   Dropping those wheels with `override-dependencies` is not viable: `import torch`
   preloads the CUDA libraries when `libtorch_global_deps.so` cannot resolve them
   and raises if they are absent.
-- **Consequence**: CI install time is measured (005 SC-003 budget < 5 min per
-  leg). Switching to the CPU index is a two-stanza `pyproject.toml` change plus
+- **Consequence (measured)**: CI run 39357737620 (127ad51): `uv sync --locked`
+  took 20 s (py3.11) / 26 s (py3.13), whole leg ≈ 37 s — well inside the 005
+  SC-003 budget (< 5 min). Local venv ≈ 5.5 GB (torch 1.2 GB, nvidia 3.2 GB,
+  triton 0.9 GB). Switching to the CPU index is a two-stanza `pyproject.toml` change plus
   `uv lock` on a machine that can reach `download.pytorch.org` — listed as an
   open operator question, not done silently.
 

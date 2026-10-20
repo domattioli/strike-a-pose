@@ -74,3 +74,17 @@ Slice 001 specifics (carried into its clarify step):
   committed fixture), `README.md`, pyproject `readme`/`authors`/`urls`.
   "Done when" read as CI green on the current package (no longer empty).
   Smoke-train step left as a marked placeholder in `ci.yml`; slice 004 owns it.
+- 2026-10-20: slice 002 `data-pipeline` (autonomous run, operator delegation
+  2026-10-20; clarifications at lead defaults in its spec). Package
+  `strike_a_pose.data`: `PoseImageDataset` (manifest + file checks on load,
+  opt-in full 001 validation, per-item label checks; dict samples — 1-channel
+  float32 image in [0,1], bool mask, keypoints/joints/pose/camera in source
+  units, ids), normalization helpers (image ↔ tensor, root-relative 3D,
+  image-normalized 2D), frozen **pose-level** split (`pose-permutation-v1`,
+  records manifest SHA-256; all camera views of a pose in one split to avoid
+  leakage) via `strike-a-pose-data split`; fixture split committed at
+  `splits/smpl_fixture.json`. Contract: `specs/002-data-pipeline/contracts/sample-contract.md`.
+  PyTorch added from PyPI (locked 2.14.1): the CPU wheel index is unreachable
+  from the agent session (egress policy), so Linux installs pull CUDA runtime
+  wheels; switching to the CPU index is an open operator question (002 research R1).
+  Note for 004: the fixture split has train 1 pose / val 0 / test 1 (8 samples each).

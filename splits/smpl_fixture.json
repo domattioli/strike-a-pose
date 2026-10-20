@@ -1,0 +1,36 @@
+{
+  "algorithm": "pose-permutation-v1",
+  "counts": {
+    "test": {
+      "poses": 1,
+      "samples": 8
+    },
+    "train": {
+      "poses": 1,
+      "samples": 8
+    },
+    "val": {
+      "poses": 0,
+      "samples": 0
+    }
+  },
+  "dataset_name": "smpl_fixture",
+  "fractions": {
+    "test": 0.5,
+    "train": 0.5,
+    "val": 0.0
+  },
+  "manifest_sha256": "06787bb039f7d64a69248d7b58147fea3f8708fc28508c89a789f1dd6b52574e",
+  "poses": {
+    "test": [
+      0
+    ],
+    "train": [
+      1
+    ],
+    "val": []
+  },
+  "seed": 0,
+  "split_version": 1,
+  "unit": "pose_index"
+}

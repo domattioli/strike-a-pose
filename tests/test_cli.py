@@ -38,3 +38,28 @@ def test_config_errors(tmp_path):
     p.write_text("dataset_name: x\npose_source: amass\n")  # no amass_subsets
     assert main(["generate", "--config", str(p), "--seed", "0"]) == 2
     assert main(["generate", "--config", str(tmp_path / "nope.yaml"), "--seed", "0"]) == 2
+
+
+FIXTURE = Path(__file__).parent / "fixtures" / "smpl_fixture"
+FIXTURE_SPLIT = Path(__file__).parents[1] / "splits" / "smpl_fixture.json"
+FIXTURE_SPLIT_ARGS = ["--seed", "0", "--fractions", "0.5", "0", "0.5"]
+
+
+def test_split_frozen_and_matches_committed(tmp_path, capsys):
+    out = tmp_path / "s.json"
+    args = ["split", str(FIXTURE), *FIXTURE_SPLIT_ARGS, "--out", str(out)]
+    assert main(args) == 0
+    assert out.read_bytes() == FIXTURE_SPLIT.read_bytes()  # SC-002
+    assert main(args) == 4  # frozen
+    assert "--overwrite" in capsys.readouterr().err
+    assert main([*args, "--overwrite"]) == 0
+
+
+def test_split_error_exits(tmp_path):
+    out = tmp_path / "s.json"
+    # default fractions: 2 poses cannot give val, test and train >= 1 each
+    assert main(["split", str(FIXTURE), "--seed", "0", "--out", str(out)]) == 2
+    bad = ["--fractions", "0.5", "0.5", "0.5"]
+    assert main(["split", str(FIXTURE), "--seed", "0", *bad, "--out", str(out)]) == 2
+    assert main(["split", str(tmp_path / "nothing"), "--seed", "0", "--out", str(out)]) == 1
+    assert not out.exists()

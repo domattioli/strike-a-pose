@@ -53,7 +53,16 @@ design question → stop and escalate to the lead (opus).
 
 - [x] T023 `ruff check` + `ruff format --check` clean; full `pytest` green.
 - [x] T024 Roadmap changelog entry for slice 001 (renderer deviation, status).
-- [ ] T025 **OPERATOR**: first full default run; record wall time vs SC-004.
+- [x] T025 **OPERATOR**: first full default run; record wall time vs SC-004.
+  Done 2026-10-20 by slice 003 (autonomous run, operator delegation): `uv run --locked
+  strike-a-pose-data generate --config configs/default.yaml --seed 0` at commit
+  `406b68f` (clean) with the real `SMPL_NEUTRAL.npz` → `data/generated/smpl_proc_v1`:
+  2000 poses × 8 cameras = 16,000 samples (48,000 files), 351 MB on disk, wall time
+  **290 s (≈ 4.8 min)** on a 4-vCPU Linux VM (single process) — SC-004 (< ~1 h) met.
+  `validate` OK (4 s). Manifest SHA-256 `9000c915…c9588`. Frozen split
+  `splits/smpl_proc_v1.json` (seed 0, 0.8/0.1/0.1 → 1600/200/200 poses,
+  12,800/1,600/1,600 samples). The manifest records `code.commit`, so the split
+  only matches a dataset regenerated with the same config, seed **and** code commit.
 
 ## Dependencies
 

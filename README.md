@@ -51,6 +51,12 @@ uv run strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
     --out splits/smpl_proc_v1.json                  # default fractions 0.8 0.1 0.1
 ```
 
+The committed `splits/smpl_proc_v1.json` (1600 / 200 / 200 poses) records the
+SHA-256 of the dataset's `manifest.json`, and the loader refuses a mismatch. The
+manifest includes the generating config, seed **and code commit**, so this split
+is valid only for `smpl_proc_v1` generated with `configs/default.yaml`, seed 0, at
+commit `406b68f` (default run: ≈ 5 min on 4 CPU cores, 16,000 samples, 351 MB).
+
 Load samples in PyTorch (sample dict, units and normalization:
 [`specs/002-data-pipeline/contracts/sample-contract.md`](specs/002-data-pipeline/contracts/sample-contract.md)):
 

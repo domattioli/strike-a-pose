@@ -15,7 +15,7 @@ Flat mapping; unknown keys are an error.
 | `seed` | int | `0` | Python / NumPy / torch seed; MLP init + shuffling; random-encoder init |
 | `dataset_dir` | str | required | 001 dataset directory |
 | `split_file` | str | required | frozen 002 split file |
-| `checkpoint` | str | required | 004 `checkpoint.pt` (or `best.pt`) whose encoder is probed |
+| `checkpoint` | str | required | 004 checkpoint whose encoder is probed; any 004 `checkpoint.pt` or `best.pt` loads. Probe the train run's scored weights, the file its `metrics.json` names in `selection.checkpoint` (slice 008): `best.pt` by default when val has samples, else `checkpoint.pt` |
 | `cache_dir` | str \| null | `runs/probe-cache` | latent cache directory (null: no cache) |
 | `batch_size` | int > 0 | `256` | loading / encoding batch |
 | `eval_splits` | list[str] | `[val, test]` | splits reported; must contain `val` (selection) |

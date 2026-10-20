@@ -1,0 +1,16 @@
+batch_size: 64
+channels: [16, 32, 64, 128, 256, 256]
+context_pca_k: 64
+dataset_dir: data/generated/smpl_proc_v1
+epochs: 60
+eval_splits: [val, test]
+figure_samples: 6
+figure_split: val
+iou_threshold: 0.075
+latent_dim: 64
+lr: 0.001
+lr_schedule: cosine
+run_name: ae-smpl_proc_v1
+run_root: runs
+seed: 0
+split_file: splits/smpl_proc_v1.json

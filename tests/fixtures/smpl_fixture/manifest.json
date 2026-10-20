@@ -362,8 +362,8 @@
     }
   ],
   "code": {
-    "commit": "fb8183f51dfcdbf127a7bd836c553d47750d23a3",
-    "dirty": false
+    "commit": "9c7e36bc9474e642ea14e1333123ee71a53fa2fa",
+    "dirty": true
   },
   "complete": true,
   "config": {
@@ -395,53 +395,53 @@
   "dataset_name": "smpl_fixture",
   "inputs": {
     "pose_source": {
-      "euler_order": "intrinsic XYZ (R = Rx @ Ry @ Rz), SMPL joint-local axes",
+      "euler_order": "scipy xyz (extrinsic, R = Rz @ Ry @ Rx), SMPL joint-local axes",
       "ranges_deg": [
         {
           "index": 0,
           "joint": "pelvis",
           "x_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ],
           "y_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ],
           "z_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ]
         },
         {
           "index": 1,
           "joint": "left_hip",
           "x_deg": [
-            -90,
-            20
+            -130,
+            80
           ],
           "y_deg": [
-            -25,
-            25
+            -20,
+            20
           ],
           "z_deg": [
             -10,
-            40
+            10
           ]
         },
         {
           "index": 2,
           "joint": "right_hip",
           "x_deg": [
-            -90,
-            20
+            -130,
+            80
           ],
           "y_deg": [
-            -25,
-            25
+            -20,
+            20
           ],
           "z_deg": [
-            -40,
+            -10,
             10
           ]
         },
@@ -449,12 +449,12 @@
           "index": 3,
           "joint": "spine1",
           "x_deg": [
-            -10,
-            30
+            -50,
+            100
           ],
           "y_deg": [
-            -15,
-            15
+            -75,
+            75
           ],
           "z_deg": [
             -15,
@@ -466,15 +466,15 @@
           "joint": "left_knee",
           "x_deg": [
             0,
-            120
+            130
           ],
           "y_deg": [
-            0.0,
-            0.0
+            -20,
+            20
           ],
           "z_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ]
         },
         {
@@ -482,307 +482,308 @@
           "joint": "right_knee",
           "x_deg": [
             0,
-            120
+            130
           ],
           "y_deg": [
-            0.0,
-            0.0
+            -20,
+            20
           ],
           "z_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ]
         },
         {
           "index": 6,
           "joint": "spine2",
           "x_deg": [
-            -5,
-            15
+            -20,
+            20
           ],
           "y_deg": [
-            -10,
-            10
+            -15,
+            15
           ],
           "z_deg": [
-            -10,
-            10
+            -20,
+            20
           ]
         },
         {
           "index": 7,
           "joint": "left_ankle",
           "x_deg": [
-            -20,
-            30
+            -30,
+            70
           ],
           "y_deg": [
-            -10,
-            10
+            -30,
+            30
           ],
           "z_deg": [
-            -10,
-            10
+            -25,
+            30
           ]
         },
         {
           "index": 8,
           "joint": "right_ankle",
           "x_deg": [
-            -20,
-            30
+            -30,
+            70
           ],
           "y_deg": [
-            -10,
-            10
+            -30,
+            30
           ],
           "z_deg": [
-            -10,
-            10
+            -25,
+            30
           ]
         },
         {
           "index": 9,
           "joint": "spine3",
           "x_deg": [
-            -5,
-            15
+            -35,
+            25
           ],
           "y_deg": [
-            -10,
-            10
+            -50,
+            50
           ],
           "z_deg": [
-            -10,
-            10
+            -45,
+            45
           ]
         },
         {
           "index": 10,
           "joint": "left_foot",
           "x_deg": [
-            -10,
-            10
+            -40,
+            40
           ],
           "y_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ],
           "z_deg": [
-            0.0,
-            0.0
+            -20,
+            20
           ]
         },
         {
           "index": 11,
           "joint": "right_foot",
           "x_deg": [
-            -10,
-            10
+            -40,
+            40
           ],
           "y_deg": [
-            0.0,
-            0.0
+            0,
+            0
           ],
           "z_deg": [
-            0.0,
-            0.0
+            -20,
+            20
           ]
         },
         {
           "index": 12,
           "joint": "neck",
           "x_deg": [
-            -20,
-            30
+            -45,
+            35
           ],
           "y_deg": [
-            -30,
-            30
+            -50,
+            50
           ],
           "z_deg": [
-            -15,
-            15
+            -20,
+            20
           ]
         },
         {
           "index": 13,
           "joint": "left_collar",
           "x_deg": [
-            0.0,
-            0.0
+            -10,
+            10
           ],
           "y_deg": [
             -10,
             10
           ],
           "z_deg": [
-            -10,
-            15
+            -30,
+            30
           ]
         },
         {
           "index": 14,
           "joint": "right_collar",
           "x_deg": [
-            0.0,
-            0.0
+            -10,
+            10
           ],
           "y_deg": [
             -10,
             10
           ],
           "z_deg": [
-            -15,
-            10
+            -30,
+            30
           ]
         },
         {
           "index": 15,
           "joint": "head",
           "x_deg": [
-            -20,
-            20
+            -30,
+            30
           ],
           "y_deg": [
             -30,
             30
           ],
           "z_deg": [
-            -15,
-            15
+            -30,
+            30
           ]
         },
         {
           "index": 16,
           "joint": "left_shoulder",
           "x_deg": [
-            -30,
-            30
+            -20,
+            20
           ],
           "y_deg": [
-            -80,
+            -40,
             20
           ],
           "z_deg": [
-            -80,
-            30
+            -50,
+            50
           ]
         },
         {
           "index": 17,
           "joint": "right_shoulder",
           "x_deg": [
-            -30,
-            30
+            -20,
+            20
           ],
           "y_deg": [
-            -20,
-            80
+            -40,
+            20
           ],
           "z_deg": [
-            -30,
-            80
+            -50,
+            50
           ]
         },
         {
           "index": 18,
           "joint": "left_elbow",
           "x_deg": [
-            0.0,
-            0.0
+            -60,
+            110
           ],
           "y_deg": [
-            -130,
+            -145,
             0
           ],
           "z_deg": [
-            0.0,
-            0.0
+            -35,
+            5
           ]
         },
         {
           "index": 19,
           "joint": "right_elbow",
           "x_deg": [
-            0.0,
-            0.0
+            -60,
+            110
           ],
           "y_deg": [
             0,
-            130
+            145
           ],
           "z_deg": [
-            0.0,
-            0.0
+            -35,
+            5
           ]
         },
         {
           "index": 20,
           "joint": "left_wrist",
           "x_deg": [
-            -20,
-            20
+            -50,
+            50
           ],
           "y_deg": [
-            -10,
-            10
+            -35,
+            35
           ],
           "z_deg": [
-            -30,
-            30
+            -50,
+            50
           ]
         },
         {
           "index": 21,
           "joint": "right_wrist",
           "x_deg": [
-            -20,
-            20
+            -50,
+            50
           ],
           "y_deg": [
-            -10,
-            10
+            -35,
+            35
           ],
           "z_deg": [
-            -30,
-            30
+            -50,
+            50
           ]
         },
         {
           "index": 22,
           "joint": "left_hand",
           "x_deg": [
-            0.0,
-            0.0
+            -25,
+            25
           ],
           "y_deg": [
-            0.0,
-            0.0
+            -15,
+            15
           ],
           "z_deg": [
-            0.0,
-            0.0
+            -90,
+            45
           ]
         },
         {
           "index": 23,
           "joint": "right_hand",
           "x_deg": [
-            0.0,
-            0.0
+            -25,
+            25
           ],
           "y_deg": [
-            0.0,
-            0.0
+            -15,
+            15
           ],
           "z_deg": [
-            0.0,
-            0.0
+            -90,
+            45
           ]
         }
       ],
-      "ranges_version": "proc-v1",
+      "ranges_version": "predecessor-v1",
+      "sparsify_min_keep": 5,
       "type": "procedural"
     },
     "smpl_model": {
@@ -795,112 +796,112 @@
       "id": "00000_Front_0",
       "image": "samples/00000_Front_0.png",
       "labels": "samples/00000_Front_0.json",
-      "labels_sha256": "d928d5fdfc307a1a495f9c1baa288f23b50d9a6b76c58979bd23374c069e7069",
+      "labels_sha256": "dd3afa989482903220593ea2eb7d46bcfe4c0bca7ebfdf5c5090d57d922ff384",
       "mask": "samples/00000_Front_0_mask.png"
     },
     {
       "id": "00000_FrontRight_45",
       "image": "samples/00000_FrontRight_45.png",
       "labels": "samples/00000_FrontRight_45.json",
-      "labels_sha256": "66c06ccd05daf27f11e455cd321e7e2799f6a8eed8605232ca13c31cac3f26e0",
+      "labels_sha256": "2c17ad106fc1a5dc6b8b0a2f78e546e5c9e7d2eb8b214482a03f725ba71cbeb0",
       "mask": "samples/00000_FrontRight_45_mask.png"
     },
     {
       "id": "00000_Right_90",
       "image": "samples/00000_Right_90.png",
       "labels": "samples/00000_Right_90.json",
-      "labels_sha256": "0b30c0e6e91413ef80b2b7a294081a8d3e522f71e1af376e9e16c2bc59199564",
+      "labels_sha256": "1a25e0879ba95cd11231ae2882c893c266f1d272d03af7e7f891e87208fed67e",
       "mask": "samples/00000_Right_90_mask.png"
     },
     {
       "id": "00000_BackRight_135",
       "image": "samples/00000_BackRight_135.png",
       "labels": "samples/00000_BackRight_135.json",
-      "labels_sha256": "f5a323e3bcf7e530d06f56fab994b8529c0e22f456dfa6d43450d43d5dfd5230",
+      "labels_sha256": "8e54ec1f947dff321579604ec124a2895b97739481cd1c9ec8aa32cd01413cad",
       "mask": "samples/00000_BackRight_135_mask.png"
     },
     {
       "id": "00000_Back_180",
       "image": "samples/00000_Back_180.png",
       "labels": "samples/00000_Back_180.json",
-      "labels_sha256": "e601c0fd3fa2fed23c414334435921a12bf11df7197cd8125ec7747492f4fd4b",
+      "labels_sha256": "dd6afcbff3bdde4e2eb7357373db127dbb3ac89b5de3eb4f7be6edc239eb9476",
       "mask": "samples/00000_Back_180_mask.png"
     },
     {
       "id": "00000_BackLeft_225",
       "image": "samples/00000_BackLeft_225.png",
       "labels": "samples/00000_BackLeft_225.json",
-      "labels_sha256": "abebda92691becdec648878161abd2d427e3bb2138de9b306ad5bd01e4dd48ce",
+      "labels_sha256": "aaffe9510994c573e9e740f1690090a240df15bb4b97ac9c6d84bc61582fc776",
       "mask": "samples/00000_BackLeft_225_mask.png"
     },
     {
       "id": "00000_Left_270",
       "image": "samples/00000_Left_270.png",
       "labels": "samples/00000_Left_270.json",
-      "labels_sha256": "8ec8277103d44bf90fe706660b8e0cfcb824b076a9057011f91580b06a40f4be",
+      "labels_sha256": "366e978e61d9c5ccaf1d046b400d21bd16191130148f768102b479aafc700543",
       "mask": "samples/00000_Left_270_mask.png"
     },
     {
       "id": "00000_FrontLeft_315",
       "image": "samples/00000_FrontLeft_315.png",
       "labels": "samples/00000_FrontLeft_315.json",
-      "labels_sha256": "b40a6d6d857b1251a6fe21949e1012557f0e538d7fd42431075e1cd34815c4a5",
+      "labels_sha256": "d543c32be5ba1ab783a8c088e6503c080428e0cd45d47963f8ff91e2ac0d05d2",
       "mask": "samples/00000_FrontLeft_315_mask.png"
     },
     {
       "id": "00001_Front_0",
       "image": "samples/00001_Front_0.png",
       "labels": "samples/00001_Front_0.json",
-      "labels_sha256": "f33eac6d48b884d634fa16807c285f9c9c00956a017665c69a18a75f46ff7bef",
+      "labels_sha256": "0f6e092d3c4dd3204a29070654d541dd7490dc9b379f71baefb154471058248e",
       "mask": "samples/00001_Front_0_mask.png"
     },
     {
       "id": "00001_FrontRight_45",
       "image": "samples/00001_FrontRight_45.png",
       "labels": "samples/00001_FrontRight_45.json",
-      "labels_sha256": "e8ad9b892c99c6002ced1389d2a8e5cd6ed50aef9e2bae55a75bc10d8913d247",
+      "labels_sha256": "7b4603ee60e4133114c71aab1e296d013b3c6f3ad7aade40f620357b9496ff25",
       "mask": "samples/00001_FrontRight_45_mask.png"
     },
     {
       "id": "00001_Right_90",
       "image": "samples/00001_Right_90.png",
       "labels": "samples/00001_Right_90.json",
-      "labels_sha256": "7669077a792e3839b8bbaa837c31cff675c9b4b089df44490f1ed0e5e8545559",
+      "labels_sha256": "cfc419d9ebbbcbe492dc3ea0fa61f3cc090ae5a0baa919bdfc0c06e1caab22f2",
       "mask": "samples/00001_Right_90_mask.png"
     },
     {
       "id": "00001_BackRight_135",
       "image": "samples/00001_BackRight_135.png",
       "labels": "samples/00001_BackRight_135.json",
-      "labels_sha256": "d893fcde67bbedc3b7bd991d4723d31af35236bb2d505f28bc2d83555bccf228",
+      "labels_sha256": "086681825e5b7de158a49d70ee8cfdef3eea0013b3775212f0f5e52d265d1f01",
       "mask": "samples/00001_BackRight_135_mask.png"
     },
     {
       "id": "00001_Back_180",
       "image": "samples/00001_Back_180.png",
       "labels": "samples/00001_Back_180.json",
-      "labels_sha256": "7b457f46efcbbb2dbde24c6f74709901b80aa5ced6a54d8f0d1c485bd0f2cbe6",
+      "labels_sha256": "e8a0f01b2523592fbe2928416a7197257ac5c98259d179a4887dab80f2b2ec4d",
       "mask": "samples/00001_Back_180_mask.png"
     },
     {
       "id": "00001_BackLeft_225",
       "image": "samples/00001_BackLeft_225.png",
       "labels": "samples/00001_BackLeft_225.json",
-      "labels_sha256": "3dc2946931410eaa03fec63167008465bafa78e61dc5fbdf528262bd52389c0c",
+      "labels_sha256": "08605b281c9b238e86a687e35caf2692532162428cf2a619f4207f34c005910d",
       "mask": "samples/00001_BackLeft_225_mask.png"
     },
     {
       "id": "00001_Left_270",
       "image": "samples/00001_Left_270.png",
       "labels": "samples/00001_Left_270.json",
-      "labels_sha256": "73c1841ace9ab1a48237b65280c3a9e56e4820e423838faf91482817d14c1336",
+      "labels_sha256": "17ec3a3eb41f2ce4d6dcb8ba815f11bd0a0ae622642ba226b4ff0f924f19bdd4",
       "mask": "samples/00001_Left_270_mask.png"
     },
     {
       "id": "00001_FrontLeft_315",
       "image": "samples/00001_FrontLeft_315.png",
       "labels": "samples/00001_FrontLeft_315.json",
-      "labels_sha256": "7e1e8cd96fb4a7761bbaaae7dc20645cc48659182b1b8cfd98ec7aebaf114db5",
+      "labels_sha256": "bed805b996958167d278713858bfa9a3967930702a608036f54fc6ec77553491",
       "mask": "samples/00001_FrontLeft_315_mask.png"
     }
   ],

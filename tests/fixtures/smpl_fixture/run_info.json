@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "/usr/local/bin/strike-a-pose-data",
+    "generate",
+    "--config",
+    "configs/fixture.yaml",
+    "--seed",
+    "0",
+    "--output-root",
+    "tests/fixtures"
+  ],
+  "cwd": "/home/user/strike-a-pose",
+  "finished_utc": "2026-10-20T01:45:48.778187+00:00",
+  "numpy": "2.5.3",
+  "pillow": "12.3.0",
+  "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+  "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+  "seed": 0,
+  "started_utc": "2026-10-20T01:45:48.050003+00:00"
+}

@@ -197,9 +197,10 @@ Defaults chosen by the lead within the surrogate's scope; each is provisional.
    run `ae-smpl_proc_v1-20261020T030038Z` (surrogate ruling #3; that run has no
    `best.pt`).
 9. Q: Latent cache? → A: `runs/probe-cache/<sha12(ckpt)>-<sha12(manifest)>-
-   <sha12(split)>-<encoder>.pt` (torch file: latents + labels per split + the
-   three full hashes; a hash mismatch → recompute). Default `cache_dir:
-   runs/probe-cache`; `null` disables caching (fixture tests).
+   <sha12(split)>.pt` (one torch file: labels + latents of every encoder per split
+   + the three full hashes, seed and encoder names; any mismatch → recompute).
+   Default `cache_dir: runs/probe-cache`; `null` disables caching (fixture tests).
+   *(Amended by the analyze pass: one file for both encoders, not one per encoder.)*
 10. Q: Figures? → A: PIL only. `skeleton_val.png`: 6 evenly spaced val images with
     the true skeleton and the selected ridge / MLP `joints_world` predictions
     projected with the true root + camera (one column per probe); and

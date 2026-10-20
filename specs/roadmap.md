@@ -1,6 +1,8 @@
 # strike-a-pose Roadmap (spec of specs)
 
-Status: **Slice list + order APPROVED (operator, 2026-10-17).** Q2 pending confirmation.
+Status: **Slice list + order APPROVED (operator, 2026-10-17).** MVP done (2026-10-20).
+Q2 confirmed by surrogate ruling 2026-10-20 (provisional, operator may overturn).
+Post-MVP: exactly one slice, 006 `latent-probe` (surrogate ruling 2026-10-20); stop after it.
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -24,16 +26,23 @@ baseline numbers are reported alongside for context (not as a bar to beat).
 | 004 | `autoencoder-mvp` | Config-driven train/eval CLI for the AE, CPU smoke test in CI | 002, 003 | Runs end-to-end from config; loss decreases; held-out recon figure + metrics logged |
 | 005 | `repo-foundation` | `pyproject.toml`, ruff, pytest, CI workflow (lint + tests + smoke) | — | CI green on an empty package; can land before or with 001 |
 
-Out of MVP (later candidates): latent → camera/pose regression (the old
-linear-model probe), generation/interpolation, real-image datasets, GPU
-rails (Kaggle).
+Out of MVP (later candidates): generation/interpolation, real-image datasets, GPU
+rails (Kaggle), per-region (hands/face/feet) image MSE (surrogate ruling 2026-10-20 #4),
+training improvements / VAE, dataset realism (open questions below).
+
+Post-MVP slices (surrogate ruling 2026-10-20 #1: exactly one, then stop):
+
+| # | Slug | Purpose | Depends on | Done when |
+|---|------|---------|------------|-----------|
+| 006 | `latent-probe` | Frozen 004 encoder → latents; linear (ridge) and small MLP probes for root-relative 3D joints (MPJPE mm), camera yaw (8-way), SMPL pose; eval CLI `strike-a-pose-eval probe` | 002, 003, 004 (checkpoint) | Probe numbers next to the 003 pose baselines from a logged run; CI green |
 
 ## Open questions (batched; answer all at once)
 
 Slice-level (answered 2026-10-17):
 1. ~~Approve slice list and order?~~ Approved. 005 stays separate (default).
-2. Model input: proposed **images in** (as predecessor), keypoints/pose params
-   generated as labels by 001 for metrics + later probes. Awaiting confirm.
+2. ~~Model input: proposed **images in** (as predecessor), keypoints/pose params
+   generated as labels by 001 for metrics + later probes.~~ Confirmed (surrogate
+   ruling 2026-10-20 #2, provisional; implicit in the 004 sign-off).
 3. ~~Success margin?~~ None — MVP bar is "working", not "better".
 
 Slice 001 specifics (carried into its clarify step):
@@ -45,6 +54,20 @@ Slice 001 specifics (carried into its clarify step):
 9. Size and resolution (render directly at 256×192?).
 10. Compute + data storage location.
 11. SMPL/AMASS non-commercial licenses acceptable?
+
+Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
+
+12. PyTorch CPU wheel index: keep PyPI torch for now (the trusted-network allowance
+    did not take effect in the 2026-10-20 session; 002 research R1). Switch?
+13. Early stopping / fewer epochs as the training default? (004 val minimum at
+    epoch 34 of 60; ruling #3 only adds an informational `best.pt`.)
+14. Split-hash contract change. Proposal: hash the manifest *without*
+    `code.commit` / `code.dirty`, store the commit informationally, and warn
+    instead of refusing on a commit mismatch (today a regenerated-but-identical
+    dataset at another commit is rejected by the frozen split).
+15. Dataset realism: arms-down poses, random betas (body shape), camera variation
+    (height, distance, pitch, non-ring yaw)?
+16. Training improvements / VAE (blur, lost extremities, mild overfitting in 004)?
 
 ## Changelog
 
@@ -135,3 +158,21 @@ Slice 001 specifics (carried into its clarify step):
   run; plan wall-clock budgets with restarts in mind.
   PyTorch CPU wheel index re-tested at the end of the slice: still 403 → unchanged
   (open operator question, 002 research R1).
+- 2026-10-20: **Surrogate rulings 2026-10-20** (operator AFK; rulings delegated to
+  the "Fable" surrogate). Each ruling is **provisional and overturnable** by the
+  operator; none changes the constitution.
+  1. Continue past the MVP with exactly **one** slice, 006 `latent-probe`; stop
+     after it lands green (do not start 007). *(provisional)*
+  2. Q2 "images as model input": **confirmed** (implicit in the 004 sign-off);
+     Q2 struck above, status line updated. *(provisional)*
+  3. Keep the 004 **final-epoch** weights as the reported MVP result (no
+     re-scoring). Future runs additively save `best.pt` (best val loss) next to
+     `checkpoint.pt` and log the best-val epoch; best-val selection / early
+     stopping is **not** the default; `configs/ae.yaml` unchanged. *(provisional)*
+  4. Headline image metrics unchanged (MSE + silhouette IoU @ 0.075); per-region
+     (hands / face / feet) MSE → deferred candidate. *(provisional)*
+  5. Pin the CI runner `ubuntu-latest` → `ubuntu-24.04` in `.github/workflows/ci.yml`.
+     *(provisional)*
+  6. Deferred to the operator (open questions 12–16 above): torch CPU wheel index;
+     early-stopping / fewer-epochs default; split-hash contract change; dataset
+     realism; training improvements / VAE.

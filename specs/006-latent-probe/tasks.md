@@ -22,13 +22,19 @@
 
 ## Phase 2: Verify + CI
 
-- [ ] T011 Local: `uv sync --locked`, ruff check, ruff format --check, pytest; fixture CLI timing.
-- [ ] T012 CI: fixture probe smoke step (after the AE smoke train) if the leg stays < 5 min; push; green on both legs.
+- [x] T011 Local: `uv sync --locked`, ruff check, ruff format --check, pytest; fixture CLI timing. → at ae32db9: ruff clean, pytest 230 passed (24 s); fixture probe CLI 4.4 s (+ fixture AE train ≈ 4 s). Diff review: `train/trainer.py` change is additive only (ruling #3); `datagen`, `data`, `models` untouched.
+- [x] T012 CI: fixture probe smoke step (after the AE smoke train) if the leg stays < 5 min; push; green on both legs. → run 39378504271 (ae32db9, runner `ubuntu-24.04`) green: py3.11 leg 59 s (tests 30 s, probe smoke 4 s), py3.13 leg 61 s (tests 31 s, probe smoke 3 s).
 
 ## Phase 3: US3 — full run + record
 
-- [ ] T013 Full run `strike-a-pose-eval probe --config configs/probe.yaml` on a clean tree (≤ 30 min cap; foreground with `timeout`, nothing needs heartbeats); check world-frame mean pose / PCA equal 003; inspect figures.
-- [ ] T014 Copy `metrics.json`, `run_info.json`, `config.yaml`, figures to `docs/results/006-probe-smpl_proc_v1/`; README (status, usage, results), roadmap changelog, this file's verification record.
+- [x] T013 Full run `strike-a-pose-eval probe --config configs/probe.yaml` on a clean tree (≤ 30 min cap; foreground with `timeout`, nothing needs heartbeats); check world-frame mean pose / PCA equal 003; inspect figures.
+  → Run `runs/probe-smpl_proc_v1-20261020T060632Z` at ae32db9 (clean), `timeout 1800`, one process, no restart: wall 450 s (7.5 min; loading + encoding both encoders 80 s, cache `runs/probe-cache/572dd7f2c9bb-9000c915c0b9-4b539833405f.pt` written; probes 28–80 s per encoder × target). Checkpoint: `runs/ae-smpl_proc_v1-20261020T030038Z/checkpoint.pt`, epoch 60 (final weights), its run at f9619c6 clean. No pilot (test was scored once, in this run).
+  - Consistency: world-frame `mean_pose`, `pca_k8`, `pca_k16` (MPJPE and 2D px, val and test) equal `docs/results/003-baselines-smpl_proc_v1/metrics.json` exactly.
+  - Selection (val): ridge λ 0.01 (joints_world), 1e-4 (joints_cam), 0.1 (yaw, smpl_pose) — the val curve is flat for λ ≤ 0.1; MLP weight decay 1e-3 (largest grid value) for joints_world, yaw, smpl_pose, 1e-4 for joints_cam. Grid edge noted in README; not widened (test already seen).
+  - Results (val / test): joints_world MPJPE — MLP 172.0 / 172.8, ridge 214.5 / 212.5, random-encoder MLP 214.6 / 214.5, random ridge 228.4 / 226.7, mean pose 253.4 / 250.3, PCA k=8 94.0 / 93.6, k=16 34.2 / 34.6 (oracle). joints_cam — MLP 161.1 / 159.6, ridge 234.3 / 231.8, random MLP 235.4 / 234.5, mean 313.1 / 308.6, PCA k=8 143.3 / 139.8, k=16 44.1 / 45.2. Yaw accuracy — MLP 0.965 / 0.959, ridge 0.826 / 0.819, random MLP 0.685 / 0.670, random ridge 0.602 / 0.599, majority 0.125. SMPL pose angle — MLP 23.4° / 24.1°, ridge 24.9° / 25.5°, mean 26.9° / 27.5°.
+  - Yaw confusions (MLP, val): 56 errors of 1600 — 22 at 180° (`Front_0`→`Back_180` 9, `Back_180`→`Front_0` 12), 17 at 45°, 11 at 90°, 6 at 135°. Ridge errors are mostly 45° neighbours (142 of 279).
+  - Figures (lead's visual read): `skeleton_val.png` — torso orientation and outstretched arms predicted well; bent / raised legs and bent arms regress toward the mean pose (rows 2–3: the bent leg is predicted straight); ridge is visibly worse on legs. `yaw_confusion_val.png` — strong diagonal for the MLP, front/back off-diagonal pair the main error.
+- [x] T014 Copy `metrics.json`, `run_info.json`, `config.yaml`, figures to `docs/results/006-probe-smpl_proc_v1/`; README (status, usage, results), roadmap changelog, this file's verification record. → copied byte-for-byte (148 KB total); cache and checkpoint not committed. Final CI: see the roadmap changelog entry.
 
 ## Dependencies
 

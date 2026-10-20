@@ -176,3 +176,24 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   6. Deferred to the operator (open questions 12–16 above): torch CPU wheel index;
      early-stopping / fewer-epochs default; split-hash contract change; dataset
      realism; training improvements / VAE.
+- 2026-10-20: slice 006 `latent-probe` (autonomous run, Fable surrogate scope;
+  spec approved by surrogate ruling, operator sign-off pending). Module
+  `strike_a_pose.eval.probe` + subcommand `strike-a-pose-eval probe` (configs
+  `probe.yaml`, `probe_fixture.yaml`; contract `specs/006-latent-probe/contracts/probe-run.md`):
+  frozen 004 encoder → hash-keyed latent cache → closed-form ridge + small MLP probes
+  (λ / weight decay chosen on val, test once) for root-relative 3D joints (world +
+  camera frame), camera yaw (8-way classification) and SMPL pose, next to mean /
+  majority / pose-PCA (oracle) baselines and an untrained-encoder control; PIL
+  skeleton + confusion figures. CI gains a fixture probe smoke step (legs ≈ 1 min).
+  Ruling #3 implemented: the trainer additively writes `best.pt` and logs
+  `best_val_epoch` (resume-safe, tested); the final weights stay the evaluated ones.
+  Full run `runs/probe-smpl_proc_v1-20261020T060632Z` (commit `ae32db9`, clean,
+  7.5 min; copy in `docs/results/006-probe-smpl_proc_v1/`), val / test: world-frame
+  MPJPE MLP 172.0 / 172.8 mm, ridge 214.5 / 212.5 vs mean pose 253.4 / 250.3 and
+  untrained-encoder MLP 214.6 / 214.5 (oracle pose PCA k=8 94.0 / 93.6); camera
+  accuracy MLP 0.965 / 0.959, ridge 0.826 / 0.819, untrained MLP 0.685 / 0.670;
+  remaining camera errors mostly front ↔ back flips. Reading: the latent holds the
+  view almost fully and the body configuration only coarsely (≈ a 4-component pose
+  PCA). Per surrogate ruling #1 work stops here; open questions 12–16 remain.
+  New observation for the operator: the MLP weight-decay grid picked its edge value
+  (1e-3) for 3 of 4 targets; not widened after test was seen.

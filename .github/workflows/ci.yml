@@ -1,5 +1,5 @@
 # CI (slice 005): lint + format check + tests + smoke steps (dataset validate,
-# baselines 003, AE smoke train 004), from the lockfile.
+# baselines 003, AE smoke train 004, latent probe 006), from the lockfile.
 # Runs without SMPL/AMASS: tests use synthetic assets, the fixture is committed.
 name: CI
 
@@ -56,3 +56,9 @@ jobs:
         run: >-
           uv run --locked strike-a-pose-train
           --config configs/ae_fixture.yaml --run-root "$RUNNER_TEMP/runs"
+
+      - name: Smoke - latent probe on the fixture AE checkpoint (slice 006)
+        run: >-
+          uv run --locked strike-a-pose-eval probe
+          --config configs/probe_fixture.yaml --run-root "$RUNNER_TEMP/runs"
+          --checkpoint "$(ls -d "$RUNNER_TEMP"/runs/ae-fixture-*)/checkpoint.pt"

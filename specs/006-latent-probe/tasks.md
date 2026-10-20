@@ -13,12 +13,12 @@
 
 ## Phase 1: Probe core (US1, US2)
 
-- [ ] T005 [P] `tests/test_probe_config.py`: defaults; `configs/probe*.yaml` load; errors (unknown / missing key, bad types, empty / duplicate / unknown targets, non-positive λ, negative weight decay, `val` missing from eval_splits, figure split not evaluated, bad run_name).
-- [ ] T006 `src/strike_a_pose/eval/probe_config.py`, `configs/probe.yaml`, `configs/probe_fixture.yaml`.
-- [ ] T007 [P] `tests/test_probe.py` units: ridge equals the normal-equation / lstsq solution and recovers a noiseless linear map; `rotation_angle_deg` hand cases (identity 0°, 90° about an axis, π flips); `yaw_scores` confusion / offsets on a hand case; MLP fits a small separable problem; empty-val selection fallback.
-- [ ] T008 `src/strike_a_pose/eval/probe.py`: extraction, cache, ridge, MLP, metrics, baselines, selection, figures, `run_probe`.
-- [ ] T009 [P] `tests/test_probe.py` end-to-end: fixture AE (train CLI, temp dir) → probe CLI (< 60 s): exit 0, run dir files, resolved config (checkpoint override), run_info checkpoint fields, `metrics.json` keys per target / split (val `samples: 0`, `selected_by` default), figure sizes; second run identical `metrics.json`; cache hit gives identical metrics; exit 2 for missing checkpoint / bad config, exit 1 for split mismatch.
-- [ ] T010 `eval/cli.py` `probe` subcommand + headline printout.
+- [x] T005 [P] `tests/test_probe_config.py`: defaults; `configs/probe*.yaml` load; errors (unknown / missing key, bad types, empty / duplicate / unknown targets, non-positive λ, negative weight decay, `val` missing from eval_splits, figure split not evaluated, bad run_name).
+- [x] T006 `src/strike_a_pose/eval/probe_config.py`, `configs/probe.yaml`, `configs/probe_fixture.yaml`.
+- [x] T007 [P] `tests/test_probe.py` units: ridge equals the normal-equation / lstsq solution and recovers a noiseless linear map; `rotation_angle_deg` hand cases (identity 0°, 90° about an axis, π flips); `yaw_scores` confusion / offsets on a hand case; MLP fits a small separable problem; empty-val selection fallback.
+- [x] T008 `src/strike_a_pose/eval/probe.py`: extraction, cache, ridge, MLP, metrics, baselines, selection, figures, `run_probe`.
+- [x] T009 [P] `tests/test_probe.py` end-to-end: fixture AE (train CLI, temp dir) → probe CLI (< 60 s): exit 0, run dir files, resolved config (checkpoint override), run_info checkpoint fields, `metrics.json` keys per target / split (val `samples: 0`, `selected_by` default), figure sizes; second run identical `metrics.json`; cache hit gives identical metrics; exit 2 for missing checkpoint / bad config, exit 1 for split mismatch.
+- [x] T010 `eval/cli.py` `probe` subcommand + headline printout.
 
 ## Phase 2: Verify + CI
 

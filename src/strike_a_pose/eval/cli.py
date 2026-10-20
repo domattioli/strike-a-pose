@@ -19,7 +19,15 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--config", required=True, help="baseline config YAML")
     b.add_argument("--seed", type=int, default=None, help="override config seed")
     b.add_argument("--run-root", default=None, help="override config run_root")
+    q = sub.add_parser("probe", help="probe a frozen 004 encoder's latents (spec 006)")
+    q.add_argument("--config", required=True, help="probe config YAML")
+    q.add_argument("--seed", type=int, default=None, help="override config seed")
+    q.add_argument("--run-root", default=None, help="override config run_root")
+    q.add_argument("--checkpoint", default=None, help="override config checkpoint")
     a = p.parse_args(argv)
+    full_argv = ["strike-a-pose-eval", *(sys.argv[1:] if argv is None else argv)]
+    if a.cmd == "probe":
+        return _probe(a, full_argv)
 
     from .baselines import run_baselines  # heavy imports only for real runs
 
@@ -29,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config error: {e}", file=sys.stderr)
         return EXIT_CONFIG
     try:
-        run_dir = run_baselines(cfg, argv=["strike-a-pose-eval", *(argv or sys.argv[1:])])
+        run_dir = run_baselines(cfg, argv=full_argv)
     except DatasetError as e:
         print(f"error: {e}", file=sys.stderr)
         return EXIT_DATA
@@ -49,6 +57,39 @@ def main(argv: list[str] | None = None) -> int:
         ]
         mp = m["pose"]["mean_pose"]
         parts.append(f"mean_pose mpjpe {mp['mpjpe_mm']:.1f} mm, 2d {mp['kp2d_px']:.1f} px")
+        print(f"  {split} ({m['samples']}): " + "; ".join(parts))
+    return 0
+
+
+def _probe(a: argparse.Namespace, argv: list[str]) -> int:
+    from .probe import run_probe  # heavy imports only for real runs
+    from .probe_config import load_config as load_probe_config
+
+    try:
+        cfg = load_probe_config(a.config).with_overrides(
+            seed=a.seed, run_root=a.run_root, checkpoint=a.checkpoint
+        )
+        run_dir = run_probe(cfg, argv=argv, log=lambda m: print(m, flush=True))
+    except ConfigError as e:
+        print(f"config error: {e}", file=sys.stderr)
+        return EXIT_CONFIG
+    except DatasetError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_DATA
+    except FileExistsError as e:
+        print(f"error: run directory exists: {e}", file=sys.stderr)
+        return EXIT_EXISTS
+    print(f"wrote {run_dir}")
+    metrics = json.loads((run_dir / "metrics.json").read_text())
+    for split, m in metrics["splits"].items():
+        if not m["samples"]:
+            print(f"  {split}: no samples")
+            continue
+        parts = []
+        for t, r in m["targets"].items():
+            key = {"yaw": "accuracy", "smpl_pose": "angle_deg"}.get(t, "mpjpe_mm")
+            names = [n for n in ("ridge", "mlp", "mean_pose", "majority") if n in r]
+            parts.append(f"{t} {key} " + " ".join(f"{n} {r[n][key]:.4g}" for n in names))
         print(f"  {split} ({m['samples']}): " + "; ".join(parts))
     return 0
 

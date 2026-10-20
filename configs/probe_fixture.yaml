@@ -1,0 +1,24 @@
+# Probe smoke on the committed 16-sample fixture (tests + CI; spec 006).
+# Fixture split: train 1 pose / val 0 / test 1 (8 views each) -> val selection falls
+# back to the first grid value. Pass the fixture AE checkpoint with --checkpoint
+# (e.g. from `strike-a-pose-train --config configs/ae_fixture.yaml`).
+run_name: probe-fixture
+run_root: runs
+seed: 0
+dataset_dir: tests/fixtures/smpl_fixture
+split_file: splits/smpl_fixture.json
+checkpoint: runs/ae-fixture/checkpoint.pt   # placeholder; override with --checkpoint
+cache_dir: null
+batch_size: 8
+eval_splits: [val, test]
+targets: [joints_world, joints_cam, yaw, smpl_pose]
+ridge_lambdas: [0.1, 1.0]
+mlp_hidden: [32]
+mlp_epochs: 20
+mlp_batch_size: 4
+mlp_lr: 0.001
+mlp_weight_decays: [0.0, 0.001]
+pose_pca_ks: [2]
+random_encoder_control: true
+figure_split: test
+figure_samples: 4

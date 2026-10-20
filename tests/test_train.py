@@ -99,6 +99,7 @@ def test_fixture_train_run(tmp_path, capsys):
     }  # fmt: skip
     out = capsys.readouterr().out
     assert "epoch 10/10" in out and "test (8)" in out
+    assert "scoring final weights: epoch 10" in out  # empty val: fallback (spec 008)
 
     cfg = yaml.safe_load((d / "config.yaml").read_text())
     assert cfg["seed"] == 3 and cfg["run_root"] == str(tmp_path / "runs")
@@ -124,7 +125,11 @@ def test_fixture_train_run(tmp_path, capsys):
     assert float(hist[-1]["lr"]) < float(hist[0]["lr"]) <= 1e-3  # cosine
 
     m = json.loads((d / "metrics.json").read_text())
-    assert m["train_version"] == 1 and m["metrics_version"] == 1
+    assert m["train_version"] == 2 and m["metrics_version"] == 1
+    assert m["selection"] == {
+        "select_weights": "best_val", "weights": "final", "selected_by": "final (empty val)",
+        "epoch": 10, "val_loss": None, "checkpoint": "checkpoint.pt",
+    }  # fmt: skip
     assert m["model"]["latent_dim"] == 64 and m["model"]["parameters"] == 3_126_897
     t = m["training"]
     assert t["epochs"] == 10 and t["steps"] == 20 and t["train_samples"] == 8
@@ -174,6 +179,14 @@ def test_config_errors_exit_2(tmp_path, capsys):
     p.write_text(yaml.safe_dump(bad))
     assert main(["--config", str(p)]) == 2  # 192 not divisible by 2^7
     assert "divisible" in capsys.readouterr().err
+    bad = yaml.safe_load(CFG.read_text()) | {
+        "select_weights": "best",
+        "run_root": str(tmp_path / "r"),
+    }
+    p.write_text(yaml.safe_dump(bad))
+    assert main(["--config", str(p)]) == 2  # spec 008: best_val | final
+    err = capsys.readouterr().err
+    assert "select_weights" in err and "best_val" in err  # a value error, not an unknown key
     assert not (tmp_path / "r").exists()
 
 
@@ -243,7 +256,8 @@ def _val_cfg(tmp_path: Path, root: str):
 
 
 def test_best_checkpoint_and_resume(tmp_path):
-    """Surrogate ruling 2026-10-20 #3: additive best.pt (min val loss), resume-safe."""
+    """Surrogate ruling 2026-10-20 #3: best.pt (min val loss), resume-safe; since spec 008
+    it is the scored file (selection tests with scripted val losses: test_train_selection)."""
     full = run_training(_val_cfg(tmp_path, "full"))
     vals = [float(r["val_loss"]) for r in _history(full)]
     best_epoch = vals.index(min(vals)) + 1
@@ -254,7 +268,8 @@ def test_best_checkpoint_and_resume(tmp_path):
     assert m["training"]["best_val_epoch"] == best_epoch
     info = json.loads((full / "run_info.json").read_text())
     assert info["best_val_epoch"] == best_epoch and info["best_checkpoint"] == "best.pt"
-    assert torch.load(full / "checkpoint.pt")["epoch"] == 6  # final weights still evaluated
+    assert m["selection"]["epoch"] == best_epoch and m["selection"]["checkpoint"] == "best.pt"
+    assert torch.load(full / "checkpoint.pt")["epoch"] == 6  # resume state: the last epoch
 
     cut = run_training(_val_cfg(tmp_path, "cut"), stop_after_epoch=3)
     assert main(["--resume", str(cut)]) == 0

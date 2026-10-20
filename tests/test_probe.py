@@ -229,6 +229,34 @@ def test_val_selection_with_val_split(tmp_path, ae_checkpoint):
     assert "test" not in m["splits"] and m["splits"]["val"]["samples"] == 8
 
 
+def test_probe_on_the_scored_best_checkpoint(tmp_path):
+    """Spec 008 FR-008 / FR-009 (j): probe the train run's scored file (best.pt), as named
+    by its metrics.json selection; small model on a fixture split with a val pose."""
+    sp = write_split(
+        make_split(load_manifest(FIXTURE), 0, (0.5, 0.5, 0.0)),
+        tmp_path / "split.json",
+    )
+    ae = tmp_path / "ae.yaml"
+    ae.write_text(yaml.safe_dump(load_yaml(ROOT / "configs" / "ae_fixture.yaml") | {
+        "split_file": str(sp), "eval_splits": ["val"], "figure_split": "val", "epochs": 4,
+        "channels": [4, 4, 4, 4, 4, 4], "latent_dim": 8, "run_root": str(tmp_path / "ae"),
+    }))  # fmt: skip
+    assert train_main(["--config", str(ae)]) == 0
+    (run,) = (tmp_path / "ae").iterdir()
+    sel = json.loads((run / "metrics.json").read_text())["selection"]
+    assert sel["weights"] == "best_val" and sel["checkpoint"] == "best.pt"
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(yaml.safe_dump(load_yaml(CFG) | {
+        "split_file": str(sp), "eval_splits": ["val"], "figure_split": "val",
+        "random_encoder_control": False,
+    }))  # fmt: skip
+    code, (d,) = _probe(tmp_path, run / sel["checkpoint"], cfg=cfg)
+    assert code == 0
+    ck = json.loads((d / "run_info.json").read_text())["checkpoint"]
+    assert ck["epoch"] == sel["epoch"] and ck["path"].endswith("best.pt")
+    assert json.loads((d / "metrics.json").read_text())["encoder"]["latent_dim"] == 8
+
+
 def test_errors(tmp_path, capsys, ae_checkpoint):
     code, dirs = _probe(tmp_path, tmp_path / "missing.pt")
     assert code == 2 and not dirs and "checkpoint" in capsys.readouterr().err

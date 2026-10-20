@@ -1,8 +1,9 @@
 """Autoencoder training + evaluation run (spec 004; contract: contracts/train-run.md).
 
 Train split is held in memory as uint8 and scaled ``/255`` per batch (bit-identical
-to the 002 loader's float values). The final model is scored with the 003 image
-metrics next to the mean-image and PCA baselines refit on train in the same run.
+to the 002 loader's float values). The selected weights (spec 008: by default those of
+the epoch with the lowest val loss, ``best.pt``) are scored with the 003 image metrics
+next to the mean-image and PCA baselines refit on train in the same run.
 """
 
 import csv
@@ -37,12 +38,13 @@ from strike_a_pose.runlog import (
     write_yaml,
 )
 
-from .config import TrainConfig, load_config
+from .config import TrainConfig, load_run_config, with_legacy_values
 
-TRAIN_VERSION = 1
+TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
 IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou")}
 HISTORY_FIELDS = ("epoch", "train_loss", "val_loss", "lr", "epoch_s")
+CHECKPOINT, BEST = "checkpoint.pt", "best.pt"  # resume state; best-val weights
 CL = torch.channels_last
 
 
@@ -182,13 +184,134 @@ def _write_history(path: Path, rows: list[dict]) -> None:
             wr.writerow(_history_row(r))
 
 
-def _best_val(rows: list[dict]) -> dict | None:
-    """Earliest epoch with the lowest val loss so far (None without val)."""
+def _is_new_best(v: float | None, best: dict | None) -> bool:
+    """A finite val loss below the best so far (NaN never counts; spec 008)."""
+    return v is not None and math.isfinite(v) and (best is None or v < best["val_loss"])
+
+
+def best_val(rows: list[dict]) -> dict | None:
+    """Earliest epoch with the lowest finite val loss: ``{"epoch", "val_loss"}``, or None."""
     best = None
     for r in rows:
-        if r["val_loss"] is not None and (best is None or r["val_loss"] < best["val_loss"]):
+        if _is_new_best(r["val_loss"], best):
             best = {"epoch": r["epoch"], "val_loss": r["val_loss"]}
     return best
+
+
+def weight_selection(rows: list[dict], rule: str) -> dict:
+    """The weights a finished history scores (spec 008): the ``metrics.json`` block.
+
+    ``best_val``: the earliest epoch with the lowest finite val loss (``best.pt``), or the
+    final epoch when val is empty or never finite; ``final``: the final epoch.
+    """
+    last = rows[-1]
+    sel = {
+        "select_weights": rule,
+        "weights": "final",
+        "selected_by": "config",
+        "epoch": last["epoch"],
+        "val_loss": last["val_loss"],
+        "checkpoint": CHECKPOINT,
+    }
+    if rule == "final":
+        return sel
+    best = best_val(rows)
+    if best is None:
+        empty = all(r["val_loss"] is None for r in rows)
+        why = "final (empty val)" if empty else "final (no finite val loss)"
+        return sel | {"selected_by": why, "val_loss": None}
+    return sel | best | {"weights": "best_val", "selected_by": "val loss", "checkpoint": BEST}
+
+
+def _best_state(epoch: int, val_loss: float, weights: dict, hparams: dict, config: dict) -> dict:
+    """``best.pt`` contents (structure unchanged since surrogate ruling 2026-10-20 #3)."""
+    return {
+        "train_version": TRAIN_VERSION,
+        "epoch": epoch,
+        "val_loss": val_loss,
+        "model_hparams": hparams,
+        "model": weights,
+        "config": config,
+    }
+
+
+def _read_best(path: Path) -> dict | None:
+    if not path.is_file():
+        return None
+    try:
+        return torch.load(path, map_location="cpu", weights_only=True)
+    except Exception:  # truncated or foreign file: treated as missing
+        return None
+
+
+def _holds(b: dict | None, best: dict, cfg: TrainConfig) -> bool:
+    """Whether ``best.pt`` contents ``b`` are this run's weights of epoch ``best``."""
+    return (
+        b is not None
+        and b.get("epoch") == best["epoch"]
+        and b.get("val_loss") == best["val_loss"]
+        and with_legacy_values(b.get("config")) == cfg.to_dict()
+    )
+
+
+def reconcile_best(run_dir: Path, cfg: TrainConfig, ckpt: dict) -> None:
+    """Resume (spec 008): make ``best.pt`` hold the checkpointed history's best epoch.
+
+    ``checkpoint.pt`` is written before ``best.pt``, so a kill between the two writes of a
+    new best epoch leaves the older ``best.pt`` while the checkpoint holds the new best's
+    weights: ``best.pt`` is rewritten from it. The weights of an older best epoch cannot
+    be recovered: a ``best_val`` run refuses (``ConfigError``); a ``final`` run, where
+    ``best.pt`` is informational, continues.
+    """
+    best = best_val(ckpt["history"])
+    if best is None:
+        return
+    path = run_dir / BEST
+    found = _read_best(path)
+    if _holds(found, best, cfg):
+        return
+    if best["epoch"] == ckpt["epoch"]:
+        hp, config = ckpt["model_hparams"], cfg.to_dict()
+        _save_checkpoint(
+            path, _best_state(best["epoch"], best["val_loss"], ckpt["model"], hp, config)
+        )
+    elif cfg.select_weights == "best_val":
+        have = "missing" if found is None else f"holds epoch {found.get('epoch')}"
+        raise ConfigError(
+            f"cannot resume {run_dir}: {BEST} ({have}) does not hold the best val epoch "
+            f"{best['epoch']} and {CHECKPOINT} is at epoch {ckpt['epoch']}: the weights to "
+            "score are lost (start a new run)"
+        )
+
+
+def load_selected_weights(
+    model: ConvAutoencoder, run_dir: Path, selection: dict, cfg: TrainConfig
+) -> None:
+    """Put the weights ``selection`` names into ``model`` (spec 008; before evaluation).
+
+    ``best_val``: read back from ``best.pt``, which must hold this run's selected epoch
+    and val loss (else ``ConfigError``); ``final``: ``model`` already holds them.
+    """
+    if selection["weights"] != "best_val":
+        return
+    b = _read_best(run_dir / BEST)
+    if not _holds(b, selection, cfg):
+        raise ConfigError(
+            f"{run_dir / BEST} does not hold the selected epoch {selection['epoch']} "
+            f"(val loss {selection['val_loss']}) of this run"
+        )
+    model.load_state_dict(b["model"])
+
+
+def _selection_line(sel: dict, last: dict) -> str:
+    v = "-" if sel["val_loss"] is None else f"{sel['val_loss']:.5f}"
+    line = (
+        f"scoring {sel['weights']} weights: epoch {sel['epoch']}, val {v} "
+        f"({sel['selected_by']}; {sel['checkpoint']})"
+    )
+    if sel["epoch"] != last["epoch"] and last["val_loss"] is not None:
+        line += f"; final epoch {last['epoch']} val {last['val_loss']:.5f}"
+    return line
 
 
 def _history_row(r: dict) -> list:
@@ -260,7 +383,7 @@ def run_training(
         "split_file": {"path": cfg.split_file, "sha256": s["split_sha"]},
         "model_parameters": s["model"].parameter_count(),
         "history": "history.csv",
-        "checkpoint": "checkpoint.pt",
+        "checkpoint": CHECKPOINT,
         "started_utc": started.isoformat(),
         "sessions": [_session(argv, 1) | {"started_utc": started.isoformat()}],
         "finished_utc": None,
@@ -292,12 +415,12 @@ def resume_training(
     run_dir = Path(run_dir)
     if (run_dir / "metrics.json").exists():
         raise ConfigError(f"cannot resume {run_dir}: run already finished (metrics.json)")
-    ck_path = run_dir / "checkpoint.pt"
+    ck_path = run_dir / CHECKPOINT
     if not ck_path.is_file():
-        raise ConfigError(f"cannot resume {run_dir}: no checkpoint.pt (start a new run)")
-    cfg = load_config(run_dir / "config.yaml")
+        raise ConfigError(f"cannot resume {run_dir}: no {CHECKPOINT} (start a new run)")
+    cfg = load_run_config(run_dir / "config.yaml")  # keys newer than the run: legacy values
     ckpt = torch.load(ck_path, map_location="cpu", weights_only=True)
-    if ckpt.get("config") != cfg.to_dict() or "rng" not in ckpt:
+    if with_legacy_values(ckpt.get("config")) != cfg.to_dict() or "rng" not in ckpt:
         raise ConfigError(f"cannot resume {run_dir}: checkpoint does not match config.yaml")
     info = json.loads((run_dir / "run_info.json").read_text())
     s = _setup(cfg)
@@ -305,6 +428,7 @@ def resume_training(
         raise DatasetError("dataset manifest changed since the run started")
     if s["split_sha"] != info["split_file"]["sha256"]:
         raise DatasetError("split file changed since the run started")
+    reconcile_best(run_dir, cfg, ckpt)  # before this session is recorded (spec 008)
     info.setdefault("sessions", []).append(_session(argv, ckpt["epoch"] + 1))
     write_json_exact(run_dir / "run_info.json", info)
     say(f"resuming {run_dir} after epoch {ckpt['epoch']}/{cfg.epochs}")
@@ -343,7 +467,7 @@ def _train_and_evaluate(
         elapsed0, train0 = ckpt["elapsed_s"], ckpt["train_wall_s"]
     hist_path = run_dir / "history.csv"
     _write_history(hist_path, rows)
-    best = _best_val(rows)  # recomputed from the checkpointed history on resume
+    best = best_val(rows)  # recomputed from the checkpointed history on resume
     t_train = time.monotonic()
     with hist_path.open("a", newline="") as fh:
         wr = csv.writer(fh)
@@ -356,22 +480,12 @@ def _train_and_evaluate(
             rows.append(row)
             wr.writerow(_history_row(row))
             fh.flush()
-            if vl is not None and (best is None or vl < best["val_loss"]):
+            new_best = _is_new_best(vl, best)
+            if new_best:
                 best = {"epoch": epoch, "val_loss": vl}
-                _save_checkpoint(  # additive (surrogate ruling 2026-10-20 #3); not evaluated
-                    run_dir / "best.pt",
-                    {
-                        "train_version": TRAIN_VERSION,
-                        "epoch": epoch,
-                        "val_loss": vl,
-                        "model_hparams": model.hparams(),
-                        "model": model.state_dict(),
-                        "config": cfg.to_dict(),
-                    },
-                )
             now = time.monotonic()
             _save_checkpoint(
-                run_dir / "checkpoint.pt",
+                run_dir / CHECKPOINT,
                 {
                     "train_version": TRAIN_VERSION,
                     "epoch": epoch,
@@ -386,12 +500,20 @@ def _train_and_evaluate(
                     "config": cfg.to_dict(),
                 },
             )
+            if new_best:  # after checkpoint.pt (spec 008): a kill in between is repaired
+                state = model.state_dict()
+                _save_checkpoint(
+                    run_dir / BEST, _best_state(epoch, vl, state, model.hparams(), cfg.to_dict())
+                )
             vs = "-" if vl is None else f"{vl:.5f}"
             say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f} val {vs} lr {lr:.2e} ({dt:.0f} s)")
             if stop_after_epoch is not None and stop_after_epoch <= epoch < cfg.epochs:
                 say(f"stopped after epoch {epoch} (resume: --resume {run_dir})")
                 return
     train_wall = train0 + time.monotonic() - t_train
+    selection = weight_selection(rows, cfg.select_weights)
+    load_selected_weights(model, run_dir, selection, cfg)  # the scored weights (spec 008)
+    say(_selection_line(selection, rows[-1]))
     model.eval()
 
     # Context baselines, fit on train only (003 code path: exact PCA, clamp to [0, 1]).
@@ -465,6 +587,7 @@ def _train_and_evaluate(
             "pca_k": cfg.context_pca_k,
             "pca_k_effective": pca.k_effective(cfg.context_pca_k) if pca is not None else None,
         },
+        "selection": selection,
         "units": IMAGE_UNITS,
         "splits": splits,
     }
@@ -472,7 +595,7 @@ def _train_and_evaluate(
     info |= {
         "figure": figure,
         "best_val_epoch": best["epoch"] if best else None,
-        "best_checkpoint": "best.pt" if best else None,
+        "best_checkpoint": BEST if best else None,
         "finished_utc": utc_now().isoformat(),
         "wall_s": round(elapsed0 + time.monotonic() - t0, 1),
         "train_wall_s": round(train_wall, 1),

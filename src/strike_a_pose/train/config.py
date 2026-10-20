@@ -13,6 +13,13 @@ from strike_a_pose.models import DEFAULT_CHANNELS
 from strike_a_pose.runlog import RUN_NAME_RE
 
 LR_SCHEDULES = ("constant", "cosine")
+WEIGHT_SELECTIONS = ("best_val", "final")  # spec 008: which weights a run scores
+# Config keys added after runs existed, with the value a run directory whose config lacks
+# the key was started under. Read on --resume only (new runs get the dataclass default),
+# so run directories created before a key was added keep resuming.
+LEGACY_VALUES: dict[str, Any] = {
+    "select_weights": "final",  # spec 008: runs before it scored the final weights
+}
 
 
 @dataclass(frozen=True)
@@ -29,6 +36,7 @@ class TrainConfig:
     lr: float = 1e-3
     lr_schedule: str = "cosine"
     eval_splits: tuple[str, ...] = ("val", "test")
+    select_weights: str = "best_val"
     context_pca_k: int | None = 64
     iou_threshold: float = 0.075
     figure_split: str = "val"
@@ -47,7 +55,15 @@ class TrainConfig:
 
 
 _REQUIRED = ("dataset_dir", "split_file")
-_STRS = ("dataset_dir", "split_file", "run_name", "run_root", "lr_schedule", "figure_split")
+_STRS = (
+    "dataset_dir",
+    "split_file",
+    "run_name",
+    "run_root",
+    "lr_schedule",
+    "figure_split",
+    "select_weights",
+)
 _POS_INTS = ("latent_dim", "epochs", "batch_size", "figure_samples")
 
 
@@ -111,15 +127,34 @@ def _check(cfg: TrainConfig) -> None:
     bad = [s for s in cfg.eval_splits if s not in allowed]
     if bad or len(set(cfg.eval_splits)) != len(cfg.eval_splits):
         raise ConfigError(f"eval_splits: unique names from {allowed}, got {list(cfg.eval_splits)}")
+    if cfg.select_weights not in WEIGHT_SELECTIONS:
+        raise ConfigError(
+            f"select_weights: one of {list(WEIGHT_SELECTIONS)}, got {cfg.select_weights!r}"
+        )
     if cfg.figure_split not in cfg.eval_splits:
         raise ConfigError(f"figure_split {cfg.figure_split!r} must be one of eval_splits")
     if not 0.0 < cfg.iou_threshold < 1.0:
         raise ConfigError("iou_threshold: must be in (0, 1)")
 
 
-def load_config(path: str | Path) -> TrainConfig:
+def _read_yaml(path: str | Path) -> Any:
     try:
-        data = yaml.safe_load(Path(path).read_text())
+        return yaml.safe_load(Path(path).read_text())
     except (OSError, yaml.YAMLError) as e:
         raise ConfigError(f"cannot read config {path}: {e}") from e
-    return config_from_dict(data)
+
+
+def load_config(path: str | Path) -> TrainConfig:
+    return config_from_dict(_read_yaml(path))
+
+
+def with_legacy_values(data: Any) -> Any:
+    """``data`` with each :data:`LEGACY_VALUES` key it lacks filled in (present keys win;
+    anything but a mapping is returned unchanged)."""
+    return {**LEGACY_VALUES, **data} if isinstance(data, dict) else data
+
+
+def load_run_config(path: str | Path) -> TrainConfig:
+    """Config of an existing run directory (``--resume``): keys added after the run
+    started take the value it was started under (:data:`LEGACY_VALUES`)."""
+    return config_from_dict(with_legacy_values(_read_yaml(path)))

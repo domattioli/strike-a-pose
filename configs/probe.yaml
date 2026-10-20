@@ -1,13 +1,14 @@
 # Latent probe on the full default dataset (spec 006).
 # Run: strike-a-pose-eval probe --config configs/probe.yaml   (CPU, a few min on 4 vCPU)
-# Frozen 004 encoder (final-epoch weights) -> latents (cached under runs/probe-cache);
-# ridge + MLP probes fit on train, one hyper-parameter chosen on val, test scored once.
+# Frozen encoder of an AE run's scored weights (best.pt by default, spec 008) -> latents
+# (cached under runs/probe-cache); ridge + MLP probes fit on train, one hyper-parameter
+# chosen on val, test scored once.
 run_name: probe-smpl_proc_v1
 run_root: runs                          # git-ignored
 seed: 0
 dataset_dir: data/generated/smpl_proc_v1
 split_file: splits/smpl_proc_v1.json
-checkpoint: runs/ae-smpl_proc_v1-20261020T030038Z/checkpoint.pt   # 004 MVP run, final weights
+checkpoint: runs/ae-smpl_proc_v1-YYYYmmddTHHMMSSZ/best.pt   # set to the re-baseline run's best.pt
 cache_dir: runs/probe-cache             # latents keyed by checkpoint/manifest/split SHA-256
 batch_size: 256                         # loading / encoding
 eval_splits: [val, test]                # val: selection + report; test: scored once

@@ -12,6 +12,7 @@ batch_size: 4
 lr: 0.001
 lr_schedule: cosine
 eval_splits: [val, test]
+select_weights: best_val               # fixture val is empty -> falls back to the final weights
 context_pca_k: 4
 iou_threshold: 0.075
 figure_split: test

@@ -1,7 +1,8 @@
-# Convolutional autoencoder on the full default dataset (spec 004).
+# Convolutional autoencoder on the full default dataset (spec 004; weight selection: spec 008).
 # Run: strike-a-pose-train --config configs/ae.yaml   (CPU, ~1.5 h on 4 vCPU)
-# Train split only for fitting; val loss logged per epoch; final weights scored on
-# val + test next to the mean image and PCA k=64 (refit on train in the same run).
+# Train split only for fitting; val loss logged per epoch; the weights of the epoch with
+# the lowest val loss (best.pt) are scored on val + test next to the mean image and PCA
+# k=64 (refit on train in the same run).
 run_name: ae-smpl_proc_v1
 run_root: runs                         # git-ignored
 seed: 0
@@ -14,6 +15,7 @@ batch_size: 64
 lr: 0.001
 lr_schedule: cosine                    # per-step decay to 0
 eval_splits: [val, test]
+select_weights: best_val               # scored: best_val (best.pt) | final (last epoch)
 context_pca_k: 64                      # baseline column / metrics (= 003 headline PCA)
 iou_threshold: 0.075                   # 003 default
 figure_split: val

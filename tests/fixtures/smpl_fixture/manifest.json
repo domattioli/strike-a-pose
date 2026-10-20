@@ -362,7 +362,7 @@
     }
   ],
   "code": {
-    "commit": "9c7e36bc9474e642ea14e1333123ee71a53fa2fa",
+    "commit": "ab95629e6155d38a176d6a54492cc65a1be3a1fa",
     "dirty": true
   },
   "complete": true,
@@ -753,36 +753,36 @@
           "index": 22,
           "joint": "left_hand",
           "x_deg": [
-            -25,
-            25
+            0,
+            0
           ],
           "y_deg": [
-            -15,
-            15
+            0,
+            0
           ],
           "z_deg": [
-            -90,
-            45
+            0,
+            0
           ]
         },
         {
           "index": 23,
           "joint": "right_hand",
           "x_deg": [
-            -25,
-            25
+            0,
+            0
           ],
           "y_deg": [
-            -15,
-            15
+            0,
+            0
           ],
           "z_deg": [
-            -90,
-            45
+            0,
+            0
           ]
         }
       ],
-      "ranges_version": "predecessor-v1",
+      "ranges_version": "predecessor-v1-nohands",
       "sparsify_min_keep": 5,
       "type": "procedural"
     },
@@ -796,117 +796,117 @@
       "id": "00000_Front_0",
       "image": "samples/00000_Front_0.png",
       "labels": "samples/00000_Front_0.json",
-      "labels_sha256": "dd3afa989482903220593ea2eb7d46bcfe4c0bca7ebfdf5c5090d57d922ff384",
+      "labels_sha256": "ecec3a63c889f57b0e58ae0bf83037a9a863d9b52cf6d7c3cd22f7ab155fae15",
       "mask": "samples/00000_Front_0_mask.png"
     },
     {
       "id": "00000_FrontRight_45",
       "image": "samples/00000_FrontRight_45.png",
       "labels": "samples/00000_FrontRight_45.json",
-      "labels_sha256": "2c17ad106fc1a5dc6b8b0a2f78e546e5c9e7d2eb8b214482a03f725ba71cbeb0",
+      "labels_sha256": "af3b4b5f6bb9c33f47bc4e23dfbc594b871aac94683f1cd3592ebaf4ae19c9b4",
       "mask": "samples/00000_FrontRight_45_mask.png"
     },
     {
       "id": "00000_Right_90",
       "image": "samples/00000_Right_90.png",
       "labels": "samples/00000_Right_90.json",
-      "labels_sha256": "1a25e0879ba95cd11231ae2882c893c266f1d272d03af7e7f891e87208fed67e",
+      "labels_sha256": "da8a73051e9da105880adf097aa32651a0324e4e654bdd6007cb6b21a056aba0",
       "mask": "samples/00000_Right_90_mask.png"
     },
     {
       "id": "00000_BackRight_135",
       "image": "samples/00000_BackRight_135.png",
       "labels": "samples/00000_BackRight_135.json",
-      "labels_sha256": "8e54ec1f947dff321579604ec124a2895b97739481cd1c9ec8aa32cd01413cad",
+      "labels_sha256": "cf9fd63c723b543360971e96903241bda87f9f5e01944df33b3de3645ec66f30",
       "mask": "samples/00000_BackRight_135_mask.png"
     },
     {
       "id": "00000_Back_180",
       "image": "samples/00000_Back_180.png",
       "labels": "samples/00000_Back_180.json",
-      "labels_sha256": "dd6afcbff3bdde4e2eb7357373db127dbb3ac89b5de3eb4f7be6edc239eb9476",
+      "labels_sha256": "595e87668c097a613d41597d3e95c8602c5764e729eac7b84b73504d2bf896f6",
       "mask": "samples/00000_Back_180_mask.png"
     },
     {
       "id": "00000_BackLeft_225",
       "image": "samples/00000_BackLeft_225.png",
       "labels": "samples/00000_BackLeft_225.json",
-      "labels_sha256": "aaffe9510994c573e9e740f1690090a240df15bb4b97ac9c6d84bc61582fc776",
+      "labels_sha256": "ad667c79bbd538544b5459edd7aba23ff375aee567c19f19de923a0be930ba26",
       "mask": "samples/00000_BackLeft_225_mask.png"
     },
     {
       "id": "00000_Left_270",
       "image": "samples/00000_Left_270.png",
       "labels": "samples/00000_Left_270.json",
-      "labels_sha256": "366e978e61d9c5ccaf1d046b400d21bd16191130148f768102b479aafc700543",
+      "labels_sha256": "094e7e868a8725c77cb259b28429446aa058165af8c710bf288389f0e62a803c",
       "mask": "samples/00000_Left_270_mask.png"
     },
     {
       "id": "00000_FrontLeft_315",
       "image": "samples/00000_FrontLeft_315.png",
       "labels": "samples/00000_FrontLeft_315.json",
-      "labels_sha256": "d543c32be5ba1ab783a8c088e6503c080428e0cd45d47963f8ff91e2ac0d05d2",
+      "labels_sha256": "60587f7a2e4a736f8bbe57872304d85300e34d5a7819d17aa200eb91bd7dbde0",
       "mask": "samples/00000_FrontLeft_315_mask.png"
     },
     {
       "id": "00001_Front_0",
       "image": "samples/00001_Front_0.png",
       "labels": "samples/00001_Front_0.json",
-      "labels_sha256": "0f6e092d3c4dd3204a29070654d541dd7490dc9b379f71baefb154471058248e",
+      "labels_sha256": "201032e739c164737960e57dcae81922340a4494f2a8481f068c8a211e906c0f",
       "mask": "samples/00001_Front_0_mask.png"
     },
     {
       "id": "00001_FrontRight_45",
       "image": "samples/00001_FrontRight_45.png",
       "labels": "samples/00001_FrontRight_45.json",
-      "labels_sha256": "7b4603ee60e4133114c71aab1e296d013b3c6f3ad7aade40f620357b9496ff25",
+      "labels_sha256": "35f5f4ee4e2c33216628cbfac08f03dc95725cddba2b7c219df7862346d473f6",
       "mask": "samples/00001_FrontRight_45_mask.png"
     },
     {
       "id": "00001_Right_90",
       "image": "samples/00001_Right_90.png",
       "labels": "samples/00001_Right_90.json",
-      "labels_sha256": "cfc419d9ebbbcbe492dc3ea0fa61f3cc090ae5a0baa919bdfc0c06e1caab22f2",
+      "labels_sha256": "8918f6f3b6acbd9b49f3d2a7b0b1125430212227e2930681d0b7bf6e0c3d6367",
       "mask": "samples/00001_Right_90_mask.png"
     },
     {
       "id": "00001_BackRight_135",
       "image": "samples/00001_BackRight_135.png",
       "labels": "samples/00001_BackRight_135.json",
-      "labels_sha256": "086681825e5b7de158a49d70ee8cfdef3eea0013b3775212f0f5e52d265d1f01",
+      "labels_sha256": "26ee047d40be19a3ff5f6d3ab8611840334591db7aa1d4d8d8e21ccc233fcb10",
       "mask": "samples/00001_BackRight_135_mask.png"
     },
     {
       "id": "00001_Back_180",
       "image": "samples/00001_Back_180.png",
       "labels": "samples/00001_Back_180.json",
-      "labels_sha256": "e8a0f01b2523592fbe2928416a7197257ac5c98259d179a4887dab80f2b2ec4d",
+      "labels_sha256": "00570b7af9974f4c6106fce71a9e2a14d4f42103b76039b4f6eb06ab9a25cb7a",
       "mask": "samples/00001_Back_180_mask.png"
     },
     {
       "id": "00001_BackLeft_225",
       "image": "samples/00001_BackLeft_225.png",
       "labels": "samples/00001_BackLeft_225.json",
-      "labels_sha256": "08605b281c9b238e86a687e35caf2692532162428cf2a619f4207f34c005910d",
+      "labels_sha256": "01a8ad2833b4826e9bd9ad6974646fdb3266091f0d7812f6a570dca43d3fb154",
       "mask": "samples/00001_BackLeft_225_mask.png"
     },
     {
       "id": "00001_Left_270",
       "image": "samples/00001_Left_270.png",
       "labels": "samples/00001_Left_270.json",
-      "labels_sha256": "17ec3a3eb41f2ce4d6dcb8ba815f11bd0a0ae622642ba226b4ff0f924f19bdd4",
+      "labels_sha256": "a192e206a8647c658a0ae8de79adf6cfc3eb198ae635d2634caccf4da2de323c",
       "mask": "samples/00001_Left_270_mask.png"
     },
     {
       "id": "00001_FrontLeft_315",
       "image": "samples/00001_FrontLeft_315.png",
       "labels": "samples/00001_FrontLeft_315.json",
-      "labels_sha256": "bed805b996958167d278713858bfa9a3967930702a608036f54fc6ec77553491",
+      "labels_sha256": "36d7776bca78f4e3f519018078e77620b0b54b44c3aa0c88004b91414f5f45c5",
       "mask": "samples/00001_FrontLeft_315_mask.png"
     }
   ],
   "schema_version": 1,
-  "seed": 0,
+  "seed": 3,
   "skeleton": {
     "joints": [
       "pelvis",

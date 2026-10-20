@@ -1,7 +1,7 @@
 # Committed test fixture (FR-009): 2 poses x 8 cameras = 16 samples.
 # Procedural pose source (Clarifications 2026-10-20); needs only SMPL.
 # Run (from repo root):
-#   strike-a-pose-data generate --config configs/fixture.yaml --seed 0 --output-root tests/fixtures
+#   strike-a-pose-data generate --config configs/fixture.yaml --seed 3 --output-root tests/fixtures
 dataset_name: smpl_fixture
 smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
 pose_source: procedural

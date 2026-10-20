@@ -65,3 +65,5 @@ Slice 001 specifics (carried into its clarify step):
   AMASS kept as optional config source. Fixture (T022) regenerated from real
   SMPL with the procedural source and committed. Default dataset renamed
   `smpl_proc_v1`.
+- 2026-10-20: operator answers on 001 open questions: defaults (keep arms-out limitation, framing, run_info.json, predecessor hand-free table) except
+  hand joints zeroed (`predecessor-v1-nohands`; predecessor AE did hands poorly). Fixture regenerated with seed 3 (seed 0 near-T-poses).

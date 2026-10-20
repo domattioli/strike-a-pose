@@ -16,7 +16,7 @@ import numpy as np
 
 from .skeleton import SMPL24_JOINT_NAMES
 
-RANGES_VERSION = "predecessor-v1"
+RANGES_VERSION = "predecessor-v1-nohands"
 SPARSIFY_MIN_KEEP = 5  # keep k >= 5 of the 69 values, zero the rest
 
 # SMPL joint index -> ((-A, B) for x, y, z): integer degrees uniform in [-A, B).
@@ -45,8 +45,10 @@ RANGES_DEG: dict[int, tuple[tuple[int, int], ...]] = {
     19: ((-60, 110), (0, 145), (-35, 5)),  # R_elbow
     20: ((-50, 50), (-35, 35), (-50, 50)),  # L_wrist
     21: ((-50, 50), (-35, 35), (-50, 50)),  # R_wrist
-    22: ((-25, 25), (-15, 15), (-90, 45)),  # L_hand
-    23: ((-25, 25), (-15, 15), (-90, 45)),  # R_hand
+    # Hands zeroed (operator 2026-10-20: predecessor AE reconstructed hands poorly).
+    # Predecessor ranges were x[-25,25) y[-15,15) z[-90,45).
+    22: ((0, 0), (0, 0), (0, 0)),  # L_hand
+    23: ((0, 0), (0, 0), (0, 0)),  # R_hand
 }
 
 

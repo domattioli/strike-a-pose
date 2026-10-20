@@ -65,7 +65,7 @@ and writes nothing.
 ## Committed fixture (operator)
 
 ```bash
-strike-a-pose-data generate --config configs/fixture.yaml --seed 0 --output-root tests/fixtures
+strike-a-pose-data generate --config configs/fixture.yaml --seed 3 --output-root tests/fixtures
 strike-a-pose-data validate tests/fixtures/smpl_fixture
 pytest tests/test_fixture.py
 git add tests/fixtures/smpl_fixture

@@ -45,8 +45,9 @@ def test_ranges_respected_sparsified_and_pose_matches_euler():
             r = euler_xyz_to_matrix(np.radians(deg[j]))
             assert np.allclose(_aa_to_matrix(aa[j]), r, atol=1e-6)
         frac.append(np.count_nonzero(deg[1:]) / 69)
-    # k uniform in [5, 69) kept -> mean kept fraction ~ 0.53
-    assert 0.4 < np.mean(frac) < 0.65 and min(frac) < 0.2 and max(frac) > 0.85
+    # k uniform in [5, 69) kept -> mean kept fraction ~ 0.53; hands (6) and the
+    # 4 zero-width axes are always 0, so the max nonzero fraction is <= 59/69
+    assert 0.35 < np.mean(frac) < 0.65 and min(frac) < 0.2 and max(frac) > 0.75
 
 
 def test_matches_scipy_from_euler_xyz():

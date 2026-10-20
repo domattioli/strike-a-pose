@@ -110,7 +110,7 @@ replaces an interim self-chosen table that was never released.
   (lower-case = extrinsic, `R = Rz @ Ry @ Rx`) → rotvec, implemented in NumPy;
   scipy is a dev/test-only dependency used to verify equivalence.
 - Root orientation zero; mean shape (predecessor randomized betas — not adopted).
-- Version string `predecessor-v1`; manifest records it plus the full table.
+- Version string `predecessor-v1-nohands` (2026-10-20: hands 22/23 zeroed by operator; predecessor ranges kept below for reference); manifest records it plus the full table. Fixture seed 3 (seed 0 gave two near-T-poses).
 
 | SMPL joint | x | y | z |
 |---|---|---|---|

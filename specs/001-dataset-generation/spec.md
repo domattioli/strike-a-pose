@@ -98,7 +98,7 @@ fixture manifest and read every sample.
     `generate_random_slider_vals`): per joint and SMPL joint-local axis, integer
     degrees uniform in a documented `[-A, B)` range (research R9), Euler `'xyz'`
     → axis-angle, then sparsified (keep k ≥ 5 of the 69 values, zero the
-    rest); seeded and deterministic; version `predecessor-v1`. Root orientation zero.
+    rest); seeded and deterministic; version `predecessor-v1-nohands` (hand joints 22/23 zeroed, operator 2026-10-20: predecessor AE reconstructed hands poorly). Root orientation zero.
   - `amass` (optional): poses sampled from configured AMASS sub-collections
     after fixed frame-stride subsampling (root zeroed, hands zero).
   The manifest MUST record the pose source and, for `procedural`, the ranges

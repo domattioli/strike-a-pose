@@ -93,8 +93,9 @@ changelog, citing the run directory, config and git commit.
 - Empty predicted and true silhouettes → IoU 1.
 - A sample with no visible joints → its 2D error is NaN and it is excluded from
   the split mean (count recorded).
-- Config with unknown keys, empty `k` lists, non-positive `k`, unknown split
-  names, or `test` used for fitting → config error (exit 2).
+- Config with unknown keys, empty `k` lists, non-positive `k`, or unknown split
+  names → config error (exit 2). The fit split is always `train` and is not
+  configurable.
 
 ## Requirements *(mandatory)*
 
@@ -112,8 +113,8 @@ changelog, citing the run directory, config and git commit.
   metres, reports in **millimetres** (`× 1000`, key suffix `_mm`).
 - **FR-004**: 2D keypoint error MUST be the mean Euclidean pixel distance over
   joints, optionally restricted to visible joints (key suffix `_px`).
-- **FR-005**: Baselines MUST be fit on the train split only, and evaluated on
-  val and test (configurable list; fitting on val/test is rejected):
+- **FR-005**: Baselines MUST be fit on the train split only (not configurable)
+  and evaluated on a configured list of splits (default val, test):
   - image: per-pixel **mean image**; **PCA** reconstruction for each `k` in a
     configured list (outputs clamped to `[0, 1]`);
   - pose: **mean pose** of root-relative 3D joints; **PCA** reconstruction of

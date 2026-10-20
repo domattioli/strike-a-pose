@@ -6,13 +6,16 @@ metrics next to the mean-image and PCA baselines refit on train in the same run.
 """
 
 import csv
+import json
 import math
 import os
+import random
 import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
@@ -34,7 +37,7 @@ from strike_a_pose.runlog import (
     write_yaml,
 )
 
-from .config import TrainConfig
+from .config import TrainConfig, load_config
 
 TRAIN_VERSION = 1
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
@@ -150,35 +153,89 @@ def _save_checkpoint(path: Path, obj: dict) -> None:
     os.replace(tmp, path)
 
 
+def _rng_state(gen: torch.Generator) -> dict:
+    """Every RNG the run touches (shuffle generator + global Python / NumPy / torch)."""
+    name, keys, pos, has_gauss, cached = np.random.get_state(legacy=True)
+    return {
+        "shuffle": gen.get_state(),
+        "torch": torch.get_rng_state(),
+        "numpy": [name, [int(k) for k in keys], int(pos), int(has_gauss), float(cached)],
+        "python": random.getstate(),
+    }
+
+
+def _set_rng_state(gen: torch.Generator, st: dict) -> None:
+    gen.set_state(st["shuffle"])
+    torch.set_rng_state(st["torch"])
+    name, keys, pos, has_gauss, cached = st["numpy"]
+    np.random.set_state((name, np.asarray(keys, dtype=np.uint32), pos, has_gauss, cached))
+    v, internal, gauss = st["python"]
+    random.setstate((v, tuple(internal), gauss))
+
+
+def _write_history(path: Path, rows: list[dict]) -> None:
+    """(Re)write ``history.csv`` from the checkpointed rows (drops rows past the checkpoint)."""
+    with path.open("w", newline="") as fh:
+        wr = csv.writer(fh)
+        wr.writerow(HISTORY_FIELDS)
+        for r in rows:
+            wr.writerow(_history_row(r))
+
+
+def _history_row(r: dict) -> list:
+    return [r["epoch"], _fmt(r["train_loss"]), _fmt(r["val_loss"]), _fmt(r["lr"], ".6g"),
+            f"{r['epoch_s']:.1f}"]  # fmt: skip
+
+
+def _setup(cfg: TrainConfig) -> dict:
+    """Seed, open the splits and build the model; no files are written."""
+    seed_everything(cfg.seed)
+    kw = {"split_file": cfg.split_file}
+    s: dict = {
+        "train_ds": PoseImageDataset(cfg.dataset_dir, split="train", **kw),
+        "val_ds": PoseImageDataset(cfg.dataset_dir, split="val", **kw),
+        "eval_ds": {e: PoseImageDataset(cfg.dataset_dir, split=e, **kw) for e in cfg.eval_splits},
+    }
+    if len(s["train_ds"]) == 0:
+        raise DatasetError("train split has no samples")
+    try:
+        model = ConvAutoencoder(s["train_ds"].image_size, cfg.latent_dim, cfg.channels)
+    except ValueError as e:
+        raise ConfigError(f"model: {e}") from e
+    s["model"] = model.to(memory_format=CL)
+    s["split_sha"] = sha256_file(Path(cfg.split_file))
+    return s
+
+
+def _session(argv: list[str] | None, start_epoch: int) -> dict:
+    return {
+        "started_utc": utc_now().isoformat(),
+        "start_epoch": start_epoch,
+        "argv": list(sys.argv if argv is None else argv),
+        "git": git_info(),
+    }
+
+
 def run_training(
     cfg: TrainConfig,
     argv: list[str] | None = None,
     log: Callable[[str], None] | None = None,
+    stop_after_epoch: int | None = None,
 ) -> Path:
     """Check inputs, train, evaluate, write the run directory; return its path.
 
     Raises ``DatasetError`` (bad dataset / split) or ``ConfigError`` (model does not
     fit the image size) before creating anything; ``FileExistsError`` if the run
-    directory exists.
+    directory exists. ``stop_after_epoch`` ends the process-level session after that
+    epoch's checkpoint (simulated interruption, for tests); continue with
+    :func:`resume_training`.
     """
     say = log or (lambda _msg: None)
     t0 = time.monotonic()
     started = utc_now()
-    seed_everything(cfg.seed)
-    kw = {"split_file": cfg.split_file}
-    train_ds = PoseImageDataset(cfg.dataset_dir, split="train", **kw)
-    val_ds = PoseImageDataset(cfg.dataset_dir, split="val", **kw)
-    eval_ds = {s: PoseImageDataset(cfg.dataset_dir, split=s, **kw) for s in cfg.eval_splits}
-    if len(train_ds) == 0:
-        raise DatasetError("train split has no samples")
-    try:
-        model = ConvAutoencoder(train_ds.image_size, cfg.latent_dim, cfg.channels)
-    except ValueError as e:
-        raise ConfigError(f"model: {e}") from e
-    model = model.to(memory_format=CL)
-    split_sha = sha256_file(Path(cfg.split_file))
-
+    s = _setup(cfg)
     run_dir = make_run_dir(cfg.run_root, cfg.run_name, started)
+    say(f"run dir {run_dir} (resume: strike-a-pose-train --resume {run_dir})")
     write_yaml(run_dir / "config.yaml", cfg.to_dict())
     info = {
         "argv": list(sys.argv if argv is None else argv),
@@ -186,19 +243,73 @@ def run_training(
         "seed": cfg.seed,
         "git": git_info(),
         "env": environment_summary(),
-        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": train_ds.manifest_sha256},
-        "split_file": {"path": cfg.split_file, "sha256": split_sha},
-        "model_parameters": model.parameter_count(),
+        "dataset": {"dir": cfg.dataset_dir, "manifest_sha256": s["train_ds"].manifest_sha256},
+        "split_file": {"path": cfg.split_file, "sha256": s["split_sha"]},
+        "model_parameters": s["model"].parameter_count(),
         "history": "history.csv",
         "checkpoint": "checkpoint.pt",
         "started_utc": started.isoformat(),
+        "sessions": [_session(argv, 1) | {"started_utc": started.isoformat()}],
         "finished_utc": None,
         "wall_s": None,
         "train_wall_s": None,
         "figure": None,
     }
     write_json_exact(run_dir / "run_info.json", info)
+    _train_and_evaluate(cfg, run_dir, info, s, None, t0, say, stop_after_epoch)
+    return run_dir
 
+
+def resume_training(
+    run_dir: str | Path,
+    argv: list[str] | None = None,
+    log: Callable[[str], None] | None = None,
+    stop_after_epoch: int | None = None,
+) -> Path:
+    """Continue an interrupted run from its last end-of-epoch ``checkpoint.pt``.
+
+    Restores model, optimizer, lr schedule, every RNG state and the loss history, so
+    the finished run equals an uninterrupted one (same machine / thread count). If
+    training had finished but evaluation had not, only evaluation runs. Raises
+    ``ConfigError`` when the run cannot be resumed (no checkpoint, already finished,
+    config changed) and ``DatasetError`` when the dataset or split file changed.
+    """
+    say = log or (lambda _msg: None)
+    t0 = time.monotonic()
+    run_dir = Path(run_dir)
+    if (run_dir / "metrics.json").exists():
+        raise ConfigError(f"cannot resume {run_dir}: run already finished (metrics.json)")
+    ck_path = run_dir / "checkpoint.pt"
+    if not ck_path.is_file():
+        raise ConfigError(f"cannot resume {run_dir}: no checkpoint.pt (start a new run)")
+    cfg = load_config(run_dir / "config.yaml")
+    ckpt = torch.load(ck_path, map_location="cpu", weights_only=True)
+    if ckpt.get("config") != cfg.to_dict() or "rng" not in ckpt:
+        raise ConfigError(f"cannot resume {run_dir}: checkpoint does not match config.yaml")
+    info = json.loads((run_dir / "run_info.json").read_text())
+    s = _setup(cfg)
+    if s["train_ds"].manifest_sha256 != info["dataset"]["manifest_sha256"]:
+        raise DatasetError("dataset manifest changed since the run started")
+    if s["split_sha"] != info["split_file"]["sha256"]:
+        raise DatasetError("split file changed since the run started")
+    info.setdefault("sessions", []).append(_session(argv, ckpt["epoch"] + 1))
+    write_json_exact(run_dir / "run_info.json", info)
+    say(f"resuming {run_dir} after epoch {ckpt['epoch']}/{cfg.epochs}")
+    _train_and_evaluate(cfg, run_dir, info, s, ckpt, t0, say, stop_after_epoch)
+    return run_dir
+
+
+def _train_and_evaluate(
+    cfg: TrainConfig,
+    run_dir: Path,
+    info: dict,
+    s: dict,
+    ckpt: dict | None,
+    t0: float,
+    say: Callable[[str], None],
+    stop_after_epoch: int | None,
+) -> None:
+    model, train_ds, val_ds = s["model"], s["train_ds"], s["val_ds"]
     train = load_split(train_ds, cfg.batch_size)
     val = load_split(val_ds, cfg.batch_size, masks="val" in cfg.eval_splits)
     say(f"loaded train {train['n']} / val {val['n']} images ({time.monotonic() - t0:.0f} s)")
@@ -207,21 +318,31 @@ def run_training(
     steps_per_epoch = math.ceil(train["n"] / cfg.batch_size)
     sched = make_scheduler(opt, cfg.lr_schedule, cfg.epochs * steps_per_epoch)
     gen = torch.Generator().manual_seed(cfg.seed)
-    hist_path = run_dir / "history.csv"
     rows: list[dict] = []
+    elapsed0 = train0 = 0.0
+    if ckpt is not None:
+        model.load_state_dict(ckpt["model"])
+        opt.load_state_dict(ckpt["optimizer"])
+        if sched is not None:
+            sched.load_state_dict(ckpt["scheduler"])
+        _set_rng_state(gen, ckpt["rng"])
+        rows = list(ckpt["history"])
+        elapsed0, train0 = ckpt["elapsed_s"], ckpt["train_wall_s"]
+    hist_path = run_dir / "history.csv"
+    _write_history(hist_path, rows)
     t_train = time.monotonic()
-    with hist_path.open("w", newline="") as fh:
+    with hist_path.open("a", newline="") as fh:
         wr = csv.writer(fh)
-        wr.writerow(HISTORY_FIELDS)
-        fh.flush()
-        for epoch in range(1, cfg.epochs + 1):
+        for epoch in range(len(rows) + 1, cfg.epochs + 1):
             te = time.monotonic()
             tl, lr = train_epoch(model, opt, train["image"], cfg.batch_size, gen, sched)
             vl = eval_loss(model, val["image"], cfg.batch_size)
             dt = time.monotonic() - te
-            rows.append({"epoch": epoch, "train_loss": tl, "val_loss": vl})
-            wr.writerow([epoch, _fmt(tl), _fmt(vl), _fmt(lr, ".6g"), f"{dt:.1f}"])
+            row = {"epoch": epoch, "train_loss": tl, "val_loss": vl, "lr": lr, "epoch_s": dt}
+            rows.append(row)
+            wr.writerow(_history_row(row))
             fh.flush()
+            now = time.monotonic()
             _save_checkpoint(
                 run_dir / "checkpoint.pt",
                 {
@@ -230,12 +351,20 @@ def run_training(
                     "model_hparams": model.hparams(),
                     "model": model.state_dict(),
                     "optimizer": opt.state_dict(),
+                    "scheduler": sched.state_dict() if sched is not None else None,
+                    "rng": _rng_state(gen),
+                    "history": rows,
+                    "elapsed_s": elapsed0 + now - t0,
+                    "train_wall_s": train0 + now - t_train,
                     "config": cfg.to_dict(),
                 },
             )
             vs = "-" if vl is None else f"{vl:.5f}"
             say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f} val {vs} lr {lr:.2e} ({dt:.0f} s)")
-    train_wall = time.monotonic() - t_train
+            if stop_after_epoch is not None and stop_after_epoch <= epoch < cfg.epochs:
+                say(f"stopped after epoch {epoch} (resume: --resume {run_dir})")
+                return
+    train_wall = train0 + time.monotonic() - t_train
     model.eval()
 
     # Context baselines, fit on train only (003 code path: exact PCA, clamp to [0, 1]).
@@ -252,8 +381,8 @@ def run_training(
         preds[pca_name] = lambda x: pca.reconstruct(x, cfg.context_pca_k).clamp(0.0, 1.0)
 
     splits, figure = {}, None
-    for s, ds in eval_ds.items():
-        a = val if s == "val" else load_split(ds, cfg.batch_size, masks=True)
+    for name_s, ds in s["eval_ds"].items():
+        a = val if name_s == "val" else load_split(ds, cfg.batch_size, masks=True)
         n = a["n"]
         out: dict = {"samples": n, "poses": int(a["pose_index"].unique().numel()) if n else 0}
         if n:
@@ -265,17 +394,17 @@ def run_training(
                     r |= {"k": cfg.context_pca_k, "k_effective": pca.k_effective(cfg.context_pca_k)}
                 img[name] = r
             out["image"] = img
-            if s == cfg.figure_split:
+            if name_s == cfg.figure_split:
                 idx = figure_indices(n, cfg.figure_samples)
                 xi = x[idx]
                 cols = [("true", xi)] + [
                     (f"pca k={cfg.context_pca_k}" if nm == pca_name else nm, fn(xi))
                     for nm, fn in preds.items()
                 ]
-                figure = f"recon_{s}.png"
+                figure = f"recon_{name_s}.png"
                 grid_figure(cols, a["image_size"]).save(run_dir / figure, format="PNG")
-        splits[s] = out
-        say(f"{s} ({n}): " + _headline(out))
+        splits[name_s] = out
+        say(f"{name_s} ({n}): " + _headline(out))
 
     vals = [r["val_loss"] for r in rows]
     metrics = {
@@ -284,7 +413,7 @@ def run_training(
         "dataset": {
             "name": train_ds.manifest["dataset_name"],
             "manifest_sha256": train_ds.manifest_sha256,
-            "split_file_sha256": split_sha,
+            "split_file_sha256": s["split_sha"],
         },
         "model": {
             "name": "ConvAutoencoder",
@@ -314,11 +443,10 @@ def run_training(
     info |= {
         "figure": figure,
         "finished_utc": utc_now().isoformat(),
-        "wall_s": round(time.monotonic() - t0, 1),
+        "wall_s": round(elapsed0 + time.monotonic() - t0, 1),
         "train_wall_s": round(train_wall, 1),
     }
     write_json_exact(run_dir / "run_info.json", info)
-    return run_dir
 
 
 def _headline(out: dict) -> str:

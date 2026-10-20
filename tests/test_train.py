@@ -16,10 +16,12 @@ from strike_a_pose.datagen.io import load_manifest
 from strike_a_pose.eval.report import FIG_HEADER, FIG_PAD
 from strike_a_pose.models import ConvAutoencoder, load_checkpoint
 from strike_a_pose.train.cli import main
+from strike_a_pose.train.config import load_config
 from strike_a_pose.train.trainer import (
     HISTORY_FIELDS,
     load_split,
     overfit_steps,
+    run_training,
     to_float,
     train_epoch,
 )
@@ -163,3 +165,40 @@ def test_config_errors_exit_2(tmp_path, capsys):
     assert main(["--config", str(p)]) == 2  # 192 not divisible by 2^7
     assert "divisible" in capsys.readouterr().err
     assert not (tmp_path / "r").exists()
+
+
+def test_resume_equals_uninterrupted(tmp_path, capsys):
+    """Restart resilience (clarification 2026-10-20b): interrupted after epoch 4 and
+    resumed (with a stray history row past the checkpoint) → same history + metrics."""
+    full = _run(tmp_path / "full")[1][0]
+    cfg = load_config(CFG).with_overrides(run_root=str(tmp_path / "cut"))
+    d = run_training(cfg, stop_after_epoch=4)
+    assert not (d / "metrics.json").exists()
+    assert len(_history(d)) == 4 and torch.load(d / "checkpoint.pt")["epoch"] == 4
+    with (d / "history.csv").open("a") as fh:
+        fh.write("5,0.5,,0.001,1.0\n")  # killed after the history write, before the checkpoint
+    assert main(["--resume", str(d)]) == 0
+    assert "resuming" in capsys.readouterr().out
+    keys = ("epoch", "train_loss", "val_loss", "lr")
+    assert [{k: r[k] for k in keys} for r in _history(d)] == [
+        {k: r[k] for k in keys} for r in _history(full)
+    ]
+    assert (d / "metrics.json").read_bytes() == (full / "metrics.json").read_bytes()
+    a, b = torch.load(d / "checkpoint.pt"), torch.load(full / "checkpoint.pt")
+    assert a["epoch"] == b["epoch"] == 10
+    assert all(torch.equal(a["model"][k], b["model"][k]) for k in b["model"])
+    info = json.loads((d / "run_info.json").read_text())
+    assert [x["start_epoch"] for x in info["sessions"]] == [1, 5]
+    assert info["finished_utc"] is not None and info["wall_s"] > 0
+    assert main(["--resume", str(d)]) == 2  # already finished
+    assert "already finished" in capsys.readouterr().err
+
+
+def test_resume_errors(tmp_path, capsys):
+    assert main(["--resume", str(tmp_path)]) == 2  # no checkpoint
+    assert "no checkpoint" in capsys.readouterr().err
+    with pytest.raises(SystemExit) as e:
+        main(["--resume", str(tmp_path), "--seed", "1"])
+    assert e.value.code == 2
+    with pytest.raises(SystemExit):
+        main(["--config", str(CFG), "--resume", str(tmp_path)])

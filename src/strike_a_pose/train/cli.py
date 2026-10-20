@@ -1,4 +1,7 @@
-"""`strike-a-pose-train` CLI (contract: specs/004-autoencoder-mvp/contracts/train-run.md)."""
+"""`strike-a-pose-train`: new run (``--config``) or continue one (``--resume RUN_DIR``).
+
+Contract: specs/004-autoencoder-mvp/contracts/train-run.md.
+"""
 
 import argparse
 import sys
@@ -13,20 +16,27 @@ EXIT_DATA, EXIT_CONFIG, EXIT_EXISTS = 1, 2, 4
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="strike-a-pose-train", description=__doc__)
-    p.add_argument("--config", required=True, help="train config YAML")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--config", help="train config YAML (new run)")
+    g.add_argument("--resume", metavar="RUN_DIR", help="continue an interrupted run")
     p.add_argument("--seed", type=int, default=None, help="override config seed")
     p.add_argument("--run-root", default=None, help="override config run_root")
     a = p.parse_args(argv)
+    if a.resume and (a.seed is not None or a.run_root is not None):
+        p.error("--seed / --run-root cannot be combined with --resume")
 
-    from .trainer import run_training  # heavy imports only for real runs
+    from .trainer import resume_training, run_training  # heavy imports only for real runs
 
+    kw = {
+        "argv": ["strike-a-pose-train", *(sys.argv[1:] if argv is None else argv)],
+        "log": lambda m: print(m, flush=True),
+    }
     try:
-        cfg = load_config(a.config).with_overrides(seed=a.seed, run_root=a.run_root)
-        run_dir = run_training(
-            cfg,
-            argv=["strike-a-pose-train", *(sys.argv[1:] if argv is None else argv)],
-            log=lambda m: print(m, flush=True),
-        )
+        if a.resume:
+            run_dir = resume_training(a.resume, **kw)
+        else:
+            cfg = load_config(a.config).with_overrides(seed=a.seed, run_root=a.run_root)
+            run_dir = run_training(cfg, **kw)
     except ConfigError as e:
         print(f"config error: {e}", file=sys.stderr)
         return EXIT_CONFIG

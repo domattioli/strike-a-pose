@@ -40,7 +40,14 @@ design question → stop and escalate to the lead (opus).
 
 - [x] T020 [US3] `tests/test_fixture.py`: if `tests/fixtures/smpl_fixture/manifest.json` exists, `validate_dataset` returns [] and runs < 5 s, sample count ≤ 16; else `pytest.skip` with reason "real-SMPL fixture not generated yet (operator task T022)".
 - [x] T021 [US3] Schema-parity test: a synthetic dataset's labels keys equal the contract key set (guards fixture/full schema drift).
-- [ ] T022 [US3] **OPERATOR** (needs licensed SMPL/AMASS; cannot run in agent container): `strike-a-pose-data generate --config configs/fixture.yaml --seed 0 --output-root tests/fixtures`, then `strike-a-pose-data validate tests/fixtures/smpl_fixture`, `pytest`, commit `tests/fixtures/smpl_fixture/` (minus `run_info.json` host details are fine to keep).
+- [x] T022 [US3] (amended 2026-10-20: procedural source needs only SMPL; run by agent with operator-supplied SMPL): `strike-a-pose-data generate --config configs/fixture.yaml --seed 0 --output-root tests/fixtures`, then `strike-a-pose-data validate tests/fixtures/smpl_fixture`, `pytest`, commit `tests/fixtures/smpl_fixture/` (minus `run_info.json` host details are fine to keep).
+
+## Phase 5b: Amendment 2026-10-20 (procedural pose source)
+
+- [x] T026 `datagen/procedural.py`: `RANGES_DEG` (24×3 degree ranges, research R9), `RANGES_VERSION`, `sample_procedural_poses(n, seed)`; Euler XYZ → axis-angle; root/hands zero.
+- [x] T027 Config `pose_source` (`procedural` default | `amass`); `amass_subsets` required only for `amass`; generate skips AMASS assets for procedural; manifest `inputs.pose_source` + label `pose_source.type`.
+- [x] T028 Tests `tests/test_procedural.py` (ranges respected, axis-angle round trip, determinism, generate without AMASS) + config selection; existing AMASS tests run with `pose_source: amass`.
+- [x] T029 `configs/{default,fixture}.yaml` → procedural; regenerate committed fixture; visually inspect renders.
 
 ## Phase 6: Polish
 

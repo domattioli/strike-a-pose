@@ -1,5 +1,8 @@
 # Licensed data assets: SMPL and AMASS
 
+The default pose source is procedural (spec 001 FR-002, amended 2026-10-20),
+so only SMPL is required. AMASS is needed only with `pose_source: amass`.
+
 strike-a-pose never downloads these. Both require free registration and are
 licensed for **non-commercial research only** (compatible with this repo's
 PolyForm Noncommercial license). Read and accept the terms on each site. Do not
@@ -38,7 +41,7 @@ np.savez(
 )
 ```
 
-## AMASS poses
+## AMASS poses (optional, `pose_source: amass`)
 
 1. Register at <https://amass.is.tue.mpg.de> and accept the AMASS license (and
    the licenses of each original sub-collection).
@@ -53,7 +56,7 @@ np.savez(
 ```bash
 uv sync                                     # or: pip install -e .
 strike-a-pose-data generate --config configs/default.yaml --seed 0
-strike-a-pose-data validate data/generated/smpl_amass_v1
+strike-a-pose-data validate data/generated/smpl_proc_v1
 ```
 
 If an asset is missing, `generate` exits with code 3, names the missing path,

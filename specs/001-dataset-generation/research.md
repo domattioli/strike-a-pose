@@ -95,3 +95,38 @@ keypoint inside the image `[0,W)×[0,H)`. Self-occlusion is not modelled
 
 `uv.lock` generated with `uv lock` and committed (constitution: pinned deps +
 lockfile). Runtime deps: numpy, pillow, pyyaml. Dev: pytest, ruff.
+
+## R9. Procedural pose source (amendment 2026-10-20)
+
+- Decision: default pose source samples, per joint and per local axis (x, y, z),
+  an angle uniformly from a hardcoded range table (`procedural.RANGES_DEG`,
+  version `proc-v1`), composes intrinsic XYZ Euler (`R = Rx @ Ry @ Rz`) and
+  converts to axis-angle. `numpy.random.default_rng(seed)`, one `uniform`
+  draw of shape (24, 3) per pose, in pose order → deterministic.
+- SMPL rest frame: +Y up, faces +Z, +X = subject's left; rest is a T-pose.
+- Ranges (degrees, x / y / z; right side mirrors y and z of the left):
+
+| Joint | x | y | z |
+|---|---|---|---|
+| pelvis (root) | 0 | 0 | 0 |
+| L_hip / R_hip | -90..20 (− = thigh forward) | -25..25 | -10..40 / -40..10 (abduction) |
+| L_knee / R_knee | 0..120 (flexion) | 0 | 0 |
+| L_ankle / R_ankle | -20..30 | -10..10 | -10..10 |
+| L_foot / R_foot | -10..10 | 0 | 0 |
+| spine1 | -10..30 (+ = forward bend) | -15..15 | -15..15 |
+| spine2, spine3 | -5..15 | -10..10 | -10..10 |
+| neck | -20..30 | -30..30 | -15..15 |
+| head | -20..20 | -30..30 | -15..15 |
+| L_collar / R_collar | 0 | -10..10 | -10..15 / -15..10 |
+| L_shoulder / R_shoulder | -30..30 (twist) | -80..20 / -20..80 (forward) | -80..30 / -30..80 (down from T-pose) |
+| L_elbow / R_elbow | 0 | -130..0 / 0..130 (flexion) | 0 |
+| L_wrist / R_wrist | -20..20 | -10..10 | -30..30 |
+| L_hand / R_hand | 0 | 0 | 0 |
+
+- Ranges are ad hoc (predecessor's were unavailable). Checked by rendering a
+  12-pose sheet on real SMPL: knees/elbows bend the right way, no obvious
+  limb-through-torso. Joint limits are independent per axis, so mild
+  self-intersection (e.g. hand into torso at extreme shoulder+elbow) is
+  possible and accepted for the MVP.
+- Any change to the table bumps `RANGES_VERSION`.
+- Alternative kept: AMASS (R3/R4), selected with `pose_source: amass`.

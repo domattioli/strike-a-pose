@@ -6,7 +6,7 @@
 ## Summary
 
 A config-driven CLI (`strike-a-pose-data generate --config … --seed …`) poses
-the neutral SMPL body (mean shape) with AMASS-sampled poses, renders each pose
+the neutral SMPL body (mean shape) with procedural poses (default; AMASS optional, amended 2026-10-20), renders each pose
 from a fixed named 8-camera ring with an in-package deterministic NumPy
 rasterizer, and writes per-sample RGB image, mask and JSON labels plus a
 timestamp-free `manifest.json` that is byte-identical for the same
@@ -71,6 +71,7 @@ src/strike_a_pose/
     ├── assets.py         # MissingAssetError, asset checks, sha256
     ├── smpl.py           # SMPL model load (.npz/.pkl) + NumPy LBS
     ├── amass.py          # candidate enumeration + seeded sampling → PoseRecord
+    ├── procedural.py     # default pose source: per-joint uniform ranges (R9)
     ├── cameras.py        # ring construction, projection, visibility
     ├── render.py         # z-buffer rasterizer → (rgb, mask)
     ├── io.py             # labels/manifest JSON writers, readers, validate

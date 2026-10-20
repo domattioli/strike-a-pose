@@ -21,8 +21,9 @@ Skeleton name: `"smpl24"`.
 | `dataset_name` | str | required | `[A-Za-z0-9_-]+` |
 | `output_root` | path | `data/generated` | dataset written to `<output_root>/<dataset_name>` |
 | `smpl_model_path` | path | `assets/smpl/SMPL_NEUTRAL.npz` | `.npz` or `.pkl` |
-| `amass_root` | path | `assets/amass` | |
-| `amass_subsets` | list[str] | required, ≥1 | sub-collection dir names under `amass_root` |
+| `pose_source` | `procedural` \| `amass` | `procedural` | amended 2026-10-20 (FR-002) |
+| `amass_root` | path | `assets/amass` | used only when `pose_source: amass` |
+| `amass_subsets` | list[str] | `[]`; ≥1 required if `amass` | sub-collection dir names under `amass_root` |
 | `num_poses` | int ≥1 | 2000 | |
 | `frame_stride` | int ≥1 | 30 | |
 | `num_betas` | int | 10 | betas all zero (Q4) |
@@ -34,6 +35,9 @@ Skeleton name: `"smpl24"`.
 
 Unknown keys → error. Seed is NOT in the config; it is a required CLI flag
 (FR-001) and recorded in the manifest.
+
+Procedural poses: `ProceduralPose` {`index`, `euler_deg` [24][3], `pose` [72]}
+(see research R9). `frame_stride` applies only to AMASS.
 
 ## Camera
 
@@ -54,7 +58,9 @@ Unknown keys → error. Seed is NOT in the config; it is a required CLI flag
 
 See contract. Key fields: `schema_version`, `dataset_name`, `complete`,
 `seed`, `config`, `code` {`commit`, `dirty`}, `inputs` {`smpl_model`
-{`filename`, `sha256`}, `amass` [{`file`, `sha256`}] (used files only, sorted)},
+{`filename`, `sha256`}, `pose_source` — procedural: {`type`: "procedural", `ranges_version`,
+`euler_order`, `ranges_deg` [{`joint`, `index`, `x_deg`, `y_deg`, `z_deg`}]};
+amass: {`type`: "amass", `files` [{`file`, `sha256`}] (used files only, sorted)}},
 `skeleton` {`name`, `joints`, `parents`}, `cameras` [Camera], `counts`
 {`poses`, `cameras`, `samples`}, `samples` [{`id`, `image`, `mask`, `labels`,
 `labels_sha256`}] (pose-major, camera ring order).

@@ -59,3 +59,9 @@ Slice 001 specifics (carried into its clarify step):
   (pyproject, uv.lock, ruff, pytest) landed with 001; CI workflow stays in 005.
   Open operator tasks: obtain SMPL/AMASS, generate + commit fixture (T022),
   first full run timing (T025).
+- 2026-10-20: slice 001 amended (operator decision): AMASS skipped for MVP.
+  New default `pose_source: procedural` — per-joint uniform rotations within a
+  documented range table (`proc-v1`, research R9), recorded in the manifest;
+  AMASS kept as optional config source. Fixture (T022) regenerated from real
+  SMPL with the procedural source and committed. Default dataset renamed
+  `smpl_proc_v1`.

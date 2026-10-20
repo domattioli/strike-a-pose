@@ -23,7 +23,7 @@ All floats rounded to 6 decimals. Arrays are nested lists.
 | `sample_id` | str | |
 | `pose_index` | int | |
 | `camera_name` | str | |
-| `pose_source` | {`file`: str, `frame`: int, `root_orient`: [3]} | AMASS origin |
+| `pose_source` | {`type`: "procedural", `ranges_version`: str, `euler_deg`: [24][3]} or {`type`: "amass", `file`: str, `frame`: int, `root_orient`: [3]} | pose origin (amended 2026-10-20) |
 | `pose` | [72] | SMPL axis-angle, root zeroed |
 | `betas` | [num_betas] | zeros |
 | `joints_3d_world` | [24][3] | metres, world frame |
@@ -46,7 +46,7 @@ strike-a-pose-data generate --config PATH --seed INT [--overwrite] [--output-roo
 strike-a-pose-data validate DATASET_DIR
 ```
 
-- `generate` exit codes: 0 ok; 2 config error; 3 missing SMPL/AMASS assets
+- `generate` exit codes: 0 ok; 2 config error; 3 missing SMPL (or, for `pose_source: amass`, AMASS) assets
   (message names the missing file and points to `docs/data-assets.md`;
   nothing written); 4 output exists and `--overwrite` not given.
 - `--overwrite` deletes the existing dataset dir first (restart cleanly).

@@ -51,7 +51,14 @@ is in `eval_splits`.
 
 ```text
 strike-a-pose-train --config PATH [--seed INT] [--run-root DIR]
+strike-a-pose-train --resume RUN_DIR
 ```
+
+`--resume` continues an interrupted run from its `checkpoint.pt` with the run dir's
+own `config.yaml` (no overrides); the finished run equals an uninterrupted one on
+the same machine/thread count. Exit 2: finished run (`metrics.json` exists), no
+checkpoint, or checkpoint/config mismatch; exit 1: dataset manifest or split hash
+differs from `run_info.json`.
 
 Exit codes: 0 OK (prints run dir, final losses, headline metrics); 1 dataset or split
 invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
@@ -62,9 +69,9 @@ invalid; 2 config error (incl. image size not divisible by `2^len(channels)`);
 | File | Content |
 |---|---|
 | `config.yaml` | resolved config (overrides applied) |
-| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset`, `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure` |
+| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset`, `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure`, `sessions` (one per process: `started_utc`, `start_epoch`, `argv`, `git`); `wall_s`/`train_wall_s` sum the sessions |
 | `history.csv` | header `epoch,train_loss,val_loss,lr,epoch_s`; one row per epoch (1-based); `val_loss` empty when val is empty; `lr` = rate at the epoch's last step |
-| `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels}, "optimizer": state_dict, "epoch": int, "config": dict, "train_version": 1}` (never committed) |
+| `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels}, "optimizer": state_dict, "scheduler": state_dict \| null, "rng": {"shuffle", "torch", "numpy", "python"}, "history": [row, …], "elapsed_s": float, "train_wall_s": float, "epoch": int, "config": dict, "train_version": 1}`; written atomically after every epoch (never committed) |
 | `metrics.json` | below |
 | `recon_<figure_split>.png` | 003 grid: columns `true`, `ae`, `mean_image`, `pca k=K` |
 

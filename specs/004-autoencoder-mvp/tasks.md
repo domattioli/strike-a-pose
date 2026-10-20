@@ -30,18 +30,31 @@
 ## Phase 4: Verify + CI
 
 - [x] T012 Local: `uv sync --locked`, `uv lock --check`, ruff check, ruff format --check, pytest; fixture CLI smoke timing.
-- [ ] T013 CI: replace the 005 placeholder with the fixture smoke-train step; push; green on both legs; record per-leg time.
+- [x] T013 CI: replace the 005 placeholder with the fixture smoke-train step; push; green on both legs; record per-leg time. → run 39361032154 (de14d25) green: py3.11 leg 41 s (tests 18 s, AE smoke train 4 s), py3.13 leg 48 s (tests 17 s, AE smoke train 3 s).
+
+## Phase 4b: Restart resilience (clarification 2026-10-20b)
+
+- [x] T017 `tests/test_train.py`: interrupted after epoch 4 (+ stray history row past the checkpoint) then `--resume` == uninterrupted run (history, weights, `metrics.json` bytes; bit-exact on CPU); resume errors (finished → 2, no checkpoint → 2, `--seed`/`--config` with `--resume` → usage error 2).
+- [x] T018 `trainer.resume_training`, full-state checkpoint (scheduler, RNG states, history, wall times), `run_info.sessions`, CLI `--resume RUN_DIR`; spec FR-010 + contract.
 
 ## Phase 5: US3 — full run + record
 
 - [ ] T014 Pilot (val only, 1 epoch, scratch config) to check loading, memory, epoch time and that loss falls.
+  Run state / successor instructions (if this session is killed too):
+  - Launched 2026-10-20T03:00:38Z at commit f9619c6 (clean tree), from the repo root:
+    `setsid nohup .venv/bin/strike-a-pose-train --config configs/ae.yaml > runs/ae-full.log 2>&1 < /dev/null &`
+  - Run dir: `runs/ae-smpl_proc_v1-20261020T030038Z`; log `runs/ae-full.log` (resumed sessions log to `runs/ae-full-resume*.log`).
+  - Alive? `pgrep -af strike-a-pose-train`. Progress: `tail -3 runs/ae-full.log; wc -l runs/ae-smpl_proc_v1-20261020T030038Z/history.csv`.
+  - Killed (no process, no `metrics.json` in the run dir) → resume, do not start a new run:
+    `setsid nohup .venv/bin/strike-a-pose-train --resume runs/ae-smpl_proc_v1-20261020T030038Z > runs/ae-full-resume.log 2>&1 < /dev/null &`
+  - Do not `uv sync`/swap the venv while it runs.
 - [ ] T015 Full run `strike-a-pose-train --config configs/ae.yaml` on a clean tree (background); record wall time, loss curve, val/test metrics; check context baselines equal 003; inspect figure (SC-003).
 - [ ] T016 Copy `metrics.json`, `run_info.json`, `config.yaml`, `history.csv`, figure (< 500 KB) to `docs/results/004-ae-smpl_proc_v1/`; README (status, usage, results), roadmap changelog (MVP status), this file's verification record.
 
 ## Dependencies
 
 T003 → code. T004 → T005. T006 → T007. T008 → T009. T005, T007, T009 → T010 → T011
-→ T012 → T013, T014 → T015 → T016.
+→ T012 → T013, T017 → T018 → T014 → T015 → T016.
 
 ## Analyze pass (lead, 2026-10-20)
 

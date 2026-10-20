@@ -38,7 +38,7 @@ real run; 003 numbers/bytes unchanged by the refactor.
 | III Reproducibility | PASS | Seeds (Python/NumPy/torch) set + logged; seeded shuffle generator; run dir: resolved config, commit + dirty flag, env (incl. threads), dataset + split hashes, history, metrics; repeatability tested on fixture; full run on a clean tree. |
 | IV Test-first | PASS | Model/config/overfit/CLI/grid tests written with the code; CPU smoke train in CI on the fixture (< 60 s, constitution's ~2 min). |
 | V Honest evaluation | PASS | Frozen pose-level split; train-only fit for AE and baselines; final weights (no val/test selection); test scored once; AE reported next to mean image + PCA k=64 in the same `metrics.json`; docs cite run dir + commit. |
-| VI Simplicity | PASS | One plain AE class, flat config, in-memory uint8 data, no resume, no VAE, no new deps; 003 helpers shared rather than duplicated. |
+| VI Simplicity | PASS | One plain AE class, flat config, in-memory uint8 data, resume only as far as restart resilience needs (2026-10-20b), no VAE, no new deps; 003 helpers shared rather than duplicated. |
 | Tech: pinned deps | PASS | No dependency change; new console script (`uv lock --check`). |
 
 ## Design

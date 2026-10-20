@@ -41,6 +41,10 @@ temp dir; check the run directory contents and that the train loss decreases.
    **Then** a new run directory holds the resolved config, run info (git commit +
    dirty flag, argv, seed, environment, dataset manifest hash, split hash, wall
    time), a per-epoch loss history (train + val), a checkpoint and `metrics.json`.
+5. **Given** a run interrupted after epoch N (process killed), **When**
+   `strike-a-pose-train --resume RUN_DIR` runs, **Then** training continues at
+   epoch N+1 and the final history, weights and `metrics.json` equal an
+   uninterrupted run's.
 2. **Given** a fixed batch, **When** the model takes a few optimizer steps on it,
    **Then** the loss decreases (overfit smoke).
 3. **Given** the same config, data, code and machine, **When** training runs twice,
@@ -119,6 +123,11 @@ and val loss decrease; the figure shows recognizable held-out bodies.
 - **FR-008**: CI MUST run a CPU smoke train on the committed fixture (replacing the
   005 placeholder step); pytest MUST include an overfit test on a fixed batch and a
   fixture end-to-end CLI test; per-leg CI wall time stays < 5 min.
+- **FR-010**: `strike-a-pose-train --resume RUN_DIR` MUST continue an interrupted
+  run from its last end-of-epoch checkpoint (model, optimizer, lr schedule, all RNG
+  states, loss history) so that the finished run equals an uninterrupted one on the
+  same machine/thread count; it refuses finished runs, runs without a checkpoint,
+  and changed config/dataset/split files.
 - **FR-009**: Checkpoints and run directories MUST NOT be committed (`runs/` is
   git-ignored); only small summaries go under `docs/results/`.
 
@@ -175,8 +184,8 @@ and val loss decrease; the figure shows recognizable held-out bodies.
 7. Q: Figure? → A: 003 grid via the shared helper: columns true | ae | mean_image |
    pca k=64; split `val`, 6 evenly spaced samples (the same samples as 003's figure).
 8. Q: Checkpoint / resume? → A: `checkpoint.pt` overwritten atomically after each
-   epoch (model, optimizer, epoch, config). Resume is not implemented (optional in
-   the brief; Principle VI).
+   epoch (model, optimizer, epoch, config). *Superseded by Session 2026-10-20b:
+   resume is implemented.*
 9. Q: Test split? → A: scored once, at the end of the real run; no decision is made
    from test numbers. A pilot (if any) evaluates val only.
 10. Q: CI smoke? → A: `configs/ae_fixture.yaml` (fixture train = 8 images; batch 4,
@@ -194,3 +203,22 @@ and val loss decrease; the figure shows recognizable held-out bodies.
 14. Q: PyTorch CPU wheel index (002 R1 open question)? → A: re-tested 2026-10-20:
     `download.pytorch.org` still returns 403 at CONNECT from this session → unchanged
     (PyPI torch), stays an operator question.
+
+### Session 2026-10-20b (operator requirement, lead resuming after a container restart)
+
+15. Q: Restart resilience? → A (operator): the container can restart and kill
+    background processes, so training MUST be resumable: a checkpoint at the end of
+    each epoch (model + optimizer + epoch + RNG states + history) and
+    `--resume RUN_DIR` continuing deterministically; tested (interrupted + resumed
+    == uninterrupted on the fixture, bit-exact on CPU); the full run is launched
+    detached (`setsid nohup … > log`) with the resume command recorded in tasks.md;
+    wall-clock budget ≤ ~3 h total. Implementation: checkpoint adds `scheduler`,
+    `rng` (shuffle generator, torch, NumPy, Python), `history`, `elapsed_s`,
+    `train_wall_s`; resume rewrites `history.csv` from the checkpoint (drops rows
+    written after it), restores state and continues; if all epochs were done but
+    evaluation was not, only evaluation runs. `run_info.json` lists `sessions`
+    (start epoch, argv, git, start time). `--seed`/`--run-root` are rejected with
+    `--resume` (the run dir's `config.yaml` is authoritative). Exit 2 for a run that
+    cannot be resumed (finished, no checkpoint, config mismatch); exit 1 if the
+    dataset manifest or split file hash changed. Supersedes Q8's "resume not
+    implemented".

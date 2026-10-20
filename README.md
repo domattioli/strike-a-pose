@@ -10,8 +10,9 @@ MVP done (2026-10-20): the image autoencoder trains from a config, its loss
 decreases and held-out reconstructions are recognizable (plan:
 [`specs/roadmap.md`](specs/roadmap.md); numbers under [Results](#results)).
 Post-MVP slice 006 (latent probe) done 2026-10-20 under provisional surrogate
-rulings (operator sign-off 2026-10-21); no further slice is planned until the operator
-answers the roadmap's open questions.
+rulings (operator sign-off 2026-10-21). Slice 007 (split content hash) implements the
+operator-approved roadmap question #14 (2026-10-20; approved at surrogate scope,
+operator sign-off pending); the other open questions wait for the operator.
 
 | Slice | What | State |
 |---|---|---|
@@ -21,6 +22,7 @@ answers the roadmap's open questions.
 | 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented |
 | 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented |
 | 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) |
+| 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2); warning on a commit mismatch | implemented (roadmap #14; follow-up F1: rewrite `splits/smpl_proc_v1.json`, needs SMPL) |
 
 ## Install
 
@@ -54,14 +56,26 @@ tuning; `test` is never tuned on.
 
 ```bash
 uv run strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
-    --out splits/smpl_proc_v1.json                  # default fractions 0.8 0.1 0.1
+    --out splits/smpl_proc_v1.json      # default fractions 0.8 0.1 0.1; split_version 2
 ```
 
-The committed `splits/smpl_proc_v1.json` (1600 / 200 / 200 poses) records the
-SHA-256 of the dataset's `manifest.json`, and the loader refuses a mismatch. The
-manifest includes the generating config, seed **and code commit**, so this split
+A split file records the SHA-256 of the dataset's manifest *content*: `manifest.json`
+without its generating `code` commit (spec
+[007](specs/007-split-content-hash/spec.md)). The loader refuses a dataset with other
+content (config, seed, labels, …) and accepts the same dataset regenerated at another
+commit with a `SplitCommitWarning` naming both commits; the split keeps the generating
+commit for information (`manifest_code`; rewriting the split with `--overwrite`
+refreshes it). The 004 `--resume` check and the 006 latent cache still key on the raw
+manifest bytes (the manifest does not hash the images), so a regenerated dataset does
+not resume an older run or reuse its cached latents.
+
+The committed `splits/smpl_proc_v1.json` (1600 / 200 / 200 poses) is still a
+`split_version` 1 file: it pins the raw manifest bytes, code commit included, so it
 is valid only for `smpl_proc_v1` generated with `configs/default.yaml`, seed 0, at
-commit `406b68f` (default run: ≈ 5 min on 4 CPU cores, 16,000 samples, 351 MB).
+commit `406b68f` (default run: ≈ 5 min on 4 CPU cores, 16,000 samples, 351 MB). After
+regenerating the dataset, rewrite it with the command above plus `--overwrite` (same
+pose lists); the full procedure with its checks is follow-up F1 in
+[`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 Load samples in PyTorch (sample dict, units and normalization:
 [`specs/002-data-pipeline/contracts/sample-contract.md`](specs/002-data-pipeline/contracts/sample-contract.md)):

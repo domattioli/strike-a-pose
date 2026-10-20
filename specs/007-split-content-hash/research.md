@@ -29,7 +29,8 @@ Fixture content hash: `7843ff453af51734c6d87ce2c473bb623d1368ae43beaa5bb26718e7d
 
 ## R2 — Warning mechanics (Python 3.11 + 3.13)
 
-`warnings.warn(message, SplitCommitWarning)` with the default `stacklevel=1`:
+`warnings.warn(message, SplitCommitWarning, stacklevel=1)` (the default, spelled out
+because ruff B028 asks for an explicit `stacklevel`):
 
 - `SplitCommitWarning(UserWarning)` is shown by Python's default filters (the
   `"default"` action: first occurrence per location); unlike `DeprecationWarning` it is

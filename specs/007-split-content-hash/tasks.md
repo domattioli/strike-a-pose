@@ -15,10 +15,11 @@
 
 ## Phase 1: Tests first (FR-010)
 
-- [ ] T002 Test asset: `git show HEAD:splits/smpl_fixture.json >
+- [x] T002 Test asset: `git show HEAD:splits/smpl_fixture.json >
   tests/fixtures/smpl_fixture_split_v1.json` (verbatim pre-007 v1 bytes); check it is
-  not git-ignored (`git check-ignore`).
-- [ ] T003 [P] `tests/test_data_split.py`: synthetic manifests gain `code`; new
+  not git-ignored (`git check-ignore`). → 578 bytes, SHA-256 `af3e0f1a…` (= the v1
+  fixture split's), not ignored.
+- [x] T003 [P] `tests/test_data_split.py`: synthetic manifests gain `code`; new
   `make_split(manifest, seed, fractions)`; (a) content hash invariant to `code`
   (commit / dirty / `"unknown"` + `null` / `code` absent), changed by a top-level field
   (`seed`, `dataset_name`) and a nested one (`samples[0].labels_sha256`); (c) v2 key set,
@@ -29,7 +30,7 @@
   content message and v1 raw message + `--overwrite` hint; `check_split_code` for
   equal / commit / dirty / unknown code and for a v1 split; (g) `splits/smpl_proc_v1.json`
   passes `load_split` as v1.
-- [ ] T004 [P] `tests/test_data_dataset.py`: (b) fixture content hash = the pinned
+- [x] T004 [P] `tests/test_data_dataset.py`: (b) fixture content hash = the pinned
   constant, `dumps` of the parsed manifest = the file bytes, raw hash unchanged; (e)
   committed fixture + committed split → no `SplitCommitWarning` (filter set to error);
   fixture copies with `code.commit` changed / only `dirty` changed / `code` unknown →
@@ -40,35 +41,42 @@
   migration hint; (f) end to end with `small_cfg`: generate (seed 5), split, regenerate
   with a monkeypatched `generate.git_commit` → warning + same split samples; seed 6 →
   refused; update the remaining `make_split` callers.
-- [ ] T005 [P] `tests/test_cli.py`: (h) the existing byte-equality test now pins the
+- [x] T005 [P] `tests/test_cli.py`: (h) the existing byte-equality test now pins the
   committed v2 file; new: `--overwrite` on a copy of the v1 asset → v2 file equal to the
   committed v2 split, with algorithm / unit / dataset name / seed / fractions / poses /
   counts equal to the v1 file's.
-- [ ] T006 [P] `tests/test_eval_cli.py`, `tests/test_train.py`, `tests/test_probe.py`:
+- [x] T006 [P] `tests/test_eval_cli.py`, `tests/test_train.py`, `tests/test_probe.py`:
   (i) `run_info.json` `dataset.manifest_content_sha256` = the fixture's content hash;
   `make_split` callers; (j) `test_train.py`: a fixture-copy run stopped after epoch 1,
   then the copy's `code.commit` changed → `--resume` exits 1 ("dataset manifest
   changed"), with the `SplitCommitWarning` raised while re-opening the splits.
-- [ ] T007 Run the new and changed tests on the unchanged code: they must fail (record
-  the count).
+- [x] T007 Run the new and changed tests on the unchanged code: they must fail (record
+  the count). → on the pre-007 code: 5 of the 6 changed modules fail at collection
+  (`SplitCommitWarning` / `manifest_content_sha256` not importable), and in
+  `test_cli.py` the new v1 → v2 test fails (the CLI still wrote `split_version` 1);
+  the other 5 CLI tests pass.
 
 ## Phase 2: Implementation
 
-- [ ] T008 `src/strike_a_pose/data/split.py`: `SPLIT_VERSION = 2`,
+- [x] T008 `src/strike_a_pose/data/split.py`: `SPLIT_VERSION = 2`,
   `LEGACY_SPLIT_VERSION = 1`, `SPLIT_KEYS` per version, `SplitCommitWarning`,
   `manifest_content_sha256`, v2 `make_split`, v1/v2 `load_split`, `check_split_for`
   (raw / content), `check_split_code` (plan "Design").
-- [ ] T009 `src/strike_a_pose/data/dataset.py` (content-hash attribute, both hashes to the
-  split check, `warnings.warn(..., SplitCommitWarning)` with the default stacklevel) and
-  `src/strike_a_pose/data/__init__.py` (exports).
-- [ ] T010 `src/strike_a_pose/datagen/cli.py`: `make_split(load_manifest(dir), seed,
+- [x] T009 `src/strike_a_pose/data/dataset.py` (content-hash attribute, both hashes to the
+  split check, `warnings.warn(..., SplitCommitWarning, stacklevel=1)`) and
+  `src/strike_a_pose/data/__init__.py` (exports). → ruff B028 wants an explicit
+  `stacklevel`; 1 (the default) is spelled out. Checked: three split datasets on three
+  lines of one process print the warning once.
+- [x] T010 `src/strike_a_pose/datagen/cli.py`: `make_split(load_manifest(dir), seed,
   fractions)`.
-- [ ] T011 Additive `run_info.json` `dataset.manifest_content_sha256` in
+- [x] T011 Additive `run_info.json` `dataset.manifest_content_sha256` in
   `eval/baselines.py`, `train/trainer.py`, `eval/probe.py` (not in the probe's `hashes`
   dict: cache key and `metrics.json` unchanged).
-- [ ] T012 Rewrite `splits/smpl_fixture.json` with the CLI (`--seed 0 --fractions 0.5 0
+- [x] T012 Rewrite `splits/smpl_fixture.json` with the CLI (`--seed 0 --fractions 0.5 0
   0.5 --overwrite`); pose lists / counts / seed / fractions / algorithm equal to the v1
-  asset's (FR-008).
+  asset's (FR-008). → equal (train `[1]`, val `[]`, test `[0]`); `manifest_content_sha256`
+  `7843ff45…`, `manifest_code` `{"commit": "ab95629e…", "dirty": true}`; new file
+  SHA-256 `62cc396c…`.
 
 ## Phase 3: Contracts and docs
 
@@ -76,10 +84,10 @@
   API + warning), 003 `eval-run.md`, 004 `train-run.md`, 006 `probe-run.md` (additive
   run_info field; 004 resume and 006 cache key on the raw manifest hash). → in the plan
   commit.
-- [ ] T014 002 `spec.md` dated amendment notes (FR-007, FR-008, US2 scenario 3,
+- [x] T014 002 `spec.md` dated amendment notes (FR-007, FR-008, US2 scenario 3,
   clarification 5: "amended 2026-10-20 by slice 007") and 002 `data-model.md` (Split
   entity v2 + v1 legacy, split construction check).
-- [ ] T015 README (split paragraph and usage: v2 semantics, warning, `smpl_proc_v1.json`
+- [x] T015 README (split paragraph and usage: v2 semantics, warning, `smpl_proc_v1.json`
   still v1 until F1), `specs/roadmap.md` (strike #14, 007 row + status line, changelog
   entry 2026-10-20 appended at the end incl. the #12 re-test), `docs/HANDOFF.md` (F1
   with its commands, #12 re-test, #13 / #15 / #16 and SMPL access put to the operator,
@@ -87,60 +95,34 @@
 
 ## Phase 4: Verify and commit
 
-- [ ] T016 Local checks: `uv run --locked ruff check .`, `ruff format --check .`,
+- [x] T016 Local checks: `uv run --locked ruff check .`, `ruff format --check .`,
   `pytest` (count + wall time), `strike-a-pose-data validate tests/fixtures/smpl_fixture`,
   the three fixture smoke commands into `<scratchpad>/runs-after`; SC-004 diff of the
   three `metrics.json` against T001 (probe compared on the T001 checkpoint as well);
   `git diff --stat ae99e6f -- splits/smpl_proc_v1.json docs/results` empty.
-- [ ] T017 Commits (`spec`, `plan`, `feat`, `docs`), no push (the orchestrator reviews,
-  pushes and watches CI).
+  → at `187fa3b` + docs: `ruff check .` clean; `ruff format --check .` 106 files
+  formatted; `pytest` 249 passed in 28 s (230 at `ae99e6f`; +19), and 249 passed with
+  `-W error::strike_a_pose.data.split.SplitCommitWarning` (no unexpected warning);
+  `validate tests/fixtures/smpl_fixture` OK; the three smoke commands into
+  `runs-after` OK (10.7 s). SC-004: 003 and 004 `metrics.json` differ from T001 only in
+  `dataset.split_file_sha256` (`af3e0f1a…` → `62cc396c…`); 006 on the T001 checkpoint
+  likewise; 006 on the retrained checkpoint also in `encoder.checkpoint_sha256` (the
+  weights are bit-identical; only the stored `config.run_root` differs). `run_info.json`
+  gains `dataset.manifest_content_sha256` = `7843ff45…`. Untouched since `ae99e6f`:
+  `splits/smpl_proc_v1.json`, `docs/results/`, `pyproject.toml`, `uv.lock`,
+  `datagen/generate.py`, `datagen/io.py`. F1 block: identical in spec, this file and
+  HANDOFF, `bash -n` clean, its Python snippets parse; the provenance-check method,
+  tried on the fixture (`code` changed, then restored), reproduces the raw
+  `06787bb0…`.
+- [x] T017 Commits (`spec`, `plan`, `feat`, `docs`), no push (the orchestrator reviews,
+  pushes and watches CI). → `09d2948` spec, `6c3de15` plan, `187fa3b` feat, docs = the
+  commit holding this record.
 
 ## Follow-up (blocked: SMPL model not obtainable in this session)
 
 - [ ] F1 Migrate `splits/smpl_proc_v1.json` to `split_version` 2 (spec "Follow-up F1",
   clarification 11). With `assets/smpl/SMPL_NEUTRAL.npz` in place (never committed), at
-  any commit containing 007:
-
-  ```bash
-  uv sync --locked            # the locked environment (uv.lock unchanged since 406b68f)
-
-  # the SMPL file must be the one the 2026-10-20 datasets were generated from
-  # (recorded in the committed fixture manifest: inputs.smpl_model.sha256 = f408141b…)
-  uv run --locked python - <<'EOF'
-  import hashlib, json
-  want = json.load(open("tests/fixtures/smpl_fixture/manifest.json"))["inputs"]["smpl_model"]["sha256"]
-  got = hashlib.sha256(open("assets/smpl/SMPL_NEUTRAL.npz", "rb").read()).hexdigest()
-  assert got == want, f"SMPL file {got[:12]}… is not the recorded {want[:12]}…: stop here"
-  print("SMPL file matches", want[:12])
-  EOF
-
-  uv run --locked strike-a-pose-data generate --config configs/default.yaml --seed 0  # ≈ 5 min, 351 MB
-
-  # provenance check: same content as the dataset behind the published 003/004/006 runs?
-  uv run --locked python - <<'EOF'
-  import hashlib
-  from strike_a_pose.datagen.io import dumps, load_manifest
-  m = load_manifest("data/generated/smpl_proc_v1")
-  for dirty in (False, True):
-      m["code"] = {"commit": "406b68f990c403dd34747dfc41914407d9ec2ea9", "dirty": dirty}
-      print(dirty, hashlib.sha256(dumps(m)).hexdigest())
-  EOF
-  # identical content iff one line prints 9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588
-
-  uv run --locked strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
-      --out splits/smpl_proc_v1.json --overwrite        # default fractions 0.8 0.1 0.1
-
-  # the pose assignment must not change (same seed, fractions, algorithm and pose set)
-  uv run --locked python - <<'EOF'
-  import json, subprocess
-  old = json.loads(subprocess.check_output(["git", "show", "HEAD:splits/smpl_proc_v1.json"]))
-  new = json.loads(open("splits/smpl_proc_v1.json").read())
-  keys = ("algorithm", "unit", "dataset_name", "seed", "fractions", "poses", "counts")
-  assert [k for k in keys if old[k] != new[k]] == [], "pose assignment changed: do not commit"
-  assert (old["split_version"], new["split_version"]) == (1, 2)
-  print("pose assignment unchanged; split_version 1 -> 2")
-  EOF
-  ```
+  any commit containing 007, run the commands under "F1 commands" below.
 
   Then commit only `splits/smpl_proc_v1.json`; update README (drop the "still v1"
   note), `docs/HANDOFF.md` and the roadmap changelog (record the provenance-check
@@ -150,6 +132,51 @@
   `docs/HANDOFF.md` (the published 003 / 004 / 006 numbers come from the `406b68f`
   content, raw manifest `9000c915…`, which the regenerated dataset does not
   reproduce), for the operator to rule on.
+
+### F1 commands
+
+Verbatim from [spec.md](spec.md) ("Follow-up F1"):
+
+```bash
+uv sync --locked            # the locked environment (uv.lock unchanged since 406b68f)
+
+# the SMPL file must be the one the 2026-10-20 datasets were generated from
+# (recorded in the committed fixture manifest: inputs.smpl_model.sha256 = f408141b…)
+uv run --locked python - <<'EOF'
+import hashlib, json
+want = json.load(open("tests/fixtures/smpl_fixture/manifest.json"))["inputs"]["smpl_model"]["sha256"]
+got = hashlib.sha256(open("assets/smpl/SMPL_NEUTRAL.npz", "rb").read()).hexdigest()
+assert got == want, f"SMPL file {got[:12]}… is not the recorded {want[:12]}…: stop here"
+print("SMPL file matches", want[:12])
+EOF
+
+uv run --locked strike-a-pose-data generate --config configs/default.yaml --seed 0  # ≈ 5 min, 351 MB
+
+# provenance check: same content as the dataset behind the published 003/004/006 runs?
+uv run --locked python - <<'EOF'
+import hashlib
+from strike_a_pose.datagen.io import dumps, load_manifest
+m = load_manifest("data/generated/smpl_proc_v1")
+for dirty in (False, True):
+    m["code"] = {"commit": "406b68f990c403dd34747dfc41914407d9ec2ea9", "dirty": dirty}
+    print(dirty, hashlib.sha256(dumps(m)).hexdigest())
+EOF
+# identical content iff one line prints 9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588
+
+uv run --locked strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
+    --out splits/smpl_proc_v1.json --overwrite        # default fractions 0.8 0.1 0.1
+
+# the pose assignment must not change (same seed, fractions, algorithm and pose set)
+uv run --locked python - <<'EOF'
+import json, subprocess
+old = json.loads(subprocess.check_output(["git", "show", "HEAD:splits/smpl_proc_v1.json"]))
+new = json.loads(open("splits/smpl_proc_v1.json").read())
+keys = ("algorithm", "unit", "dataset_name", "seed", "fractions", "poses", "counts")
+assert [k for k in keys if old[k] != new[k]] == [], "pose assignment changed: do not commit"
+assert (old["split_version"], new["split_version"]) == (1, 2)
+print("pose assignment unchanged; split_version 1 -> 2")
+EOF
+```
 
 ## Dependencies
 
@@ -189,3 +216,12 @@ Findings and resolutions:
 6. Terminology: "content hash" always means FR-001's hash and the key
    `manifest_content_sha256`; "raw hash" the bytes hash and the key `manifest_sha256`
    (v1 split files, dataset attribute, run records, 004 resume, 006 cache).
+
+Found during implementation:
+
+7. ruff B028 rejects `warnings.warn` without an explicit `stacklevel` → `stacklevel=1`
+   is spelled out (same behaviour as the default); plan and research R2 updated.
+8. A heredoc inside an indented list item breaks when copied from the raw file (the
+   `EOF` terminator and the Python lines gain leading spaces) → the F1 block lives in
+   unindented "F1 commands" sections here and in HANDOFF, identical to the spec's
+   (checked by script).

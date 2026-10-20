@@ -2,7 +2,8 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `007-split-content-hash`)
 **Created**: 2026-10-20
-**Status**: Approved at surrogate scope (surrogate rulings 2026-10-20; operator sign-off pending)
+**Status**: Implemented 2026-10-20 (verification: [tasks.md](tasks.md) T016; follow-up F1 open, needs SMPL).
+Approved at surrogate scope (surrogate rulings 2026-10-20; operator sign-off pending)
 **Input**: Operator instruction for this session: "Implement approved roadmap question
 #14 (split-hash contract change) as a small spec-kit slice. Update 002's contract and
 its tests." Roadmap open question #14: "Split-hash contract change. Proposal: hash the

@@ -78,9 +78,9 @@ CLI rewrite of v1, run_info fields of the three fixture CLIs, one 004 resume ref
 `PoseImageDataset.__init__`: `self.manifest_content_sha256 = manifest_content_sha256(m)`
 next to `self.manifest_sha256`; split check passes both; after the checks pass,
 `check_split_code(sp, m["code"])` → `warnings.warn(f"split file {split_file}, dataset
-{dir}: {note}", SplitCommitWarning)` with the default `stacklevel=1`, so the warning is
-attributed to one line of the data package and the default filter prints a given
-split + dataset message once per process (research R2).
+{dir}: {note}", SplitCommitWarning, stacklevel=1)` (explicit, as ruff B028 asks; it is
+the default), so the warning is attributed to one line of the data package and the
+default filter prints a given split + dataset message once per process (research R2).
 
 ### `strike_a_pose/data/__init__.py`
 

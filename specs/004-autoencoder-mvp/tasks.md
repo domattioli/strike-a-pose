@@ -39,12 +39,12 @@
 
 ## Phase 5: US3 — full run + record
 
-- [ ] T014 Pilot (val only, 1 epoch, scratch config) to check loading, memory, epoch time and that loss falls.
+- [x] T014 Pilot (val only, 1 epoch, scratch config) to check loading, memory, epoch time and that loss falls. → Replaced by watching the first epochs of T015 (no test-split access before the end, so constitution V holds): load 46 s, RSS ≈ 2.3 GB while training, epochs 85 s / 81 s, train loss 0.0352 → 0.0071, val 0.0100 → 0.0055. Plus a real-data restart drill: SIGKILL after epoch 2 (03:04 UTC), `--resume` at 03:04:42 → "resuming … after epoch 2/60", reload 44 s, continued at epoch 3 (session 2 in `run_info.json`; its `git.dirty` = true only because README.md had uncommitted usage text, no code change). Note: a second, concurrent `--resume` started by mistake for debugging was killed by `timeout` during loading (before any write except a stray `sessions` entry, overwritten by the live process at the end) → there is no lock against two resumes of one run dir (analyze finding 9).
   Run state / successor instructions (if this session is killed too):
   - Launched 2026-10-20T03:00:38Z at commit f9619c6 (clean tree), from the repo root:
     `setsid nohup .venv/bin/strike-a-pose-train --config configs/ae.yaml > runs/ae-full.log 2>&1 < /dev/null &`
   - Run dir: `runs/ae-smpl_proc_v1-20261020T030038Z`; log `runs/ae-full.log` (resumed sessions log to `runs/ae-full-resume*.log`).
-  - Alive? `pgrep -af strike-a-pose-train`. Progress: `tail -3 runs/ae-full.log; wc -l runs/ae-smpl_proc_v1-20261020T030038Z/history.csv`.
+  - Alive? `ps -eo pid,etime,args | grep "[s]trike-a-pose-train"` (do not `pkill -f` with a pattern that also matches your own shell's command line). Progress: `tail -3 runs/ae-full.log; wc -l runs/ae-smpl_proc_v1-20261020T030038Z/history.csv`.
   - Killed (no process, no `metrics.json` in the run dir) → resume, do not start a new run:
     `setsid nohup .venv/bin/strike-a-pose-train --resume runs/ae-smpl_proc_v1-20261020T030038Z > runs/ae-full-resume.log 2>&1 < /dev/null &`
   - Do not `uv sync`/swap the venv while it runs.
@@ -89,4 +89,8 @@ Findings and resolutions:
    standard for fixed-epoch runs). Resume not implemented (optional in brief).
 8. Cross-slice touches: 003 `baselines.py` refactor (T005, guarded by 003 tests),
    005's `ci.yml` placeholder replaced (T013) — recorded in the roadmap changelog.
+9. (2026-10-20b) Resume has no lock: two concurrent `--resume` of one run dir would
+   both write `history.csv`/`checkpoint.pt`. Not guarded (single operator, one
+   machine; a pid lock goes stale after a container restart) — documented in the
+   successor instructions under T015 instead.
 No constitution violations; Complexity Tracking empty.

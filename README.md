@@ -86,6 +86,22 @@ The metric functions (`image_mse`, `psnr`, `silhouette_iou`, `mpjpe`,
 `keypoint_error_2d`) live in `strike_a_pose.eval` and accept NumPy arrays or torch
 tensors. Baseline numbers for `smpl_proc_v1` are under [Results](#results).
 
+Train the convolutional autoencoder (latent 64) from a config: it fits on `train`,
+logs train/val loss per epoch to `history.csv`, checkpoints after every epoch, then
+scores the final model next to the mean image and PCA k=64 (refit on train in the
+same run) on `val` and `test` and writes a reconstruction figure
+(contract: [`specs/004-autoencoder-mvp/contracts/train-run.md`](specs/004-autoencoder-mvp/contracts/train-run.md)):
+
+```bash
+uv run strike-a-pose-train --config configs/ae.yaml           # full dataset (~1.5 h, 4 vCPU)
+uv run strike-a-pose-train --config configs/ae_fixture.yaml   # 16-sample fixture smoke (seconds)
+uv run strike-a-pose-train --resume runs/<run-dir>            # continue an interrupted run
+```
+
+`--resume` restores model, optimizer, lr schedule, RNG states and history from the
+last end-of-epoch `checkpoint.pt`; the finished run equals an uninterrupted one on
+the same machine and thread count.
+
 Exit codes and the on-disk layout are specified in
 [`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).
 
@@ -124,6 +140,8 @@ uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked pytest
 uv run --locked strike-a-pose-data validate tests/fixtures/smpl_fixture
+uv run --locked strike-a-pose-eval baseline --config configs/baselines_fixture.yaml --run-root /tmp/runs
+uv run --locked strike-a-pose-train --config configs/ae_fixture.yaml --run-root /tmp/runs
 ```
 
 No SMPL/AMASS files are needed: tests use synthetic SMPL-format assets and the

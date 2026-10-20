@@ -1,0 +1,182 @@
+# Feature Specification: Data Pipeline (loader, transforms, frozen split)
+
+**Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `002-data-pipeline`)
+**Created**: 2026-10-20
+**Status**: Approved (autonomous run, operator delegation 2026-10-20)
+**Input**: Roadmap slice 002 + lead brief 2026-10-20: "package `strike_a_pose.data`:
+PyTorch `Dataset` reading a 001 dataset via its manifest (validate on load, fail
+clearly); returns image (+ mask) and labels (2D/3D keypoints, visibility, pose
+params, camera, ids) under a documented contract; image/keypoint normalization
+utilities for 003 (minimal); frozen, versioned, seed-deterministic train/val/test
+split written by a CLI, split unit chosen to avoid leakage, recording the dataset
+manifest hash; add PyTorch (CPU) via uv so CI stays fast; tests on the committed
+fixture + synthetic cases."
+
+Settled context (operator): MVP = image autoencoder that *works*. Model input =
+rendered 256×192 grey-on-black images; keypoints / pose params / camera are labels
+for metrics (003) and later probes. Python + PyTorch 2.x. Hands zeroed in the pose
+source. Downstream: 003 baselines/metrics, 004 AE train/eval with CPU smoke train.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Load a generated dataset as PyTorch samples (Priority: P1)
+
+The researcher points a `Dataset` at a slice-001 dataset directory (optionally a
+named split of it) and iterates samples or batches through a standard
+`DataLoader`, getting a model-ready image tensor plus all labels.
+
+**Why this priority**: 003 and 004 consume data only through this loader.
+
+**Independent Test**: Build the dataset on the committed fixture, read every
+sample and one collated batch, compare tensors with the files on disk.
+
+**Acceptance Scenarios**:
+
+1. **Given** a complete 001 dataset, **When** the dataset is constructed,
+   **Then** `len()` equals the manifest sample count and every item follows the
+   sample contract (keys, shapes, dtypes, units).
+2. **Given** an incomplete, wrong-schema, or partially missing dataset, **When**
+   the dataset is constructed, **Then** it raises one clear error listing what is
+   wrong, before any training starts.
+3. **Given** a sample whose label file is malformed, **When** it is read,
+   **Then** a clear error names the sample and the problem.
+4. **Given** the default `DataLoader` collate, **When** a batch is drawn,
+   **Then** it collates without custom code.
+
+### User Story 2 - Freeze a train/val/test split once (Priority: P1)
+
+The researcher runs one CLI command on a dataset with a seed and gets a split
+file that is committed and then used by every later run; the same dataset +
+seed + fractions always gives the same file, and no pose appears in two splits.
+
+**Why this priority**: Constitution V: a held-out split "defined once and never
+tuned on".
+
+**Independent Test**: Write the split twice with the same seed (byte-identical);
+check that the pose sets are disjoint and cover the dataset; load a split
+dataset and check all camera views of each pose are in it.
+
+**Acceptance Scenarios**:
+
+1. **Given** a valid dataset and a seed, **When** the split command runs,
+   **Then** it writes a split file recording the dataset's manifest hash, seed,
+   fractions, and per-split pose indices.
+2. **Given** a split file exists at the output path, **When** the command runs
+   without `--overwrite`, **Then** it refuses (frozen) and writes nothing.
+3. **Given** a split file made for another dataset (manifest hash differs),
+   **When** a dataset is loaded with it, **Then** loading fails clearly.
+
+### User Story 3 - Normalize images and keypoints consistently (Priority: P2)
+
+003 metrics/baselines and 004 training use the same documented image scaling
+and keypoint normalization helpers, with exact inverses.
+
+**Independent Test**: Round-trip image and keypoint conversions; check
+documented reference values (corners, root joint).
+
+### Edge Cases
+
+- Manifest missing / unreadable / `complete: false` / `schema_version` ≠ 1 →
+  construction error.
+- Listed image, mask or label file missing → construction error listing the ids.
+- Optional full verification (checksums + label schema + projection invariant
+  via the 001 validator) → construction error with the validator's messages.
+- Split fractions invalid (negative, not summing to 1) or too few poses to give
+  train ≥ 1 pose → split command error, nothing written.
+- Split name requested without a split file, or unknown split name → error.
+- Image on disk not the manifest's configured size → error naming the sample.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: Package `strike_a_pose.data` MUST provide a `torch.utils.data.Dataset`
+  constructed from a 001 dataset directory, enumerating samples from the manifest.
+- **FR-002**: On construction it MUST check: manifest readable, schema v1 keys,
+  `complete: true`, counts consistent, skeleton `smpl24`, unique sample ids in
+  `<pose>_<camera>` form, every listed file present. Opt-in full verification
+  MUST run the 001 validator (checksums, label schema, SC-003). Failures raise a
+  single `DatasetError` listing problems.
+- **FR-003**: Each item MUST be a dict following
+  [`contracts/sample-contract.md`](contracts/sample-contract.md): image tensor,
+  mask, 2D/3D keypoints, visibility, pose params, betas, camera (K, R, t, yaw),
+  ids (sample id, pose index, camera name + index). Labels in source units.
+- **FR-004**: Image normalization MUST be documented and invertible: 1 channel,
+  float32, `uint8 / 255` in `[0, 1]`.
+- **FR-005**: Utilities MUST provide root-relative 3D joints and image-normalized
+  2D keypoints (to `[-1, 1]`) with exact inverses, working on NumPy arrays and
+  torch tensors with leading batch dims.
+- **FR-006**: A CLI subcommand MUST write a split file for a dataset from a seed
+  and fractions (default 0.8 / 0.1 / 0.1), deterministic (byte-identical for the
+  same manifest + seed + fractions), refusing to overwrite unless asked.
+- **FR-007**: The split unit MUST be the pose: all camera views of a pose land in
+  the same split. The split file MUST record the manifest SHA-256, dataset name,
+  seed, fractions, algorithm version, and per-split pose indices and counts.
+- **FR-008**: The `Dataset` MUST accept a split name + split file, verify the
+  manifest hash and split integrity, and expose only that split's samples.
+- **FR-009**: PyTorch 2.x MUST be a locked dependency installable with
+  `uv sync --locked` on CI (ubuntu, Python 3.11 + 3.13).
+- **FR-010**: Tests MUST cover the fixture and synthetic cases: loading,
+  shapes/dtypes, normalization round trips, split determinism and no leakage,
+  and the error paths above.
+
+### Key Entities
+
+- **Sample** (dict): see contract.
+- **Split file** (JSON, `split_version` 1): see contract.
+
+## Success Criteria *(mandatory)*
+
+- **SC-001**: Full fixture (16 samples) loads and batches in < 5 s on CPU.
+- **SC-002**: Split command on the same dataset + seed twice → identical bytes;
+  committed fixture split equals a fresh regeneration.
+- **SC-003**: For every split file, pose sets are pairwise disjoint and cover
+  every pose of the dataset; every split dataset item's pose is in that split.
+- **SC-004**: `uv sync --locked`, ruff, pytest green locally and on CI for both
+  Python versions; per-leg CI wall time < 5 min (005 SC-003).
+
+## Assumptions
+
+- Datasets follow layout contract v1 (001); the loader does not support other
+  schema versions.
+- Camera set is identical across splits (fixed ring); the split tests novel
+  *poses*, not novel viewpoints.
+
+## Clarifications
+
+### Session 2026-10-20 (autonomous run, defaults chosen by lead)
+
+1. Q: Image channels / normalization? → A: Renders are grey with R = G = B
+   (checked on the fixture), so items carry 1 channel (`PIL convert("L")`, exact
+   for grey), float32 `x / 255` in `[0, 1]`. No mean/std standardization: the
+   black background dominates and a `[0, 1]` target suits a sigmoid decoder;
+   004 may add standardization in its own config if needed.
+2. Q: Mask dtype? → A: `bool [1, H, W]` (`mask_png > 127`); cast for weighting.
+3. Q: Sample container? → A: dict of tensors (+ strings), nested `camera` dict;
+   works with `default_collate`. Labels in source units (pixels, metres,
+   axis-angle radians); normalization is done by helper functions, not in the item.
+4. Q: Split unit? → A: pose (`pose_index`). All 8 views of a pose share 3D joints
+   and pose params; a per-sample split would leak every test pose into training
+   from other angles and inflate held-out reconstruction and MPJPE. Camera
+   held-out splits are out of scope (single fixed ring).
+5. Q: Split algorithm? → A: NumPy `default_rng(seed).permutation` of sorted pose
+   indices; `n_test`, `n_val` = `round(f × N)` but ≥ 1 when `f > 0`; train gets
+   the rest and must be ≥ 1 (else error). Recorded as `algorithm:
+   "pose-permutation-v1"`. No code commit in the file (keeps it deterministic).
+6. Q: Where do split files live? → A: committed in git under `splits/`
+   (datasets are git-ignored; the small split file is the versioned artifact).
+   The CLI requires an explicit `--out` (Principle II, no hidden paths). Fixture
+   split committed as `splits/smpl_fixture.json` (`--seed 0 --fractions 0.5 0 0.5`:
+   2 poses → 1 train, 1 test).
+7. Q: Validation cost on load? → A: default = manifest + file-existence checks
+   (cheap at 16k samples) and per-item label checks on read; full 001 validator
+   (hashes every label) is opt-in (`verify=True`), and always run by the split CLI.
+8. Q: CLI shape? → A: new subcommand `strike-a-pose-data split DATASET_DIR --seed
+   INT --out PATH [--fractions TRAIN VAL TEST] [--overwrite]`; exit 0 ok, 1
+   invalid dataset, 2 bad arguments / too few poses, 4 output exists.
+9. Q: PyTorch install for CI? → A: the CPU wheel index (download.pytorch.org)
+   is blocked by this session's egress policy, so the lock cannot be resolved or
+   verified here against it. Default: `torch` from PyPI (locked, universal),
+   accepting the larger Linux download (CUDA runtime wheels); CI wall time is
+   measured against SC-004. Switching to the CPU index is recorded as an open
+   question for the operator (research R1).

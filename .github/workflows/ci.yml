@@ -1,0 +1,52 @@
+# CI (slice 005): lint + format check + tests + dataset smoke, from the lockfile.
+# Runs without SMPL/AMASS: tests use synthetic assets, the fixture is committed.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up uv + Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install (locked)
+        run: uv sync --locked
+
+      - name: Ruff lint
+        run: uv run --locked ruff check .
+
+      - name: Ruff format check
+        run: uv run --locked ruff format --check .
+
+      - name: Tests
+        run: uv run --locked pytest
+
+      - name: Smoke - validate committed fixture
+        run: uv run --locked strike-a-pose-data validate tests/fixtures/smpl_fixture
+
+      # Smoke train (slice 004 adds this): CPU, a few steps on the fixture,
+      # < ~2 min (constitution IV). Expected shape:
+      # - name: Smoke - train
+      #   run: uv run --locked <train-cli> --config configs/<smoke>.yaml --seed 0

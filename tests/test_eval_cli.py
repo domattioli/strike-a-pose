@@ -11,8 +11,8 @@ from PIL import Image
 from strike_a_pose.data import make_split, write_split
 from strike_a_pose.data.split import manifest_sha256
 from strike_a_pose.datagen.io import load_manifest
-from strike_a_pose.eval.baselines import FIG_HEADER, FIG_PAD
 from strike_a_pose.eval.cli import main
+from strike_a_pose.eval.report import FIG_HEADER, FIG_PAD
 
 ROOT = Path(__file__).parents[1]
 CFG = ROOT / "configs" / "baselines_fixture.yaml"

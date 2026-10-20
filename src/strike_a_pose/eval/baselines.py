@@ -9,12 +9,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import torch
-from PIL import Image, ImageDraw
+from PIL import Image
 from torch.utils.data import DataLoader
 
-from strike_a_pose.data import PoseImageDataset, parse_sample_id, tensor_to_image
+from strike_a_pose.data import PoseImageDataset, parse_sample_id
 from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.runlog import (
     environment_summary,
@@ -27,16 +26,9 @@ from strike_a_pose.runlog import (
 )
 
 from .config import BaselineConfig
-from .metrics import (
-    ROOT_JOINT,
-    image_mse,
-    keypoint_error_2d,
-    mpjpe,
-    project_points,
-    psnr,
-    silhouette_iou,
-)
+from .metrics import ROOT_JOINT, keypoint_error_2d, mpjpe, project_points
 from .pca import PCA, fit_pca
+from .report import figure_indices, grid_figure, score_images
 
 METRICS_VERSION = 1
 UNITS = {
@@ -46,7 +38,6 @@ UNITS = {
     "mpjpe_mm": "mm, root-relative (pelvis) 3D joint error, world frame (= camera frame)",
     "kp2d_px": "px, mean over visible joints; prediction + true root projected with true camera",
 }
-FIG_PAD, FIG_HEADER, FIG_BG = 4, 16, 48
 
 
 @dataclass(frozen=True)
@@ -119,18 +110,7 @@ def score_split(b: Baselines, a: dict, cfg: BaselineConfig) -> dict:
         return out
     img: dict = {}
     for name, k, pred in _image_predictors(b, cfg):
-        mse, ps, iou = [], [], []
-        for i in range(0, n, cfg.batch_size):
-            x = a["image"][i : i + cfg.batch_size]
-            p = pred(x)
-            mse.append(image_mse(p, x))
-            ps.append(psnr(p, x))
-            iou.append(silhouette_iou(p, a["mask"][i : i + cfg.batch_size], cfg.iou_threshold))
-        r = {
-            "image_mse": float(torch.cat(mse).double().mean()),
-            "psnr_db": float(torch.cat(ps).double().mean()),
-            "silhouette_iou": float(torch.cat(iou).double().mean()),
-        }
+        r = score_images(pred, a["image"], a["mask"], cfg.batch_size, cfg.iou_threshold)
         if k is not None:
             r |= {"k": k, "k_effective": b.image_pca.k_effective(k)}
         img[name] = r
@@ -156,35 +136,17 @@ def score_split(b: Baselines, a: dict, cfg: BaselineConfig) -> dict:
     return out
 
 
-def figure_indices(n: int, rows: int) -> list[int]:
-    if n == 0:
-        return []
-    return sorted({int(i) for i in np.linspace(0, n - 1, min(rows, n)).round()})
-
-
 def recon_figure(b: Baselines, a: dict, cfg: BaselineConfig) -> Image.Image | None:
     """Grid: header labels, then per sample: true | mean | PCA k for each k."""
     idx = figure_indices(a["n"], cfg.figure_samples)
     if not idx:
         return None
-    h, w = a["image_size"]
     x = a["image"][idx]
     cols = [("true", x)] + [
         (name if k is None else f"pca k={k}", pred(x))
         for name, k, pred in _image_predictors(b, cfg)
     ]
-    nr, nc = len(idx), len(cols)
-    fig = Image.new(
-        "L", (nc * w + (nc + 1) * FIG_PAD, FIG_HEADER + nr * h + (nr + 1) * FIG_PAD), FIG_BG
-    )
-    draw = ImageDraw.Draw(fig)
-    for c, (label, imgs) in enumerate(cols):
-        x0 = FIG_PAD + c * (w + FIG_PAD)
-        draw.text((x0 + 2, 2), label, fill=255)
-        for r in range(nr):
-            tile = Image.fromarray(tensor_to_image(imgs[r].reshape(h, w)))
-            fig.paste(tile, (x0, FIG_HEADER + FIG_PAD + r * (h + FIG_PAD)))
-    return fig
+    return grid_figure(cols, a["image_size"])
 
 
 def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:

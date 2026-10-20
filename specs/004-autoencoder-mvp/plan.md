@@ -49,7 +49,7 @@ real run; 003 numbers/bytes unchanged by the refactor.
   image_size) -> PIL.Image` (header labels + rows; constants `FIG_PAD`,
   `FIG_HEADER`, `FIG_BG`); `score_images(pred_fn, images, masks, batch_size,
   threshold) -> {"image_mse", "psnr_db", "silhouette_iou"}` (batched per-image
-  metrics, float64 means). `baselines.py` uses them and re-exports the constants.
+  metrics, float64 means). `baselines.py` uses them (tests import the constants from `report`).
 
 ### `strike_a_pose/models/autoencoder.py`
 

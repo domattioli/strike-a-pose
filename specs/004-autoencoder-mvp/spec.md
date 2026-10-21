@@ -106,11 +106,20 @@ and val loss decrease; the figure shows recognizable held-out bodies.
   deterministic convolutional encoder (`[B, 1, H, W]` → latent `[B, latent_dim]`)
   and decoder (latent → `[B, 1, H, W]` in `[0, 1]`), configurable latent size
   (default 64) and channel widths.
+  *(Amended 2026-10-21 by slice [011](../011-training-variants/spec.md): optional
+  `variational=True` adds a log-variance head (a VAE); `encode` stays the mean and the
+  forward pass stays deterministic; the default model is unchanged.)*
 - **FR-002**: Package `strike_a_pose.train` MUST provide a YAML train config
   (strict keys/types), a training loop (Adam, MSE loss, seeded shuffling, optional
   cosine learning-rate decay) and a console script `strike-a-pose-train --config
   PATH [--seed INT] [--run-root DIR]` whose overrides are written into the resolved
   config.
+  *(Amended 2026-10-21 by slice [011](../011-training-variants/spec.md): the optimizer is
+  AdamW with `weight_decay` (default 0, where it steps exactly like Adam), and optional
+  config keys select a mask-weighted MSE (`mask_weight`), a VAE objective (`variational`,
+  `beta`), per-sample pixel shifts of the train batches (`shift_px`) and latent dropout
+  (`dropout`); every default reproduces the run above bit for bit, and the val loss stays
+  the plain MSE.)*
 - **FR-003**: Training MUST fit on the train split only; the val loss (MSE, model in
   eval mode) is computed after every epoch and never used to change the run.
   *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): val still
@@ -125,6 +134,9 @@ and val loss decrease; the figure shows recognizable held-out bodies.
   `best.pt`, the weights of the epoch with the lowest finite val loss, written after
   that epoch's `checkpoint.pt` whenever val has samples; it is the scored file by
   default, and `metrics.json` `selection.checkpoint` names the scored file.)*
+  *(Amended 2026-10-21 by slice [011](../011-training-variants/spec.md): `history.csv`
+  appends `train_recon` and `train_kl`; `metrics.json` adds `model.variational` and
+  `training.objective`; `checkpoint.pt` `model_hparams` adds `variational`.)*
 - **FR-005**: Seeds for Python, NumPy and torch MUST be set from the config seed and
   logged (constitution III).
 - **FR-006**: After training, the final model MUST be scored on the configured eval

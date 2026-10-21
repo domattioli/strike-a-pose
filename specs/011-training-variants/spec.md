@@ -2,8 +2,9 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `011-training-variants`)
 **Created**: 2026-10-21
-**Status**: Approved at surrogate scope (surrogate rulings 2026-10-21; operator sign-off
-pending). Approval basis: the operator's #16 choice quoted below; the surrogate ruled (a) on
+**Status**: Implemented 2026-10-21 (verification: [tasks.md](tasks.md) T013; runs: its
+experiment procedure, needs SMPL). Approved at surrogate scope (surrogate rulings 2026-10-21;
+operator sign-off pending). Approval basis: the operator's #16 choice quoted below; the surrogate ruled (a) on
 Q1–Q3 and accepted every lead default.
 **Input**: Operator answer to roadmap open question #16 ("Training improvements / VAE (blur,
 lost extremities, mild overfitting in 004)?"), options (ii)–(iv), chosen 2026-10-20 from
@@ -331,8 +332,9 @@ R0 is reused as the control, never rerun.
    each winning variant (best val loss below R0's) runs once on the last 010 dataset, next to
    that dataset's plain run, from a copy of that dataset's `ae.yaml` plus the variant's keys.
 
-Cost: ≈ 85 min per training run + ≈ 8 min per probe; R1–R3 ≈ 4.7 h sequential on 4 vCPU (the
-variants' per-step overhead is estimated at a few %; the plan measures it on the fixture).
+Cost: ≈ 85 min per training run + ≈ 8 min per probe; R1 ≈ 100 min (the mask-weighted loss
+measured +15 % per step; the VAE and the regularization knobs within the ±10 % timing noise;
+research R8); R1–R3 ≈ 5 h sequential on 4 vCPU.
 
 ## Clarifications
 

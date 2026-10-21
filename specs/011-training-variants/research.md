@@ -62,6 +62,10 @@ at the frame edge (004 research R0: val silhouettes span x 0–189), accepted at
 
 ## R8 — Cost
 
-`configs/ae.yaml` ≈ 85 min on 4 vCPU, probe ≈ 8 min; the variants add a 3072 → 64 linear
-layer, a few element-wise ops per batch and 64 slices: estimated a few % per step (measured on
-the fixture in stage 5). R1–R3 ≈ 4.7 h sequential.
+`configs/ae.yaml` ≈ 85 min on 4 vCPU, probe ≈ 8 min. Measured at the slice head (fixture
+train images tiled to 128, batch 64, the full architecture, 4 threads, median of 5 two-step
+epochs): plain 0.49 s per step; mask-weighted MSE +15 % (+22 % in a first 2-rep pass; the
+weighted loss alone takes 15 ms forward + backward against 2 ms for `F.mse_loss`, and an
+equivalent `(Σd² + α·Σm·d²) / (N + α·Σm)` form 9–12 ms: not worth a change); VAE +0 %;
+regularization bundle within the ±10 % noise of these timings. So R1 ≈ 100 min, R2 and R3
+≈ 85 min; R1–R3 with probes ≈ 5 h sequential.

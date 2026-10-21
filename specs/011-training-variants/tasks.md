@@ -73,11 +73,11 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
   and its keys. Also: the legacy test strips `model_hparams.variational`; the `objective.py`
   docstring names the VAE noise. Checks: ruff and format clean; pytest 374 passed in 37.57 s;
   CI smoke train + probe OK.
-- [ ] T012 Docs: 004 `spec.md` dated notes; README (status row, Usage: variants and configs,
+- [x] T012 Docs: 004 `spec.md` dated notes; README (status row, Usage: variants and configs,
   Results: numbers come with the runs); roadmap (#16 (ii)–(iv) implemented, 011 row, status
   line, changelog 2026-10-21); HANDOFF (state; experiment procedure R0 → R1 → R2 → R3 with
   costs; the 010 interplay per Q2; #16 entry).
-- [ ] T013 Verification record (below): SC-001…SC-005, pytest count and wall time, the
+- [x] T013 Verification record (below): SC-001…SC-005, pytest count and wall time, the
   same-machine before/after fixture comparison (SC-002) against `19479e2`.
 
 ## Analyze pass (2026-10-21, before stage 2)
@@ -90,6 +90,27 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
   the 7-column history header and the additive `metrics.json` keys. No open ambiguity.
 - Constitution: no violation (plan, Constitution Check).
 
-## Verification record
+## Verification record (2026-10-21, at `dbed68f` plus the docs commit)
 
-(filled at the end of stage 5)
+- SC-001: ruff check and ruff format --check clean; pytest 374 passed in 37.57 s (334 before
+  slice 011); the CI smoke train (`configs/ae_fixture.yaml`) and probe
+  (`configs/probe_fixture.yaml`) ran after every stage (fixture `ae` test MSE 0.13721
+  throughout). CI on the pushed head: to be read after the push.
+- SC-002: same-machine before/after comparison, fixture train + probe with the code of
+  `19479e2` (`git archive` of `src/`, imported first) and of the slice head, same locked
+  environment, 4 threads: history train / val loss and lr equal (10 epochs); checkpoint
+  weights and buffers, optimizer state tensors and RNG states equal; `metrics.json` equal
+  after removing `model.variational` (false) and `training.objective` (all zero);
+  `recon_test.png` byte-equal; probe `metrics.json` equal after removing
+  `encoder.variational` (false) and `encoder.checkpoint_sha256` (the checkpoint file
+  differs: `model_hparams.variational`, the six config keys, AdamW's param-group flag).
+  In the suite: `test_defaults_equal_the_pre_011_loop`.
+- SC-003: per-variant repeatability (mask, VAE, regularization bundle), all-knobs resume
+  equality and the legacy run dir resume pass (`tests/test_train_variants.py`, 40 tests).
+- SC-004: pytest 374 in 37.57 s against ≈ 36 s before (within the +30 s budget); the CI
+  smoke step is unchanged.
+- SC-005: `git diff 19479e2 --stat` over `docs/results/`, `splits/`, `tests/fixtures/`,
+  `configs/smpl_proc_v{2,3,4,5}/`, `configs/ae_fixture.yaml`, `configs/probe*.yaml`,
+  `pyproject.toml`, `uv.lock` and `.github/` is empty; documentation scope done (T012).
+- Step cost (research R8): mask-weighted MSE +15 % per step, VAE +0 %, regularization within
+  noise; R1 ≈ 100 min.

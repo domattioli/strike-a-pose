@@ -9,9 +9,12 @@ Then 007 `split-content-hash`, which implements the operator-approved open quest
 (2026-10-20; approved at surrogate scope, operator sign-off pending), 009
 `region-metrics`, which implements the operator's choice (i) for open question #16
 (chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope, operator sign-off
-pending), and 010 `dataset-realism`, which implements the operator's decision on open
+pending), 010 `dataset-realism`, which implements the operator's decision on open
 question #15 (chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope,
-operator sign-off pending; datasets and runs wait for SMPL).
+operator sign-off pending; datasets and runs wait for SMPL), and 011
+`training-variants`, which implements the operator's options (ii)–(iv) for open question #16
+(chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope, operator sign-off
+pending; runs wait for SMPL).
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -38,14 +41,17 @@ baseline numbers are reported alongside for context (not as a bar to beat).
 Out of MVP (later candidates): generation/interpolation, real-image datasets, GPU
 rails (Kaggle), per-region (hands/face/feet) image MSE (surrogate ruling 2026-10-20 #4;
 implemented in 009 under the operator's choice (i) for #16, 2026-10-20: hands / feet /
-head box, SMPL-24 has no face joint), training improvements / VAE, dataset realism
+head box, SMPL-24 has no face joint), training improvements / VAE (options (ii)–(iv)
+implemented in 011 under the operator's #16 choice: regularization, mask-weighted MSE, a VAE;
+runs once SMPL is available), dataset realism
 (implemented as opt-in generator options in 010 under the operator's #15 decision; the
 datasets `smpl_proc_v2`…`v5` and their runs follow its run procedure once SMPL is
 available; open questions below).
 
 Post-MVP slices (surrogate ruling 2026-10-20 #1: exactly one, then stop; 007 implements
 the operator-approved open question #14, 008 the operator's choice B for #13, 009 the
-operator's choice (i) for #16, 010 the operator's decision on #15):
+operator's choice (i) for #16, 010 the operator's decision on #15, 011 the operator's
+options (ii)–(iv) for #16):
 
 | # | Slug | Purpose | Depends on | Done when |
 |---|------|---------|------------|-----------|
@@ -54,6 +60,7 @@ operator's choice (i) for #16, 010 the operator's decision on #15):
 | 008 | `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default: `select_weights: best_val \| final`, final weights when val is empty or never finite, `selection` block in `metrics.json` (`train_version` 2), resume-safe; 60 epochs and cosine lr unchanged (open question #13, option B) | 004 | Selection, fallback and resume tested on the fixture (scripted val curve); fixture smoke numbers unchanged; CI green; the published 004 / 006 numbers stay final weights until the re-baseline run |
 | 009 | `region-metrics` | Every image model (003 mean image / PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also reports its MSE in `hands` / `feet` / `head` regions (squares on the true 2D keypoints of joints 22 / 23, 7 / 8 / 10 / 11, 15; `region_mask`, `masked_mse`, labels passed to `score_images`); additive `metrics.json` keys, `metrics_version` 1 / `train_version` 2 unchanged; no training or config change (open question #16, option (i)) | 003, 004 | Fixture runs report the regions (003 and 004 identical for the baselines), every existing number unchanged; CI green; first real numbers with the re-baseline run |
 | 010 | `dataset-realism` | Opt-in generator options with omit-when-default manifest serialization: `ranges_version: predecessor-v2-armsdown` (arms lowered ∓65° after sparsification, shoulder z `[-20, 20)`, collar z `[-10, 10)`), `body_shape` (per-pose betas N(0, 1) clipped at ±2, own random stream), `camera_jitter` (camera moved in height / distance, aimed at the ring's look-at point, tilted down; projected-vertex in-frame check, recorded ring-camera fallback); configs for the chain `smpl_proc_v2` → `v5`; 003 `image_pca_ks: []` (open question #15) | 001, 003 | Every option tested on the synthetic body model; today's datasets byte-identical (fixture pins, before/after synthetic comparison); CI green; datasets and runs after SMPL access and F1 (run procedure) |
+| 011 | `training-variants` | Config-selectable training variants of the 004 trainer / model, defaults bitwise today's run: `weight_decay` (AdamW), `shift_px` (per-sample integer shifts), `dropout` (latent), `mask_weight` (α, `w = 1 + α·[x > 0]`), `variational` + `beta` (VAE: `logvar` head, `beta·KL/(H·W)`, `encode` = μ); `history.csv` + `train_recon`, `train_kl`; `metrics.json` `model.variational`, `training.objective`; configs `ae_{mask,vae,reg}.yaml` (open question #16, options (ii)–(iv)) | 004, 006, 008, 009 | Defaults bit-equal to the pre-011 loop and in a same-machine before/after fixture run; every knob, resume and legacy resume tested; a VAE checkpoint probed; CI green; runs R1–R3 after SMPL and the re-baseline (experiment procedure) |
 
 ## Open questions (batched; answer all at once)
 
@@ -101,8 +108,12 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
 16. Training improvements / VAE (blur, lost extremities, mild overfitting in 004)?
     Operator choice (i), 2026-10-20: per-region MSE metrics first (hands / feet / head
     box; metrics only, before the re-baseline run), implemented in 009 `region-metrics`
-    (2026-10-21). Options (ii)–(v) (regularization, loss shaping, VAE, capacity sweep)
-    still open.
+    (2026-10-21). Options (ii)–(iv), 2026-10-20: regularization (weight decay, small pixel
+    shifts, bottleneck dropout), loss shaping (mask-weighted MSE first; a silhouette term
+    deferred) and a VAE (small beta), each config-selectable with defaults reproducing
+    today's run bit for bit and the plain AE as control; implemented in 011
+    `training-variants` (2026-10-21); runs: its experiment procedure (needs SMPL). Option (v)
+    (capacity sweep) still open.
 
 ## Changelog
 
@@ -341,3 +352,22 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   run exists yet: the run procedure (F1 → `smpl_proc_v1` re-baseline → v2 → v3 → v4 → v5,
   ≈ 8.5 h CPU after the re-baseline, with an arms-down visual check before the v2 split) is
   in 010 `tasks.md`.
+- 2026-10-21: slice 011 `training-variants` (autonomous run, Fable surrogate scope; spec
+  approved at surrogate scope 2026-10-21, operator sign-off pending; approval basis: the
+  operator's options (ii)–(iv) for open question #16, 2026-10-20). Six train config keys,
+  each defaulting to today's computation and carrying that value in `LEGACY_VALUES`: a
+  default run equals the pre-011 code's bit for bit (regression test against an inline copy
+  of the old loop; a same-machine fixture train + probe before/after comparison with
+  identical history, weights, optimizer state, figure and metrics apart from the additive
+  keys). `weight_decay` (AdamW, decoupled, one group), `shift_px` (per-sample integer shifts
+  of the train batches, zero fill), `dropout` (on the latent, training only), `mask_weight`
+  (α: `sum(w·d²) / sum(w)` with `w = 1 + α·[x > 0]`, the rendered silhouette),
+  `variational` + `beta` (VAE: a `logvar` head built last, `z = μ + σ·ε` in training only,
+  `loss = recon + β·KL/(H·W)`; `encode` = μ, so val loss, selection, metrics, figure and
+  probe never sample). `history.csv` appends `train_recon`, `train_kl`; `metrics.json` adds
+  `model.variational` and `training.objective`, the probe `encoder.variational` (versions
+  unchanged). Surrogate rulings (batch Q1–Q3): one combined regularization run R3 first; R1–R3
+  on `smpl_proc_v1` against the re-baseline R0, the 010 chain stays plain and each winning
+  variant runs once on the last 010 dataset next to its plain run; β = 0.1 first. Configs
+  `configs/ae_{mask,vae,reg}.yaml`; no run exists yet (experiment procedure in 011
+  `spec.md`; ≈ 5 h CPU after R0).

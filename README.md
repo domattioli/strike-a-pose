@@ -14,9 +14,10 @@ rulings (operator sign-off 2026-10-21). Slice 007 (split content hash) implement
 operator-approved roadmap question #14, slice 008 (best-val weight selection) the
 operator's choice B for question #13 (both 2026-10-20), and slice 009 (per-region image
 metrics, 2026-10-21) the operator's choice (i) for question #16, and slice 010 (dataset
-realism options, 2026-10-21) the operator's decision on question #15 (all four approved at
-surrogate scope, operator sign-off pending); the remaining open questions are listed in
-the roadmap.
+realism options, 2026-10-21) the operator's decision on question #15, and slice 011
+(training variants, 2026-10-21) the operator's options (ii)–(iv) for question #16 (all five
+approved at surrogate scope, operator sign-off pending); the remaining open questions are
+listed in the roadmap.
 
 | Slice | What | State |
 |---|---|---|
@@ -30,6 +31,7 @@ the roadmap.
 | 008 `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default (`select_weights`), the final weights when val is empty | implemented (roadmap #13, operator choice B) |
 | 009 `region-metrics` | Every image model also reports its MSE in hands / feet / head regions around the true 2D keypoints (`region_mask`, `masked_mse`) | implemented (roadmap #16, operator choice (i)) |
 | 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs for the chain `smpl_proc_v2` → `v5` | implemented (roadmap #15); datasets and runs wait for SMPL |
+| 011 `training-variants` | Config-selectable training variants, the plain AE as default and control: weight decay (AdamW), pixel shifts, latent dropout, mask-weighted MSE, a VAE (`variational`, `beta`); configs `ae_mask` / `ae_vae` / `ae_reg` | implemented (roadmap #16, options (ii)–(iv)); runs wait for SMPL |
 
 ## Install
 
@@ -185,6 +187,26 @@ epoch); under `select_weights: best_val` it is the scored file. A resume rewrite
 when the selected epoch's weights are lost; run directories started before slice 008
 resume with `final`, the rule they were started under.
 
+Training variants (slice [011](specs/011-training-variants/spec.md)): each key is off by
+default, which is today's run bit for bit, and `configs/ae.yaml` lists them at their
+defaults. `mask_weight` α (body pixels, the non-zero pixels of the render, weigh 1 + α),
+`variational` + `beta` (a VAE: `logvar` head, sampled latent in training, `beta·KL/(H·W)`;
+`encode` and every evaluation use the mean), `weight_decay` (AdamW), `shift_px` (per-sample
+integer shifts of the train images) and `dropout` (on the latent, training only). Val loss,
+`best.pt` selection and every metric stay the plain MSE of the deterministic reconstruction,
+so a variant compares with the plain run; `history.csv` adds `train_recon` and `train_kl`;
+run directories started before slice 011 resume with the defaults.
+
+```bash
+uv run strike-a-pose-train --config configs/ae_mask.yaml   # R1: mask_weight 4
+uv run strike-a-pose-train --config configs/ae_vae.yaml    # R2: VAE, beta 0.1
+uv run strike-a-pose-train --config configs/ae_reg.yaml    # R3: weight decay + shifts + dropout
+```
+
+Each takes ~1.5 h on 4 vCPU (run it detached and resumable as above). The experiment
+procedure (control R0 = the `configs/ae.yaml` re-baseline run; then R1 → R2 → R3, each with
+its probe) is in [`specs/011-training-variants/spec.md`](specs/011-training-variants/spec.md).
+
 Probe what the frozen encoder of a trained AE knows (spec 006): every image is encoded
 once (latents cached under `runs/probe-cache/`, keyed by checkpoint, manifest and split
 hashes), then closed-form ridge and small MLP probes are fit on train latents to
@@ -212,7 +234,8 @@ Exit codes and the on-disk layout are specified in
 ## Results
 
 The published 003 / 004 / 006 runs below predate the per-region image metrics (slice
-009); per-region numbers come with the next full run.
+009); per-region numbers come with the next full run. The slice 011 training variants have no
+runs yet: their numbers come with its experiment procedure (needs SMPL).
 
 Baselines on `smpl_proc_v1` (fit on train, 12,800 images; val / test 1,600 images
 each; images in [0, 1]; MPJPE root-relative). Context for the autoencoder (004),

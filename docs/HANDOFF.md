@@ -1,4 +1,4 @@
-# Handoff — strike-a-pose (as of 2026-10-21, after slice 010)
+# Handoff — strike-a-pose (as of 2026-10-21, after slice 011)
 
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
@@ -52,6 +52,18 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   camera; labels record `camera.jitter`). 003 accepts `image_pca_ks: []`. Configs for the
   chain `configs/smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) → `v5`
   (+ 4,000 poses). No new dataset, split or run exists: run procedure below (item 5).
+- Slice 011 `training-variants` (roadmap #16, operator options (ii)–(iv), 2026-10-20)
+  implemented 2026-10-21; approved at surrogate scope (rulings Q1–Q3 (a)), operator
+  sign-off pending. Six train config keys, each off by default (a default run equals the
+  pre-011 code's bit for bit: regression test and a same-machine before/after fixture
+  comparison) and in `LEGACY_VALUES` (older run dirs resume): `weight_decay` (AdamW),
+  `shift_px` (per-sample integer shifts of train images), `dropout` (latent, training
+  only), `mask_weight` (α on the rendered silhouette `x > 0`), `variational` + `beta` (VAE:
+  `logvar` head, `beta·KL/(H·W)`, `encode` = μ). Val loss, selection, metrics, figure and
+  probe stay the plain deterministic reconstruction; `history.csv` gains `train_recon`,
+  `train_kl` (`docs/results/004-ae-smpl_proc_v1/history.csv` keeps its 5 columns);
+  `metrics.json` gains `model.variational`, `training.objective`; the probe
+  `encoder.variational`. Configs `configs/ae_{mask,vae,reg}.yaml`; no run yet (item 6).
 
 ## Next work (from roadmap open questions)
 
@@ -79,9 +91,10 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
    Any new train config key must add its pre-key value to `train.config.LEGACY_VALUES`
    (008 plan); new image predictors are scored through `score_images` with the split's
    labels (009 plan); **#15** (dataset realism) implemented as generator options in slice
-   010 (2026-10-21), its datasets and runs are item 5. Not started: the other #16 options
-   (training improvements / VAE) and the SMPL-asset access problem (`domattioli/smpl-assets`
-   exists but is still empty, which blocks F1 and every run).
+   010 (2026-10-21), its datasets and runs are item 5; **#16 options (ii)–(iv)** (training
+   variants) implemented in slice 011 (2026-10-21), its runs are item 6. Not started: the
+   SMPL-asset access problem (`domattioli/smpl-assets` exists but is still empty, which
+   blocks F1 and every run) and #16 option (v) (capacity sweep, not chosen).
 4. **Re-baseline run** (after SMPL access → F1; 009 has landed): `strike-a-pose-train
    --config configs/ae.yaml` (as committed: `select_weights: best_val`), launched
    detached and resumable (see "Environment gotchas"); then set `checkpoint` in
@@ -107,6 +120,22 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
    `smpl_proc_v2` vs `smpl_proc_v1` is controlled (same draws except four arm angles);
    `v3`+ are compared with their predecessor; 009 region numbers across datasets carry
    the caveat of 010 clarification 21.
+6. **Training-variant runs (#16, slice 011; needs SMPL):** after F1 and the re-baseline
+   run R0 (item 4: `configs/ae.yaml` + its probe on `smpl_proc_v1`, reused as the control,
+   never rerun), same machine type and locked environment, each detached and resumable as
+   item 4, each followed by the probe on its `metrics.json` `selection.checkpoint`:
+   R1 `configs/ae_mask.yaml` (mask-weighted MSE, α = 4) → R2 `configs/ae_vae.yaml` (VAE,
+   β = 0.1; a second β only if R2 blurs badly or `train_kl` collapses) → R3
+   `configs/ae_reg.yaml` (weight decay 0.05 + shifts ≤ 4 px + latent dropout 0.1 in one
+   run; single-knob runs only if R3's best val loss is below R0's). Cost ≈ 85 min per run
+   (R1 ≈ 100 min: the mask-weighted loss measured +15 % per step) + ≈ 8 min per probe,
+   ≈ 5 h CPU for R1–R3. Report each next to R0 (README Results,
+   `docs/results/011-<run>/`): best-val epoch / loss, val / test `image_mse`, `psnr_db`,
+   `silhouette_iou`, region MSEs, probe MPJPE and yaw accuracy, R2's `train_kl`; one seed
+   each, no success bar (011 spec, "Experiment procedure"). With the 010 chain (item 5,
+   surrogate ruling Q2): its AE runs stay plain; each winning variant runs once on the
+   last 010 dataset, next to that dataset's plain run, from a copy of its `ae.yaml` plus
+   the variant's keys. Item 5 and item 6 both start after R0; their order is free.
 
 ## F1 commands
 
@@ -209,7 +238,9 @@ unaffected).
   sampling / interpolation); (v) capacity sweep (latent 32 / 128; wider channels
   ≈ 2.5× slower). Every option after a #15 dataset change needs a matching plain
   AE control run on that dataset. Lead recommendation: (i) first, then (iii) or
-  (iv) by goal (detail vs generation).
+  (iv) by goal (detail vs generation). Answered: (i) (2026-10-20, slice 009) and
+  (ii)–(iv) (2026-10-20: each config-selectable, defaults = today's run, plain AE as
+  control; slice 011, runs in "Next work" item 6); (v) not chosen.
 
 ## Session pause (2026-10-20 23:30 UTC)
 

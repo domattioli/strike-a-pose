@@ -1,4 +1,4 @@
-# Handoff — strike-a-pose (as of 2026-10-21, after slice 012)
+# Handoff — strike-a-pose (as of 2026-10-21, after slice 014)
 
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
@@ -8,7 +8,7 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
 - MVP done and signed off: slices 001–005, plus post-MVP 006 (latent probe).
   The operator's "approve all" (labelled 2026-10-21) covers slices 002–006, including their
   autonomous clarifications, and the surrogate rulings of 2026-10-20 only; 007–012 await
-  operator sign-off (list below).
+  operator sign-off (list below); 014 follows operator decisions directly.
 - Results: `docs/results/{003-baselines,004-ae,006-probe}-smpl_proc_v1/`; summary in
   README "Results". AE test MSE 0.00219 / IoU 0.881 (PCA-64: 0.00452 / 0.646).
   Probe: camera yaw 96 % (MLP), 3D joints 172 mm MPJPE (mean pose 253 mm).
@@ -44,15 +44,15 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   2026-10-21; approved at surrogate scope, operator sign-off pending. Opt-in generator
   options, each left out of the manifest `config` while off, so `smpl_proc_v1` regenerates
   byte for byte (fixture pins; same-machine before/after synthetic comparison identical):
-  `ranges_version: predecessor-v2-armsdown` (arms lowered ∓65° after sparsification,
+  `ranges_version: armsdown-v1` (renamed by 014; arms lowered ∓65° after sparsification,
   shoulder z `[-20, 20)`, collar z `[-10, 10)`: the collar narrowing departs from the
   predecessor's table; every other draw equals v1's for the same seed), `body_shape`
   (per-pose betas N(0, 1) clipped at ±2, own stream) and `camera_jitter` (per-sample camera
   moved ±0.3 m in height and 0–0.5 m farther, aimed at the ring's look-at point and tilted
   0–5° down, kept only if every mesh vertex projects 2 px inside the image, else the ring
-  camera; labels record `camera.jitter`). 003 accepts `image_pca_ks: []`. Configs for the
-  chain `configs/smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) → `v5`
-  (+ 4,000 poses). No new dataset, split or run exists: the campaign procedure below (as v2a–v2d, operator decision 2026-10-21).
+  camera; labels record `camera.jitter`). 003 accepts `image_pca_ks: []`. Its cumulative
+  config chain is replaced by 014's independent datasets (below). No new dataset, split or run
+  exists: steps v2a–v2d of the campaign procedure below.
 - Slice 011 `training-variants` (roadmap #16, operator options (ii)–(iv), 2026-10-20)
   implemented 2026-10-21; approved at surrogate scope (rulings Q1–Q3 (a)), operator
   sign-off pending. Six train config keys, each off by default (a default run equals the
@@ -75,6 +75,21 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   `scripts/run_status.py`; campaign configs (guards in `configs/ae{,_mask,_vae,_reg}.yaml`,
   `ae_vae.yaml` β 0.01, new `ae_seed1`, `ae_vae_beta0.1`, `ae_vae_beta0.001`). Slices 007–012
   are verified on the fixture and the synthetic body only: no full-dataset run yet.
+  *Fix 2026-10-21 (`fix(012)`, found in live use): the lock also treats a trainer launched as
+  `python -m strike_a_pose.train.cli` as alive (before, `run_status.py` said "looks dead" and a
+  `--resume` would have replaced a live lock).*
+- Slice 014 `realism-ablations` (operator decisions 2026-10-21, amending 010) implemented
+  2026-10-21. Independent single-change datasets, each compared with `smpl_proc_v1` (R0):
+  `configs/smpl_proc_v2a/` (+ `ranges_version: armsdown-v1`), `v2b` (+ `body_shape`), `v2c`
+  (+ `camera_jitter`), `v2d` (+ `num_poses: 4000`, `image_pca_ks: []`, `context_pca_k: null`),
+  each with `generate`, `baselines`, `ae` (012 guards, as `configs/ae.yaml`) and `probe`;
+  `configs/smpl_proc_v{2,3,4,5}/` removed. The arms-down table is `armsdown-v1` (no alias;
+  never generated under its old name); v2a's confound (narrowed shoulder / collar z: less pose
+  variety; more limb–torso overlap) is documented in 010 FR-003. `scripts/intersection_check.py`
+  (`datagen/intersection.py`, NumPy): share of poses with an arm vertex inside the torso
+  (per-segment elliptic cylinders, Kabsch-fitted rest frames, 1 cm margin); v2a's split is not
+  frozen above 5 %; the visual check stays. Verified on the synthetic body only (the real-SMPL
+  rate is unknown until the v2a step).
 
 ## Pending operator sign-off
 
@@ -93,16 +108,19 @@ Each slice is approved at surrogate scope; key surrogate rulings in one line:
 - 012 `run-guards`: Q1 (a) with per-variant promotion metrics (**operator confirmation
   requested**), Q2 (a) plus the pixel diagnostic, Q3 (a) unattended check-ins advance the
   campaign and commit results.
+- 014 `realism-ablations`: the operator's 2026-10-21 decisions; lead defaults: the intersection
+  test (per-segment inscribed elliptic cylinders, 1 cm margin, ≥ 1 vertex = intersecting pose),
+  a script rather than a CLI subcommand, and a gate failure skipping v2a (no unattended table
+  change).
 
-Open operator decisions: the promotion rule (above); the winners' dataset (the cumulative v5 no
-longer exists); the 010 amendment (v2a–v2d configs, `armsdown-v1`, intersection threshold;
-separate lead).
+Open operator decisions: the promotion rule (above); the winners' dataset: which of v2a–v2d
+(or v1 only) the winning variants run on (default if no answer: v2a).
 
 ## Next work
 
 1. **The campaign** (needs `assets/smpl/SMPL_NEUTRAL.npz`; `domattioli/smpl-assets` exists
    but was still empty at the last check): "Campaign procedure" below, starting with F1
-   ("F1 commands"). The v2a–v2d datasets also need the 010 amendment (separate lead).
+   ("F1 commands"). The v2a–v2d configs are committed (slice 014).
 2. **#12 approved, on hold**: switch torch to the CPU wheel index
    (`specs/002-data-pipeline/research.md` R1) only after the campaign's runs are done:
    changing `uv.lock` mid-campaign breaks "same locked environment". `download.pytorch.org`
@@ -115,7 +133,9 @@ separate lead).
 ## Campaign procedure
 
 Operator decision 2026-10-21: the campaign below may use ≈ 20 h of CPU, with guards that end a
-stalled or diverging run (slice 012) and check-ins that apply these rules. Prerequisite:
+stalled or diverging run (slice 012) and check-ins that apply these rules. *(Amended 2026-10-21
+by slice 014: the realism steps v2a–v2d are independent single-change datasets with committed
+configs, v2a has an automatic intersection gate, W waits for the operator.)* Prerequisite:
 `assets/smpl/SMPL_NEUTRAL.npz` in place (never committed). Run everything from the repository
 root, detached and resumable, and commit each finished run's records when it ends: nothing may
 depend on the container surviving.
@@ -127,21 +147,24 @@ depend on the container surviving.
 | F1 | regenerate `smpl_proc_v1`; SMPL-file, manifest and pixel diagnostics; split v2; the 003 baselines (also R0's) | "F1 commands" | 15 min |
 | R0 | re-baseline AE (the control) + probe | `configs/ae.yaml`, `configs/probe.yaml` | 95 min (≈ 70 if it stops near epoch 44) |
 | R0b | R0 with seed 1 + probe: the noise bar | `configs/ae_seed1.yaml`, `configs/probe.yaml` | 95 min |
-| v2a | arms-down dataset (`armsdown-v1`): generate, checks, split, baselines, AE, probe | 010 amendment | 100 min |
-| v2b | body-shape dataset, same steps | 010 amendment | 100 min |
-| v2c | camera-jitter dataset, same steps | 010 amendment | 100 min |
-| v2d | 4,000-pose dataset, same steps (baselines without image PCA, AE with `context_pca_k: null`) | 010 amendment | 200 min |
+| v2a | `smpl_proc_v2a` = v1 + arms-down table `armsdown-v1`: generate, validate, intersection check (≤ 5 % of poses), visual check, split, baselines, AE, probe | `configs/smpl_proc_v2a/` | 100 min |
+| v2b | `smpl_proc_v2b` = v1 + random body shape: generate, validate, split, baselines, AE, probe | `configs/smpl_proc_v2b/` | 100 min |
+| v2c | `smpl_proc_v2c` = v1 + camera ring jitter: the same steps + the jitter fallback count | `configs/smpl_proc_v2c/` | 100 min |
+| v2d | `smpl_proc_v2d` = v1 + 4,000 poses: the same steps (baselines without image PCA, AE with `context_pca_k: null`) | `configs/smpl_proc_v2d/` | 200 min |
 | R1 | mask-weighted MSE (α 4) + probe | `configs/ae_mask.yaml` | 110 min |
 | R2 | VAE β 0.01 + probe, then once R2r (β 0.001) or R2b (β 0.1) | `configs/ae_vae.yaml`, `configs/ae_vae_beta0.001.yaml`, `configs/ae_vae_beta0.1.yaml` | 95 min each |
 | R3 | weight decay + shifts + latent dropout + probe | `configs/ae_reg.yaml` | 95 min |
-| W | winning variants on a realism dataset | operator decision pending | ≈ 3 h each |
+| W | winning variants on a realism dataset | pending operator decision (default v2a) | ≈ 3 h each |
 
-F1 → R3 ≈ 18 h, less when runs stop early. v2a–v2d are independent single-change datasets, each
-compared with v1 (R0); their order, the arms-down table and their configs follow the operator's
-2026-10-21 decision and the 010 amendment (pending, separate lead), whose AE configs carry this
-slice's guard keys. If those configs are not committed when R0b ends, run R1 → R3 first. v2d
-needs the batched mean image of slice 012: peak ≈ 3 GB for its AE run and ≈ 6 GB for its
-baselines (≈ 16.7 / 15.1 GB before, an OOM on 15 GB; 012 research R4).
+F1 → R3 ≈ 18 h, less when runs stop early. v2a–v2d are independent single-change datasets
+(operator decision 2026-10-21; 010 FR-010 as amended by slice 014): each is `smpl_proc_v1` plus
+one change, is compared with R0 (and the R0b noise bar) only, never with another v2x, and runs
+the training and evaluation configs of R0 (guards included) with its own names and paths. v2a
+also changes pose variety (shoulder z ±20°, collar z ±10° instead of ±50° / ±30°; 010 FR-003):
+its effect is arms down plus less variety plus more limb–torso overlap. v2d needs the batched
+mean image of slice 012 (landed) and runs without PCA (`image_pca_ks: []`,
+`context_pca_k: null`): peak ≈ 3 GB for its AE run and ≈ 6 GB for its baselines (≈ 16.7 /
+15.1 GB before, an OOM on 15 GB; 012 research R4).
 
 ### Commands
 
@@ -169,13 +192,20 @@ launch r0-probe uv run --locked strike-a-pose-eval probe --config configs/probe.
 keep "$RUN" r0 ae && keep "$(newest probe-smpl_proc_v1)" r0 probe
 git add docs/results/campaign/r0 docs/HANDOFF.md   # commit "docs(campaign): R0 results"
 
-# dataset step (DS = the v2a … v2d dataset name of the 010 amendment)
+# dataset step (DS = smpl_proc_v2a, smpl_proc_v2b, smpl_proc_v2c, smpl_proc_v2d)
 launch "$DS" bash -c "uv run --locked strike-a-pose-data generate --config configs/$DS/generate.yaml --seed 0 && uv run --locked strike-a-pose-data validate data/generated/$DS"
-# v2a: the automatic intersection count (threshold per the 010 amendment) plus the visual
-# check; v2c: the jitter fallback count (010 tasks.md, Follow-up R); then
+# v2a only: the intersection gate (exit 1 = FAIL: more than 5 % of the poses have an arm
+# vertex inside the torso; then no split, see the step rule), then the visual check (010
+# tasks.md, Follow-up R); v2c: the jitter fallback count (same place); then the split
+if [ "$DS" = smpl_proc_v2a ]; then
+  uv run --locked python scripts/intersection_check.py --config configs/$DS/generate.yaml \
+      --seed 0 > runs/intersection-$DS.txt; echo "exit $? (0 PASS, 1 FAIL, 2 INVALID)"
+  cat runs/intersection-$DS.txt
+fi
 uv run --locked strike-a-pose-data split data/generated/$DS --seed 0 --out splits/$DS.json
 launch "$DS" bash -c "uv run --locked strike-a-pose-eval baseline --config configs/$DS/baselines.yaml && uv run --locked strike-a-pose-train --config configs/$DS/ae.yaml"
 # then its probe, keep (STEP v2a … v2d; KIND baselines, ae, probe), commit with splits/$DS.json
+# (v2a: also runs/intersection-smpl_proc_v2a.txt as docs/results/campaign/v2a/intersection.txt)
 ```
 
 ### Decision rules
@@ -211,10 +241,16 @@ Step rules:
 - **R0b**: the noise bar = |R0 − R0b| on the whole-image val MSE, the mean val region MSE and
   the probe's val world-frame MLP MPJPE, stated next to every later comparison. Aborted →
   recorded; comparisons then say "no noise bar".
-- **v2a … v2d**: each starts after the previous step finished. Its AE run's best val loss
-  (`selection.val_loss`) above 2 × R0's, or an aborted AE run → stop the dataset series and
-  check that dataset (intersection count, jitter fallback rate, the visual check); the variants
-  still run. v2d starts only if the v2c AE run's `run_info.json` `train_wall_s` ≤ 7,650 s
+- **v2a … v2d** (independent; each compared with R0): each starts after the previous step
+  finished. v2a: `intersection_check.py` FAIL (more than 5 % of the 2,000 poses intersect) or
+  INVALID (exit 2) → do not split, delete `data/generated/smpl_proc_v2a`, keep the report, stop
+  the v2a step and continue with v2b (amending the table is code: a new version string such as
+  `armsdown-v2`, in an attended session); PASS → the visual check, recorded with the rate in
+  001 research R9; a visual check that shows frequent intersections overrides a PASS (same
+  outcome as FAIL). For every v2x: its AE run's best val loss (`selection.val_loss`) above
+  2 × R0's, or an aborted AE run → stop that dataset and check it (intersection count, jitter
+  fallback rate, the visual check); the other datasets and the variants still run. v2d starts
+  only if the most recent 2,000-pose v2x AE run's `run_info.json` `train_wall_s` ≤ 7,650 s
   (1.5 × 85 min).
 - **R1, R3**: the promotion rule below; aborted → dropped.
 - **R2**: at the first check-in with ≥ 10 epochs, an epoch-10 `train_kl` below 1 nat/image →
@@ -230,7 +266,10 @@ Step rules:
   world-frame MLP MPJPE ≤ R0's + the gap. R3 wins if its whole-image val MSE beats R0's.
   Dropped: whole-image val MSE > 1.05 × R0's (R1, R3), or collapsed / aborted after the retry
   (VAE). Otherwise reported, not carried (one seed cannot resolve 0–5 %).
-- **W**: stop and ask the operator which dataset (the cumulative v5 no longer exists).
+- **W**: pending operator decision: which of v2a–v2d (or v1 only) the winning variants run
+  on; default if no answer: v2a. Ask when R3 ends; with no answer by the next check-in, run
+  the winners on `smpl_proc_v2a` (each winner's config with v2a's names and paths, plus a plain
+  AE control `configs/smpl_proc_v2a/ae.yaml` if v2a's own AE run is not already committed).
 
 Where the numbers are: whole-image val MSE `metrics.json` `splits.val.image.ae.image_mse`;
 region MSE the mean of `splits.val.image.ae.regions.{hands,feet,head}.image_mse`; best val
@@ -238,8 +277,8 @@ loss `selection.val_loss`; `train_kl` in `history.csv`; probe MPJPE
 `splits.val.targets.joints_world.mlp.mpjpe_mm` of the probe's `metrics.json`. The status
 script prints the first three and `train_kl`.
 
-Pending operator decisions: the promotion rule (surrogate ruling); the winners' dataset; the 010
-amendment (v2a–v2d configs, `armsdown-v1`, the intersection threshold).
+Pending operator decisions: the promotion rule (surrogate ruling); the winners' dataset (default
+v2a, see W).
 
 ### Check-in
 

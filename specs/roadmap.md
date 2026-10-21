@@ -19,7 +19,9 @@ operator sign-off pending; datasets and runs wait for SMPL), and 011
 pending; runs wait for SMPL), and 012 `run-guards`, which implements the operator's 2026-10-21
 decision to run the ≈ 20 h campaign with checks for early termination and iteration
 (implemented 2026-10-21; approved at surrogate scope, operator sign-off pending; the campaign
-waits for SMPL).
+waits for SMPL), and 014 `realism-ablations`, which implements the operator's 2026-10-21
+decisions amending 010 (independent realism datasets v2a–v2d, `armsdown-v1`, an automatic
+limb–torso intersection count; implemented 2026-10-21; datasets wait for SMPL).
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -64,9 +66,10 @@ options (ii)–(iv) for #16):
 | 007 | `split-content-hash` | Split files pin the manifest content (manifest without its generating `code`) instead of the raw bytes: `split_version` 2, `SplitCommitWarning` on a code mismatch, v1 read-only (open question #14) | 002 | Fixture split rewritten as v2 with the same pose lists; no numerical change; CI green; follow-up F1 rewrites `splits/smpl_proc_v1.json` once SMPL is available |
 | 008 | `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default: `select_weights: best_val \| final`, final weights when val is empty or never finite, `selection` block in `metrics.json` (`train_version` 2), resume-safe; 60 epochs and cosine lr unchanged (open question #13, option B) | 004 | Selection, fallback and resume tested on the fixture (scripted val curve); fixture smoke numbers unchanged; CI green; the published 004 / 006 numbers stay final weights until the re-baseline run |
 | 009 | `region-metrics` | Every image model (003 mean image / PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also reports its MSE in `hands` / `feet` / `head` regions (squares on the true 2D keypoints of joints 22 / 23, 7 / 8 / 10 / 11, 15; `region_mask`, `masked_mse`, labels passed to `score_images`); additive `metrics.json` keys, `metrics_version` 1 / `train_version` 2 unchanged; no training or config change (open question #16, option (i)) | 003, 004 | Fixture runs report the regions (003 and 004 identical for the baselines), every existing number unchanged; CI green; first real numbers with the re-baseline run |
-| 010 | `dataset-realism` | Opt-in generator options with omit-when-default manifest serialization: `ranges_version: predecessor-v2-armsdown` (arms lowered ∓65° after sparsification, shoulder z `[-20, 20)`, collar z `[-10, 10)`), `body_shape` (per-pose betas N(0, 1) clipped at ±2, own random stream), `camera_jitter` (camera moved in height / distance, aimed at the ring's look-at point, tilted down; projected-vertex in-frame check, recorded ring-camera fallback); configs for the chain `smpl_proc_v2` → `v5`; 003 `image_pca_ks: []` (open question #15) | 001, 003 | Every option tested on the synthetic body model; today's datasets byte-identical (fixture pins, before/after synthetic comparison); CI green; datasets and runs after SMPL access and F1 (run procedure) |
+| 010 | `dataset-realism` | Opt-in generator options with omit-when-default manifest serialization: `ranges_version: armsdown-v1` (named `predecessor-v2-armsdown` until 014; arms lowered ∓65° after sparsification, shoulder z `[-20, 20)`, collar z `[-10, 10)`), `body_shape` (per-pose betas N(0, 1) clipped at ±2, own random stream), `camera_jitter` (camera moved in height / distance, aimed at the ring's look-at point, tilted down; projected-vertex in-frame check, recorded ring-camera fallback); configs for the chain `smpl_proc_v2` → `v5` (replaced by 014's independent v2a–v2d); 003 `image_pca_ks: []` (open question #15) | 001, 003 | Every option tested on the synthetic body model; today's datasets byte-identical (fixture pins, before/after synthetic comparison); CI green; datasets and runs after SMPL access and F1 (run procedure) |
 | 011 | `training-variants` | Config-selectable training variants of the 004 trainer / model, defaults bitwise today's run: `weight_decay` (AdamW), `shift_px` (per-sample integer shifts), `dropout` (latent), `mask_weight` (α, `w = 1 + α·[x > 0]`), `variational` + `beta` (VAE: `logvar` head, `beta·KL/(H·W)`, `encode` = μ); `history.csv` + `train_recon`, `train_kl`; `metrics.json` `model.variational`, `training.objective`; configs `ae_{mask,vae,reg}.yaml` (open question #16, options (ii)–(iv)) | 004, 006, 008, 009 | Defaults bit-equal to the pre-011 loop and in a same-machine before/after fixture run; every knob, resume and legacy resume tested; a VAE checkpoint probed; CI green; runs R1–R3 after SMPL and the re-baseline (experiment procedure) |
 | 012 | `run-guards` | Opt-in trainer guards, defaults bitwise today's run: `early_stop {patience, min_epochs, min_delta}` (stop on a val plateau; schedule and selection unchanged; `training.stopped_early`), `abort_on_divergence` + `divergence_ratio` (`aborted.json`, exit 5, not resumable); a run-dir lock; batched mean image (the 4,000-pose OOM); `env.cpu_model`, `dataset.checksums_sha256`; `scripts/run_status.py`; campaign configs and the campaign procedure (operator decision 2026-10-21) | 004, 008, 011 | Guards, lock and status script tested on the fixture (scripted losses); fixture 003 / 004 outputs byte-identical; CI green; the campaign after SMPL access |
+| 014 | `realism-ablations` | Amends 010 (operator decisions 2026-10-21): independent single-change datasets `smpl_proc_v2a` (arms-down `armsdown-v1`) / `v2b` (shape) / `v2c` (jitter) / `v2d` (4,000 poses, no PCA), each vs v1; the table renamed (no alias); `datagen/intersection.py` + `scripts/intersection_check.py` (arm vertices inside per-segment torso elliptic cylinders; v2a split gate 5 %) | 010, 012 | Configs tested against v1; intersection count tested on the synthetic body; CI green; datasets after SMPL (campaign procedure) |
 
 ## Open questions (batched; answer all at once)
 
@@ -118,7 +121,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
     Operator decisions 2026-10-21 (012 campaign procedure): independent single-change datasets
     v2a (arms-down, table renamed `armsdown-v1` with an automatic intersection count), v2b
     (shape), v2c (jitter), v2d (4,000 poses), each compared with v1, instead of the cumulative
-    chain; configs and 010 documents amended by a separate lead.
+    chain; configs and 010 documents amended by 014 `realism-ablations` (2026-10-21):
+    `configs/smpl_proc_v2{a,b,c,d}/`, `scripts/intersection_check.py` (v2a's split fails above
+    5 % of poses with an arm vertex inside the torso), the confound of v2a documented (less
+    pose variety, more overlap). The winners' dataset is pending (default v2a).
 16. Training improvements / VAE (blur, lost extremities, mild overfitting in 004)?
     Operator choice (i), 2026-10-20: per-region MSE metrics first (hands / feet / head
     box; metrics only, before the re-baseline run), implemented in 009 `region-metrics`
@@ -420,3 +426,17 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   R0 acceptance tolerances and the verbatim check-in text: `docs/HANDOFF.md` and 012 `tasks.md`.
   pytest 446 passed (48.8 s; 374 before); fixture 003 / 004 `metrics.json` and figures
   byte-identical to `e98134e`'s. #12 (torch CPU index) on hold until the campaign's runs are done.
+- 2026-10-21: slice 014 `realism-ablations` (operator decisions 2026-10-21, amending 010; no
+  clarification batch). The realism datasets are independent single-change datasets, each
+  compared with `smpl_proc_v1`: `configs/smpl_proc_v2{a,b,c,d}/` replace the chain
+  `configs/smpl_proc_v{2,3,4,5}/`; their AE configs carry the 012 guards and the 010 series test
+  no longer exempts them. The arms-down table is renamed `armsdown-v1` (not the predecessor's;
+  no alias, never generated); its confound (narrowed shoulder / collar z: less pose variety; more
+  limb–torso overlap) is documented in 010 FR-003. New `datagen/intersection.py` (NumPy): arm
+  vertices (dominant joints 16–23) inside per-segment elliptic cylinders of the torso (joints 0,
+  3, 6, 9) in Kabsch-fitted rest frames, 1 cm margin; `scripts/intersection_check.py` gates
+  v2a's split at 5 % of poses (the visual check stays). Synthetic body, v1 vs `armsdown-v1`
+  table, 2,000 poses: 0.00 % vs 0.05 % (6-cm cube torso), 0.65 % vs 7.70 % (widened torso);
+  not predictive of SMPL. Campaign procedure (HANDOFF, 012 `tasks.md`) updated; W: pending
+  operator decision, default v2a. Also `fix(012)`: the run-dir lock treats a `python -m
+  strike_a_pose.train.cli` trainer as alive (found in live use).

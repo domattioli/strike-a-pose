@@ -137,9 +137,11 @@ replaces an interim self-chosen table that was never released.
 - Visual check (12 poses, real SMPL): knees/elbows bend plausibly. Observations,
   kept faithful: shoulder z is ±50° around the SMPL T-pose, so arms are never
   lowered to the sides (this table only: the 2026-10-21 table
-  `predecessor-v2-armsdown` of slice 010 lowers them, [010 research](../010-dataset-realism/research.md)
-  R1; its visual check with real SMPL is recorded here by the 010 run procedure before
-  the `smpl_proc_v2` split is frozen — not done yet); left/right shoulder and wrist ranges are not mirrored;
+  `armsdown-v1` of slice 010 (named `predecessor-v2-armsdown` until slice 014) lowers them,
+  [010 research](../010-dataset-realism/research.md) R1; before the `smpl_proc_v2a` split is
+  frozen the campaign procedure records here the rate of
+  `scripts/intersection_check.py` (gate: ≤ 5 % of poses, slice 014) and the visual check with
+  real SMPL — not done yet); left/right shoulder and wrist ranges are not mirrored;
   some strong spine bends; hand joints 22/23 are non-zero (predecessor table).
 - Predecessor cameras (option only, not adopted; we keep our ring): look-at
   (0,1,0), up +Y, eyes at y=2: Front (0,2,3), FL (4/3,2,8/3), FR (-4/3,2,8/3),

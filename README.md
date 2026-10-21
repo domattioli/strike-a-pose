@@ -18,7 +18,8 @@ realism options, 2026-10-21) the operator's decision on question #15, and slice 
 (training variants, 2026-10-21) the operator's options (ii)–(iv) for question #16, and slice 012
 (run guards and the campaign procedure, 2026-10-21) the operator's 2026-10-21 decision to run
 the ≈ 20 h campaign with checks (all six approved at surrogate scope, operator sign-off
-pending); the remaining open questions are listed in the roadmap. Slices 007–012 are verified
+pending), and slice 014 (realism ablations, 2026-10-21) the operator's 2026-10-21 decisions
+amending 010; the remaining open questions are listed in the roadmap. Slices 007–014 are verified
 on the committed fixture and the synthetic body model only: no full-dataset run exists for any
 of them yet (the published numbers below predate them; the campaign brings the first).
 
@@ -33,9 +34,10 @@ of them yet (the published numbers below predate them; the campaign brings the f
 | 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2); warning on a commit mismatch | implemented (roadmap #14; follow-up F1: rewrite `splits/smpl_proc_v1.json`, needs SMPL) |
 | 008 `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default (`select_weights`), the final weights when val is empty | implemented (roadmap #13, operator choice B) |
 | 009 `region-metrics` | Every image model also reports its MSE in hands / feet / head regions around the true 2D keypoints (`region_mask`, `masked_mse`) | implemented (roadmap #16, operator choice (i)) |
-| 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs for the chain `smpl_proc_v2` → `v5` | implemented (roadmap #15); datasets and runs wait for SMPL |
+| 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs (amended by 014) | implemented (roadmap #15); datasets and runs wait for SMPL |
 | 011 `training-variants` | Config-selectable training variants, the plain AE as default and control: weight decay (AdamW), pixel shifts, latent dropout, mask-weighted MSE, a VAE (`variational`, `beta`); configs `ae_mask` / `ae_vae` / `ae_reg` | implemented (roadmap #16, options (ii)–(iv)); runs wait for SMPL |
 | 012 `run-guards` | Opt-in trainer guards (early stop on a val plateau, divergence abort with exit 5), a run-dir lock, a batched mean image, CPU model + pixel checksums hash in `run_info.json`, `scripts/run_status.py`, the campaign configs and procedure | implemented (operator decision 2026-10-21); the campaign waits for SMPL |
+| 014 `realism-ablations` | Amends 010: independent single-change datasets `smpl_proc_v2a`–`v2d` (each vs v1), the arms-down table renamed `armsdown-v1`, `scripts/intersection_check.py` (limb–torso intersection count; v2a's split gate at 5 % of poses) | implemented (operator decisions 2026-10-21); datasets wait for SMPL |
 
 ## Install
 
@@ -66,20 +68,35 @@ uv run strike-a-pose-data validate tests/fixtures/smpl_fixture   # committed 16-
 Realism options (slice [010](specs/010-dataset-realism/spec.md); each off by default and then
 left out of the manifest, so `smpl_proc_v1` is expected to regenerate byte for byte, verified by
 F1):
-`ranges_version: predecessor-v2-armsdown` lowers the arms (∓65° at the shoulders after
-sparsification; every other angle drawn as with the default table), `body_shape: {std, clip}`
+`ranges_version: armsdown-v1` lowers the arms (∓65° at the shoulders after sparsification,
+shoulder z narrowed to ±20° and collar z to ±10°; every other angle drawn as with the default
+table), `body_shape: {std, clip}`
 gives each pose random SMPL betas N(0, std²) clipped at ±clip (shared by its 8 views), and
 `camera_jitter` renders each sample from a camera near its ring camera (height ±0.3 m,
 0–0.5 m farther, aimed at the ring's look-at point and tilted 0–5° down), kept only if every
 mesh vertex projects 2 px inside the image, else the ring camera; labels record the deltas in
 `camera.jitter`, while `camera_name` / `yaw_deg` stay the ring camera's. More poses is
-`num_poses`. The committed chain `configs/smpl_proc_v2` … `v5` adds one change per version
-(v2 arms-down, v3 + shape, v4 + jitter, v5 + 4,000 poses); each directory holds the
-`generate`, `baselines`, `ae` and `probe` configs. The run procedure (needs SMPL; after F1 and
-a `smpl_proc_v1` re-baseline) is in [`specs/010-dataset-realism/tasks.md`](specs/010-dataset-realism/tasks.md).
+`num_poses`. The committed configs `configs/smpl_proc_v2a` … `v2d` are independent
+single-change datasets, each `smpl_proc_v1` plus one option and each compared with
+`smpl_proc_v1` (slice [014](specs/014-realism-ablations/spec.md); v2a arms-down, v2b shape, v2c
+jitter, v2d 4,000 poses); each directory holds the `generate`, `baselines`, `ae` and `probe`
+configs. v2a changes pose variety too (the narrowed shoulder and collar ranges), so its effect
+is not the arms' position alone. The runs (needs SMPL; after F1 and the `smpl_proc_v1`
+re-baseline) are steps of the campaign procedure in [`docs/HANDOFF.md`](docs/HANDOFF.md);
+dataset-specific checks in [`specs/010-dataset-realism/tasks.md`](specs/010-dataset-realism/tasks.md).
 For 4,000 poses the 003 image PCA would need an estimated 25–30 GB (≥ 32 GB machine), so
-`smpl_proc_v5` runs its baselines with `image_pca_ks: []` (mean image and pose baselines only)
+`smpl_proc_v2d` runs its baselines with `image_pca_ks: []` (mean image and pose baselines only)
 and its AE with `context_pca_k: null`.
+
+Limb–torso intersection count (slice 014): poses a generation config's procedural poses with
+the body model and reports the share of poses with an arm vertex (dominant skinning weight on
+joints 16–23) inside the torso (joints 0 / 3 / 6 / 9, per-segment elliptic cylinders, 1 cm
+margin); exit 1 above `--threshold` (default 5 %), 2 for an invalid check, 3 without the model.
+
+```bash
+uv run --locked python scripts/intersection_check.py \
+    --config configs/smpl_proc_v2a/generate.yaml --seed 0     # [--num-poses N] [--json]
+```
 
 Freeze a train/val/test split once per dataset (whole poses, all 8 camera views
 together; refuses to overwrite) and commit the file under `splits/`. `val` is for
@@ -184,8 +201,8 @@ setsid nohup uv run --locked strike-a-pose-train --resume runs/<run-dir> \
 ```
 
 Each process holds `RUN_DIR/lock` while it runs (slice 012): a second `--resume` (or a
-start) on a run dir whose process is alive exits 2; a lock left by a killed process is
-replaced.
+start) on a run dir whose process is alive exits 2 (`strike-a-pose-train` or
+`python -m strike_a_pose.train.cli`); a lock left by a killed process is replaced.
 
 Run guards (slice [012](specs/012-run-guards/spec.md); off by default, so every existing
 config trains as before): `early_stop: {patience, min_epochs, min_delta}` ends a run after

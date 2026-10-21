@@ -5,6 +5,11 @@
 **Status**: Implemented 2026-10-21 (verification: [tasks.md](tasks.md) T018–T019; datasets
 and runs: its run procedure, needs SMPL). Approved at surrogate scope (surrogate rulings
 2026-10-21; operator sign-off pending).
+*(Amended 2026-10-21 by slice 014, operator decisions 2026-10-21 ([014 spec](../014-realism-ablations/spec.md)): the datasets are independent
+single-change datasets `smpl_proc_v2a`–`v2d`, each compared with `smpl_proc_v1`, replacing the
+cumulative chain of surrogate ruling Q1 (FR-010); the arms-down table is renamed `armsdown-v1`
+everywhere below (FR-003); an automatic limb–torso intersection count gates the v2a split
+(run procedure). Original text kept below; where it conflicts, the notes win.)*
 Approval basis: the operator's #15 decision quoted below; the surrogate ruled (a) on Q1–Q3
 and (b) on Q4 and accepted every lead default.
 **Input**: Operator answer to roadmap open question #15 ("Dataset realism: arms-down poses,
@@ -98,6 +103,8 @@ session at `702d2f5` with read-only experiments in the locked environment; `data
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Arms-down poses (Priority: P1)
+
+*(Amended 2026-10-21 by slice 014: read `armsdown-v1` for `predecessor-v2-armsdown` in this story.)*
 
 The researcher sets `ranges_version: predecessor-v2-armsdown` in a generation config and
 gets a dataset whose arms hang at the sides instead of around the T-pose, while every other
@@ -213,6 +220,9 @@ values versus absent keys; a same-machine before/after generation of synthetic d
 
 ### User Story 5 - The dataset series: configs, more poses, run procedure (Priority: P2)
 
+*(Amended 2026-10-21 by slice 014: "its predecessor" reads `smpl_proc_v1` for every new dataset; the
+run procedure also lists the intersection gate.)*
+
 The researcher generates the new datasets in the operator's order from committed configs,
 freezes each split, and runs the baselines, the AE and the probe with committed run configs,
 following a documented procedure with time and disk estimates.
@@ -258,6 +268,9 @@ model with fewer poses and smaller images, generates a valid dataset.
   half of the arms sit exactly at ∓65° (as half sit exactly in the T-pose in `smpl_proc_v1`).
 - Arm–body interpenetration is not detected (no collision model); FR-003 bounds it by the
   table and the run procedure's visual check with the real mesh.
+  *(Amended 2026-10-21 by slice 014: still not detected during generation, but counted afterwards:
+  `scripts/intersection_check.py` counts arm vertices inside per-segment torso volumes and
+  fails the v2a split above 5 % of poses; the visual check stays as an additional step.)*
 - Self-occlusion: visibility still ignores it (001 R6); with arms down, more joints are hidden
   behind the torso in side views but stay "visible" (documented limitation, now more frequent).
 - A pose that the ring camera itself crops: jitter may find an in-frame candidate (accepted)
@@ -288,6 +301,8 @@ model with fewer poses and smaller images, generates a valid dataset.
   A present block means "on"; its omitted keys take the values in parentheses. Numbers are
   normalized (ranges, `std`, `clip` as floats) so equal settings serialize identically.
   `num_poses` (existing) is the more-poses option.
+  *(Amended 2026-10-21 by slice 014: the second `ranges_version` value is `armsdown-v1`; `predecessor-v2-armsdown` is
+  rejected, no alias, since no dataset was generated with it.)*
 - **FR-002** (serialization): `to_dict()`, and so `manifest.config`, MUST omit each of the three
   fields while it holds its default (absent, `null`, or the default version string), and
   serialize it fully resolved otherwise. A config that uses none of them serializes to exactly
@@ -305,6 +320,13 @@ model with fewer poses and smaller images, generates a valid dataset.
   entry; a table without offsets writes today's entries. Rationale and the measured arm
   statistics: clarification 6. The table is frozen only after the visual check of the run
   procedure (step R2).
+  *(Amended 2026-10-21 by slice 014, operator decision 2026-10-21: the table is named `armsdown-v1` (it is not the
+  predecessor's table). Confound, documented and kept: v2a differs from v1 in three ways at
+  once — the arms are lowered (the intended change); shoulder z and collar z vary less (±20° /
+  ±10° instead of ±50° / ±30°: less pose variety); and lowered arms overlap the torso in more
+  views (self-occlusion, contact). A v2a vs v1 difference is their sum. The table is frozen
+  only if `scripts/intersection_check.py` reports at most 5 % of v2a's poses with an arm
+  vertex inside the torso (014 FR-004 – FR-007) and the visual check agrees.)*
 - **FR-004** (body shape): with `body_shape` set, each pose MUST get `num_betas` betas, each
   N(0, std²) clipped to `[-clip, clip]`, drawn from a stream of its own seeded by (seed, pose
   index); all views of the pose share them; the label `betas` holds them and the body model
@@ -373,6 +395,20 @@ model with fewer poses and smaller images, generates a valid dataset.
   the controlled one (the same draws except the four narrowed and offset angles, FR-003);
   `smpl_proc_v3`, `v4` and `v5` are each compared with their predecessor (one change each;
   `v5` against `v4` on different test poses, same distribution).
+  *(Amended 2026-10-21 by slice 014, operator decision 2026-10-21, replacing the chain: four independent
+  single-change datasets, each `smpl_proc_v1` + one key and each compared with `smpl_proc_v1`
+  (the R0 re-baseline of the campaign procedure):
+
+  | Dataset | `generate.yaml` = `configs/default.yaml` + | Run configs |
+  |---|---|---|
+  | `smpl_proc_v2a` | `ranges_version: armsdown-v1` | v1's, names and paths |
+  | `smpl_proc_v2b` | `body_shape: {std: 1.0, clip: 2.0}` | v1's, names and paths |
+  | `smpl_proc_v2c` | `camera_jitter` (the defaults of FR-001) | v1's, names and paths |
+  | `smpl_proc_v2d` | `num_poses: 4000` | + `image_pca_ks: []`, `context_pca_k: null` |
+
+  The AE configs carry the 012 guards as `configs/ae.yaml`. v2a / v2b / v2c get the pose lists
+  of `splits/smpl_proc_v1.json`; v2d 3,200 / 400 / 400 (different test poses than v1's, same
+  distribution). No dataset combines the changes; a combined dataset is a later decision.)*
 - **FR-011** (tests, written first; pytest, synthetic body model, no SMPL):
   (a) config: defaults; each field's validation errors (edge cases); `null` ≡ absent; `{}`
   resolved; number normalization;
@@ -501,6 +537,12 @@ commit (e.g. `702d2f5`) before concluding: the same failure there → environmen
 same code as the series (003 baselines, AE `configs/ae.yaml`, probe): the reference row for
 `smpl_proc_v2`.
 
+*(Amended 2026-10-21 by slice 014: the runs follow the campaign procedure in `docs/HANDOFF.md` (steps v2a – v2d, each
+compared with R0); `DS` below reads `smpl_proc_v2a`, `v2b`, `v2c`, `v2d`; v2a's split waits for
+the intersection gate, `scripts/intersection_check.py --config configs/smpl_proc_v2a/generate.yaml
+--seed 0` (FAIL above 5 % of poses: no split), and then the visual check below; the time table's
+`smpl_proc_v5` column is v2d's.)*
+
 R2. Per dataset, in order (`DS` = `smpl_proc_v2`, `smpl_proc_v3`, `smpl_proc_v4`,
 `smpl_proc_v5`):
 
@@ -586,7 +628,8 @@ re-baseline". Every answer is provisional and overturnable by the operator.
    → A: a cumulative chain `smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) →
    `v5` (+ 4,000 poses); each step changes one thing, so consecutive comparisons attribute
    each change, and `v5` is the full-realism dataset (batch Q1, option (a)). *(surrogate
-   ruling 2026-10-21)*
+   ruling 2026-10-21)* *(Amended 2026-10-21 by slice 014: overturned by the operator, 2026-10-21: independent
+   `smpl_proc_v2a` – `v2d`, option (b) of batch Q1; FR-010 note.)*
 3. Q: Config shape? → A: FR-001: three optional fields; a present block means "on" (no
    `enabled` flag, so a disabled block with non-default numbers cannot change the manifest of
    an identical dataset); defaults inside the blocks; numbers normalized. Considered: the
@@ -620,7 +663,8 @@ re-baseline". Every answer is provisional and overturnable by the operator.
    while keeping arms close to the body. Considered: the memo's ∓70° with the collar unchanged
    (most intersections); mirroring the elbow z ranges (a further deviation from the
    predecessor, not asked for). The table is confirmed or amended by the visual check (R2).
-   *(lead default)*
+   *(lead default)* *(Amended 2026-10-21 by slice 014: version `armsdown-v1`; the narrowing is a confound of the
+   v2a comparison (FR-003 note); the automatic intersection count of 014 gates the split.)*
 7. Q: Does a table change shift the other draws? → A: no (measured; *Settled context*): the
    `smpl_proc_v2` poses equal `smpl_proc_v1`'s except the four narrowed and offset angles,
    which makes v1 → v2 a controlled comparison; pinned by a test (FR-011 (c)). *(lead default)*
@@ -693,6 +737,7 @@ re-baseline". Every answer is provisional and overturnable by the operator.
   **Ruling (surrogate, 2026-10-21): (a)**; `smpl_proc_v2` vs `smpl_proc_v1` is the controlled
   comparison (same draws except the four narrowed angles), `v3`+ are compared with their
   predecessor.
+  *(Amended 2026-10-21 by slice 014: the operator chose (b), 2026-10-21, with the names `smpl_proc_v2a` – `v2d`.)*
 - **Q2 — Camera jitter parametrization (FR-005).** (a) Aim at the ring's look-at point: the
   centre moves by δh `[-0.3, 0.3]` m and δd `[0, 0.5]` m, the camera aims at `(0, h, 0)` and
   then tilts down by δp `[0, 5]°`. Height changes the viewing elevation (±4.9°) while the body

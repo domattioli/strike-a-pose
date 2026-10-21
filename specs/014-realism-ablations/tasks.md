@@ -49,9 +49,25 @@ code; each stage ends green (`uv run --locked ruff check .`, `uv run --locked ru
 
 ## Stage 4 — docs (`docs(014)`)
 
-- [ ] T007 010 spec / tasks / data-model / research notes; 001 spec / data-model / research R9.
-- [ ] T008 README, roadmap, HANDOFF (state, sign-off, next work), campaign procedure in HANDOFF
+- [x] T007 010 spec / tasks / data-model / research notes; 001 spec / data-model / research R9.
+- [x] T008 README, roadmap, HANDOFF (state, sign-off, next work), campaign procedure in HANDOFF
   and 012 `tasks.md` (identical, script check, `bash -n`).
-- [ ] T009 Verification record.
+- [x] T009 Verification record.
 
 ## Verification record
+
+- Commits: `471659f` spec, `fc96934` configs + rename, `95ff45d` `fix(012)` (lock liveness for
+  `python -m strike_a_pose.train.cli` launches; coordinator request mid-slice, found in live
+  use), `7c80d46` intersection check, docs = the commit holding this record.
+- Checks per commit (ruff check, ruff format --check clean each time): spec commit — the suite
+  at `e131cc7` with identical code, 446 passed in 238 s, run just before (docs-only commit);
+  stage 2: 447 in 1017 s; fix: 448 in 1032 s; stage 3: 460 in 1035 s; docs: 460 in 1591 s. The
+  machine was shared with a live training run (wall times 7–40× the idle ≈ 40 s; the last run
+  was pinned to core 3 by the coordinator); later checks run as `taskset -c 3 env
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --locked …`.
+- SC-003: the campaign procedure in `docs/HANDOFF.md` and 012 `tasks.md` identical (script);
+  every `bash` block of HANDOFF passes `bash -n`.
+- FR-011: generator code changed only in the version string; `docs/results/`, `splits/`,
+  `pyproject.toml`, `uv.lock`, `.github/` untouched; no dataset with the old table name existed
+  (`grep` over `splits/`, `docs/results/`, `data/`, history).
+- Not done here (needs SMPL): the gate on the real body, every campaign step.

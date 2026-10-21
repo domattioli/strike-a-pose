@@ -32,7 +32,7 @@ Skeleton name: `"smpl24"`.
 | `camera_ring.distance_m` | float >0 | 3.5 | |
 | `camera_ring.height_m` | float | 0.0 | |
 | `camera_ring.focal_px` | float >0 | 320.0 | |
-| `ranges_version` | str | `predecessor-v1-nohands` | slice 010; or `predecessor-v2-armsdown`; procedural only |
+| `ranges_version` | str | `predecessor-v1-nohands` | slice 010; or `armsdown-v1` (slice 014 name); procedural only |
 | `body_shape` | null \| {`std` >0, `clip` >0} | null | slice 010; per-pose betas N(0, std²) clipped at ±clip (defaults 1.0, 2.0) |
 | `camera_jitter` | null \| {`height_m`, `distance_m`, `pitch_deg`, `margin_px`, `max_attempts`} | null | slice 010; [lo, hi] ranges (defaults [-0.3, 0.3] m, [0, 0.5] m, [0, 5]° down), 2 px, 16 |
 

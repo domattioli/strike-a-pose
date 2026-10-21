@@ -113,6 +113,8 @@ fixture manifest and read every sample.
   each pose random betas N(0, std²) clipped at ±clip, shared by its views; mean shape stays
   the default. The 2026-10-20 answer "keep arms-out limitation" holds for the default
   table only. [010 spec](../010-dataset-realism/spec.md) FR-003, FR-004.)*
+  *(Amended 2026-10-21 by slice 014: the arms-down table is named `armsdown-v1`; never
+  generated under the old name.)*
 - **FR-003**: System MUST render each pose from a fixed, named, configurable
   ring of cameras (default 8 at 45° steps, torso height, fixed distance, names
   per Clarification Q2), headless on CPU, as a plain grey body on a black

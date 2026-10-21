@@ -8,7 +8,7 @@ stays 1 (additive, optional keys; today's datasets byte-identical).
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `ranges_version` | `predecessor-v1-nohands` \| `predecessor-v2-armsdown` | v1 | procedural source only (other value with `amass` → error) |
+| `ranges_version` | `predecessor-v1-nohands` \| `armsdown-v1` (named `predecessor-v2-armsdown` until slice 014) | v1 | procedural source only (other value with `amass` → error) |
 | `body_shape` | null \| `{std, clip}` | null | `std` > 0 (1.0), `clip` > 0 (2.0); needs `num_betas` ≥ 1 |
 | `camera_jitter` | null \| `{height_m, distance_m, pitch_deg, margin_px, max_attempts}` | null | ranges `[lo, hi]`, lo ≤ hi: height within ±1 m ([-0.3, 0.3]), distance 0 ≤ lo, hi ≤ 3 m ([0.0, 0.5]), pitch within ±30° ([0.0, 5.0], positive = down); `margin_px` int ≥ 0 (2); `max_attempts` int ≥ 1 (16) |
 | `num_poses` | int ≥ 1 | 2000 | existing; the more-poses option |
@@ -20,7 +20,7 @@ enabled blocks resolved (floats; ranges as lists). Rule for every later generato
 ## Ranges tables (`strike_a_pose.datagen.procedural`)
 
 `RANGES_TABLES[version] = (ranges, offsets)`. `predecessor-v1-nohands`: `RANGES_DEG`, no
-offsets. `predecessor-v2-armsdown`: v1 with z of 13 / 14 `[-10, 10)` and of 16 / 17 `[-20, 20)`;
+offsets. `armsdown-v1` (renamed 2026-10-21 by slice 014): v1 with z of 13 / 14 `[-10, 10)` and of 16 / 17 `[-20, 20)`;
 offsets z −65° (16) and +65° (17), added after sparsification. Manifest
 `inputs.pose_source.ranges_deg[*]` gains `offset_deg` `[x, y, z]` only for tables with offsets.
 
@@ -44,18 +44,21 @@ Manifest `cameras` stays the ring (the loader's `camera_index` and the probe's y
 | body shape | `default_rng([seed, 1, pose_index])` | `num_betas` normals |
 | camera jitter | `default_rng([seed, 2, pose_index, ring_index])` | per attempt: δh, δd, δp uniforms |
 
-## Dataset series (surrogate ruling Q1: chain)
+## Dataset series (amended 2026-10-21 by slice 014: independent datasets, operator decision)
 
-| Dataset | = predecessor + | Compared with |
+The surrogate's cumulative chain `smpl_proc_v2` → `v5` is replaced by four independent
+single-change datasets, each `smpl_proc_v1` plus one key and each compared with `smpl_proc_v1`:
+
+| Dataset | = `smpl_proc_v1` + | Notes |
 |---|---|---|
-| `smpl_proc_v2` | `ranges_version: predecessor-v2-armsdown` | `smpl_proc_v1` (controlled: same draws except 4 angles) |
-| `smpl_proc_v3` | `body_shape: {std: 1.0, clip: 2.0}` | `smpl_proc_v2` |
-| `smpl_proc_v4` | `camera_jitter` (defaults above) | `smpl_proc_v3` |
-| `smpl_proc_v5` | `num_poses: 4000` | `smpl_proc_v4` |
+| `smpl_proc_v2a` | `ranges_version: armsdown-v1` | same draws as v1 except 4 angles; intersection gate (≤ 5 % of poses) before the split |
+| `smpl_proc_v2b` | `body_shape: {std: 1.0, clip: 2.0}` | |
+| `smpl_proc_v2c` | `camera_jitter` (defaults above) | |
+| `smpl_proc_v2d` | `num_poses: 4000` | `image_pca_ks: []`, `context_pca_k: null` (FR-014) |
 
 Configs: `configs/<dataset>/{generate,baselines,ae,probe}.yaml`; splits
-`splits/<dataset>.json` (`pose-permutation-v1`, seed 0, 0.8 / 0.1 / 0.1) written by the run
-procedure; `smpl_proc_v5`: `image_pca_ks: []`, `context_pca_k: null` (FR-014).
+`splits/<dataset>.json` (`pose-permutation-v1`, seed 0, 0.8 / 0.1 / 0.1) written by the
+campaign procedure (`docs/HANDOFF.md`).
 
 ## 003 baseline config (FR-014)
 

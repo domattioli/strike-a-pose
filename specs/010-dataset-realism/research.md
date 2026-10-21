@@ -5,6 +5,12 @@ Measurements by the lead, 2026-10-21, read-only experiments in the locked enviro
 
 ## R1 — Arms-down table (`predecessor-v2-armsdown`)
 
+*(Amended 2026-10-21 by slice 014: the table is named `armsdown-v1` — it is not the
+predecessor's: besides the 65° offset it narrows shoulder z to `[-20, 20)` and collar z to
+`[-10, 10)`, so a v2a effect mixes arms down, less pose variety and more limb–torso overlap. The
+joint-level proxy below is complemented by a mesh-level count, `scripts/intersection_check.py`
+(014 spec FR-004), which gates v2a's split at 5 % of poses.)*
+
 - **Rest skeleton** recovered from the fixture labels by undoing the kinematic chain
   (`j_rest[i] = j_rest[p] + G_pᵀ (J[i] − J[p])`); both fixture poses agree to 2.7 µm. T-pose,
   joint-local axes world-aligned. Pelvis (−0.002, −0.223, 0.028); shoulders (0.172, 0.226),

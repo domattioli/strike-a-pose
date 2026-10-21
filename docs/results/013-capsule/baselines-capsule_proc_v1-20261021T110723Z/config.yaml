@@ -1,0 +1,12 @@
+batch_size: 256
+dataset_dir: /home/user/strike-a-pose/data/generated/capsule_proc_v1
+eval_splits: [val, test]
+figure_samples: 6
+figure_split: val
+image_pca_ks: [8, 16, 32, 64, 128]
+iou_threshold: 0.075
+pose_pca_ks: [4, 8, 16, 32]
+run_name: baselines-capsule_proc_v1
+run_root: /home/user/strike-a-pose/runs
+seed: 0
+split_file: /home/user/strike-a-pose/splits/capsule_proc_v1.json

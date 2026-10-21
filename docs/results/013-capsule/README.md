@@ -21,3 +21,5 @@ runs finish.
 | Run | Run dir | Result |
 |---|---|---|
 | baselines `capsule_proc_v1` | `runs/baselines-capsule_proc_v1-20261021T110723Z` | pose rows equal the published `smpl_proc_v1` ones to ≤ 1e-4 (spec 013 SC-005 holds) |
+| R0 AE `capsule_proc_v1` (seed 0) | `runs/ae-capsule_proc_v1-20261021T111109Z` | early stop fired after epoch 42 (patience 10; best val epoch 32, val MSE 0.00235 vs final 0.00237); best-val weights scored: val / test MSE 0.00235 / 0.00239, IoU 0.864 / 0.865 (mean image 0.01509 / 0.01490; PCA-64 0.00509 / 0.00502); region MSE val hands 0.027, feet 0.037, head 0.018; resumed twice across container restarts (epochs 16, 19) |
+| probe on R0 `best.pt` | `runs/probe-capsule_proc_v1-20261021T145935Z` | world-frame MPJPE MLP 183.0 / 184.8 mm, ridge 215.0 / 214.3 (mean pose 253.4 / 250.3; untrained-encoder MLP 217.6 / 214.3); camera accuracy MLP 0.921 / 0.911, ridge 0.763 / 0.758 |

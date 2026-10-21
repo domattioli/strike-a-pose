@@ -50,17 +50,20 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
 
 ## Stage 4 — VAE variant (`feat(011): VAE variant`)
 
-- [ ] T009 Tests (red first): model (`variational` shapes, `encode` = μ, 3,323,569
+- [x] T009 Tests (red first): model (`variational` shapes, `encode` = μ, 3,323,569
   parameters, state keys = plain + `logvar.*`, shared init equals the plain AE's at the same
   seed, train-mode `forward` deterministic, `encode_dist` of the plain AE, checkpoint without
   `variational` loads as plain); `gaussian_kl` (≥ 0, 0 at μ = 0 / lv = 0, hand value);
   fixture VAE run: `train_kl` finite > 0, repeatable, resume (all knobs incl. VAE) equals
   uninterrupted, `model.variational`; probe on a VAE fixture checkpoint end to end
   (`encoder.variational` true, latents `[n, latent_dim]`).
-- [ ] T010 `models/autoencoder.py` (`variational`, `logvar` built last, `encode_dist`,
+- [x] T010 `models/autoencoder.py` (`variational`, `logvar` built last, `encode_dist`,
   `hparams`); `train/objective.py` (`gaussian_kl`, `reparameterize`); trainer (model build,
   KL in the objective and history, `kl` in the log line); `eval/probe.py`
-  (`encoder.variational`).
+  (`encoder.variational`). Stage record: red run = collection error (`gaussian_kl`
+  missing); `tests/test_model.py::test_custom_latent_and_channels` pins `hparams()` and gains
+  `"variational": False` (additive). Checks: ruff and format clean; pytest 371 passed in
+  36.88 s; CI smoke train + probe OK (fixture `ae` test MSE 0.13721, unchanged).
 
 ## Stage 5 — configs and docs (`feat(011): experiment configs`, `docs(011)`)
 

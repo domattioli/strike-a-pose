@@ -21,6 +21,8 @@ LEGACY_VALUES: dict[str, Any] = {
     "select_weights": "final",  # spec 008: runs before it scored the final weights
     # spec 011 training variants: runs before them trained the plain AE (= the defaults)
     "mask_weight": 0.0,
+    "variational": False,
+    "beta": 0.0,
     "weight_decay": 0.0,
     "shift_px": 0,
     "dropout": 0.0,
@@ -49,6 +51,8 @@ class TrainConfig:
     figure_samples: int = 6
     # spec 011 training variants (the defaults are the plain AE, bit for bit)
     mask_weight: float = 0.0
+    variational: bool = False
+    beta: float = 0.0
     weight_decay: float = 0.0
     shift_px: int = 0
     dropout: float = 0.0
@@ -109,13 +113,15 @@ def config_from_dict(data: Any) -> TrainConfig:
         if not isinstance(v, list | tuple) or not v or not all(_is_int(c) and c >= 1 for c in v):
             raise ConfigError("channels: must be a non-empty list of integers >= 1")
         d["channels"] = tuple(v)
-    for key in ("lr", "iou_threshold", "mask_weight", "weight_decay", "dropout"):
+    for key in ("lr", "iou_threshold", "mask_weight", "beta", "weight_decay", "dropout"):
         if key in d:
             if not _is_num(d[key]) or not math.isfinite(d[key]):
                 raise ConfigError(f"{key}: must be a finite number")
             d[key] = float(d[key])
     if "shift_px" in d and not _is_int(d["shift_px"]):
         raise ConfigError("shift_px: must be an integer")
+    if "variational" in d and not isinstance(d["variational"], bool):
+        raise ConfigError("variational: must be true or false")
     if "eval_splits" in d:
         v = d["eval_splits"]
         if not isinstance(v, list | tuple) or not v or not all(isinstance(s, str) for s in v):
@@ -148,9 +154,13 @@ def _check(cfg: TrainConfig) -> None:
         raise ConfigError(f"figure_split {cfg.figure_split!r} must be one of eval_splits")
     if not 0.0 < cfg.iou_threshold < 1.0:
         raise ConfigError("iou_threshold: must be in (0, 1)")
-    for key in ("mask_weight", "weight_decay"):
+    for key in ("mask_weight", "beta", "weight_decay"):
         if getattr(cfg, key) < 0:
             raise ConfigError(f"{key}: must be >= 0")
+    if cfg.variational and cfg.beta == 0:
+        raise ConfigError("beta: must be > 0 with variational: true")
+    if not cfg.variational and cfg.beta != 0:
+        raise ConfigError("beta: needs variational: true")
     if not 0 <= cfg.shift_px <= MAX_SHIFT_PX:
         raise ConfigError(f"shift_px: must be in [0, {MAX_SHIFT_PX}]")
     if not 0.0 <= cfg.dropout < 1.0:

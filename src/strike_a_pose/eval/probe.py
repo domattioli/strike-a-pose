@@ -615,6 +615,7 @@ def run_probe(
             "checkpoint_sha256": hashes["checkpoint_sha256"],
             "epoch": ckpt.get("epoch"),
             "latent_dim": model.latent_dim,
+            "variational": model.variational,  # spec 011: a VAE is probed through mu
             "random_encoder_control": cfg.random_encoder_control,
         },
         "fit": {

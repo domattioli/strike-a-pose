@@ -18,12 +18,13 @@ class Objective:
     """Per-batch training knobs (spec 011); ``Objective()`` is the plain AE."""
 
     mask_weight: float = 0.0
+    beta: float = 0.0
     shift_px: int = 0
     dropout: float = 0.0
 
     @classmethod
     def from_config(cls, cfg: Any) -> "Objective":
-        return cls(mask_weight=cfg.mask_weight, shift_px=cfg.shift_px, dropout=cfg.dropout)
+        return cls(cfg.mask_weight, cfg.beta, cfg.shift_px, cfg.dropout)
 
 
 def recon_loss(y: torch.Tensor, x: torch.Tensor, mask_weight: float) -> torch.Tensor:
@@ -34,6 +35,17 @@ def recon_loss(y: torch.Tensor, x: torch.Tensor, mask_weight: float) -> torch.Te
         return F.mse_loss(y, x)
     w = 1.0 + mask_weight * (x > 0).to(y.dtype)
     return (w * (y - x) ** 2).sum() / w.sum()
+
+
+def gaussian_kl(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    """``KL(N(mu, exp(logvar)) || N(0, I))`` in nats per image (sum over the latent
+    dimensions, mean over the batch)."""
+    return (0.5 * (mu.pow(2) + logvar.exp() - 1.0 - logvar)).sum(dim=1).mean()
+
+
+def reparameterize(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    """``z = mu + exp(logvar / 2)·eps``, ``eps ~ N(0, I)`` from the global torch RNG."""
+    return mu + torch.exp(0.5 * logvar) * torch.randn_like(mu)
 
 
 def shift_batch(u8: torch.Tensor, k: int) -> torch.Tensor:

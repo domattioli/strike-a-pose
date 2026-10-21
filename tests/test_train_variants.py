@@ -2,6 +2,7 @@
 
 import csv
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -10,11 +11,12 @@ import torch.nn.functional as F
 import yaml
 
 from strike_a_pose.data import PoseImageDataset
+from strike_a_pose.eval.cli import main as eval_main
 from strike_a_pose.eval.config import ConfigError
-from strike_a_pose.models import ConvAutoencoder
+from strike_a_pose.models import ConvAutoencoder, load_checkpoint
 from strike_a_pose.train.cli import main
 from strike_a_pose.train.config import LEGACY_VALUES, TrainConfig, config_from_dict, load_config
-from strike_a_pose.train.objective import Objective, recon_loss, shift_batch
+from strike_a_pose.train.objective import Objective, gaussian_kl, recon_loss, shift_batch
 from strike_a_pose.train.trainer import (
     CL,
     HISTORY_FIELDS,
@@ -31,10 +33,12 @@ CFG = ROOT / "configs" / "ae_fixture.yaml"
 FIXTURE = ROOT / "tests" / "fixtures" / "smpl_fixture"
 SPLIT = ROOT / "splits" / "smpl_fixture.json"
 SMALL = {"channels": [4, 4, 4, 4, 4, 4], "latent_dim": 8}  # fast; the rules do not need size
-NEW_KEYS = {"mask_weight": 0.0, "weight_decay": 0.0, "shift_px": 0, "dropout": 0.0}  # defaults
+NEW_KEYS = {"mask_weight": 0.0, "variational": False, "beta": 0.0, "weight_decay": 0.0,
+            "shift_px": 0, "dropout": 0.0}  # fmt: skip
 REG = {"weight_decay": 0.05, "shift_px": 4, "dropout": 0.1}  # configs/ae_reg.yaml
 MASK = {"mask_weight": 4.0}  # configs/ae_mask.yaml
-ALL_KNOBS = {**REG, **MASK}  # every knob on (resume test)
+VAE = {"variational": True, "beta": 0.1}  # configs/ae_vae.yaml
+ALL_KNOBS = {**REG, **MASK, **VAE}  # every knob on (resume test)
 HIST_KEYS = ("train_loss", "val_loss", "lr", "train_recon", "train_kl")
 
 
@@ -78,6 +82,12 @@ def test_defaults_are_the_plain_ae_and_the_legacy_values():
         {"mask_weight": -1.0},
         {"mask_weight": float("inf")},
         {"mask_weight": None},
+        {"variational": 1},
+        {"variational": "true"},
+        {"variational": True},  # beta 0
+        {"beta": 0.1},  # without variational
+        {"beta": -1.0, "variational": True},
+        {"beta": float("nan"), "variational": True},
         {"weight_decay": -0.1},
         {"weight_decay": float("nan")},
         {"weight_decay": "0.1"},
@@ -213,7 +223,8 @@ def test_regularized_run_repeats_and_records(tmp_path):
     assert all(r["train_recon"] == r["train_loss"] and r["train_kl"] == "" for r in ha)
     assert (a / "metrics.json").read_bytes() == (b / "metrics.json").read_bytes()
     objective = _metrics(a)["training"]["objective"]
-    assert {k: objective[k] for k in REG} == REG
+    assert objective == {"mask_weight": 0.0, "beta": 0.0, **REG}
+    assert _metrics(a)["model"]["variational"] is False
     assert {k: yaml.safe_load((a / "config.yaml").read_text())[k] for k in REG} == REG
 
 
@@ -301,3 +312,66 @@ def test_mask_weighted_run_repeats_and_records(tmp_path):
         m["splits"]["test"]["image"]["ae"].keys()
         == _metrics(plain)["splits"]["test"]["image"]["ae"].keys()
     )
+
+
+# ------------------------------------------------------------------ VAE (FR-007, FR-008)
+
+
+def test_vae_model_shapes_parameters_and_init():
+    torch.manual_seed(0)
+    plain = ConvAutoencoder()
+    torch.manual_seed(0)
+    vae = ConvAutoencoder(variational=True)
+    assert (plain.parameter_count(), vae.parameter_count()) == (3_126_897, 3_323_569)
+    sp, sv = plain.state_dict(), vae.state_dict()
+    assert set(sv) == set(sp) | {"logvar.weight", "logvar.bias"}
+    assert all(torch.equal(sp[k], sv[k]) for k in sp)  # logvar is built last
+    assert plain.hparams()["variational"] is False and vae.hparams()["variational"] is True
+    x = torch.rand(2, 1, 256, 192)
+    mu, logvar = vae.encode_dist(x)
+    assert mu.shape == logvar.shape == (2, 64) and torch.equal(mu, vae.encode(x))
+    assert torch.equal(vae(x), vae(x)) and torch.equal(vae(x), vae.decode(vae.encode(x)))
+    pmu, plv = plain.encode_dist(x)
+    assert plv is None and torch.equal(pmu, plain.encode(x))
+
+
+def test_checkpoints_with_and_without_variational_load(tmp_path):
+    vae = ConvAutoencoder((32, 16), 4, (2, 2), variational=True)
+    hp = {k: v for k, v in vae.hparams().items() if k != "variational"}  # a pre-011 file
+    torch.save({"model": ConvAutoencoder(**hp).state_dict(), "model_hparams": hp}, tmp_path / "a")
+    old, _ = load_checkpoint(tmp_path / "a")
+    assert old.variational is False and old.logvar is None
+    torch.save({"model": vae.state_dict(), "model_hparams": vae.hparams()}, tmp_path / "b")
+    new, _ = load_checkpoint(tmp_path / "b")
+    assert new.variational and torch.equal(new.logvar.weight, vae.logvar.weight)
+
+
+def test_gaussian_kl():
+    torch.manual_seed(0)
+    assert float(gaussian_kl(torch.randn(5, 8), torch.randn(5, 8))) > 0
+    assert float(gaussian_kl(torch.zeros(3, 4), torch.zeros(3, 4))) == 0.0
+    # sum over dims, mean over the batch: rows 0.5 * (1 + 1 - 1 - 0) * 2 = 1 and 0
+    two = gaussian_kl(torch.tensor([[1.0, 1.0], [0.0, 0.0]]), torch.zeros(2, 2))
+    assert float(two) == pytest.approx(0.5)
+    lv = torch.tensor([[math.log(4.0)]])  # var 4: 0.5 * (0 + 4 - 1 - ln 4)
+    assert float(gaussian_kl(torch.zeros(1, 1), lv)) == pytest.approx(0.5 * (3 - math.log(4)))
+
+
+def test_vae_run_repeats_records_and_probes(tmp_path):
+    a = run_training(_cfg(tmp_path, "a", **VAE))
+    b = run_training(_cfg(tmp_path, "b", **VAE))
+    ha = _hist(a)
+    assert ha == _hist(b)
+    for r in ha:
+        kl = float(r["train_kl"])
+        assert math.isfinite(kl) and kl > 0 and float(r["train_loss"]) > float(r["train_recon"])
+    assert (a / "metrics.json").read_bytes() == (b / "metrics.json").read_bytes()
+    m = _metrics(a)
+    assert m["model"]["variational"] is True and m["training"]["objective"]["beta"] == 0.1
+    model, _ = load_checkpoint(a / "checkpoint.pt")
+    assert model.variational and model.logvar is not None
+    probe = ["probe", "--config", "configs/probe_fixture.yaml", "--checkpoint"]
+    assert eval_main([*probe, str(a / "checkpoint.pt"), "--run-root", str(tmp_path / "p")]) == 0
+    (run,) = (tmp_path / "p").iterdir()
+    encoder = json.loads((run / "metrics.json").read_text())["encoder"]
+    assert encoder["variational"] is True and encoder["latent_dim"] == 8

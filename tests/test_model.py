@@ -25,7 +25,9 @@ def test_custom_latent_and_channels():
     with torch.no_grad():
         assert m.encode(torch.zeros(3, 1, 32, 16)).shape == (3, 8)
         assert m(torch.zeros(3, 1, 32, 16)).shape == (3, 1, 32, 16)
-    assert m.hparams() == {"image_size": [32, 16], "latent_dim": 8, "channels": [4, 8]}
+    assert m.hparams() == {
+        "image_size": [32, 16], "latent_dim": 8, "channels": [4, 8], "variational": False,
+    }  # fmt: skip
 
 
 @pytest.mark.parametrize(

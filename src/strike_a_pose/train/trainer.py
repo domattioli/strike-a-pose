@@ -45,7 +45,7 @@ from strike_a_pose.runlog import (
 )
 
 from .config import TrainConfig, load_run_config, with_legacy_values
-from .objective import Objective, recon_loss, shift_batch
+from .objective import Objective, gaussian_kl, recon_loss, reparameterize, shift_batch
 
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
@@ -105,16 +105,23 @@ def train_epoch(
     n = images.shape[0]
     perm = torch.randperm(n, generator=gen)
     total = recon_total = 0.0
+    kl_total: float | None = None
     lr = float("nan")
     for i in range(0, n, batch_size):
         idx = perm[i : i + batch_size]
         x = to_float(shift_batch(images[idx], obj.shift_px)).contiguous(memory_format=CL)
         opt.zero_grad(set_to_none=True)
-        z = model.encode(x)
+        mu, logvar = model.encode_dist(x)  # (encoder(x), None) for the plain AE
+        z = mu if logvar is None else reparameterize(mu, logvar)
         if obj.dropout:  # bottleneck dropout, training only (p = 0: no call, no draw)
             z = F.dropout(z, obj.dropout, training=True)
         recon = recon_loss(model.decode(z), x, obj.mask_weight)
-        loss = recon
+        if logvar is None:
+            loss = recon
+        else:  # KL in per-pixel units: (SSE + beta·KL) / (H·W) per image (spec 011)
+            kl = gaussian_kl(mu, logvar)
+            loss = recon + obj.beta * kl / (x.shape[2] * x.shape[3])
+            kl_total = (kl_total or 0.0) + float(kl.detach()) * len(idx)
         loss.backward()
         lr = float(opt.param_groups[0]["lr"])
         opt.step()
@@ -122,7 +129,8 @@ def train_epoch(
             sched.step()
         total += float(loss.detach()) * len(idx)
         recon_total += float(recon.detach()) * len(idx)
-    return {"train_loss": total / n, "train_recon": recon_total / n, "train_kl": None, "lr": lr}
+    kl_mean = None if kl_total is None else kl_total / n
+    return {"train_loss": total / n, "train_recon": recon_total / n, "train_kl": kl_mean, "lr": lr}
 
 
 def make_optimizer(params, cfg: TrainConfig) -> torch.optim.Optimizer:
@@ -368,7 +376,9 @@ def _setup(cfg: TrainConfig) -> dict:
     if len(s["train_ds"]) == 0:
         raise DatasetError("train split has no samples")
     try:
-        model = ConvAutoencoder(s["train_ds"].image_size, cfg.latent_dim, cfg.channels)
+        model = ConvAutoencoder(
+            s["train_ds"].image_size, cfg.latent_dim, cfg.channels, cfg.variational
+        )
     except ValueError as e:
         raise ConfigError(f"model: {e}") from e
     s["model"] = model.to(memory_format=CL)
@@ -546,7 +556,8 @@ def _train_and_evaluate(
                     run_dir / BEST, _best_state(epoch, vl, state, model.hparams(), cfg.to_dict())
                 )
             vs = "-" if vl is None else f"{vl:.5f}"
-            say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f} val {vs} lr {lr:.2e} ({dt:.0f} s)")
+            kl = "" if st["train_kl"] is None else f" kl {st['train_kl']:.1f}"
+            say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f}{kl} val {vs} lr {lr:.2e} ({dt:.0f} s)")
             if stop_after_epoch is not None and stop_after_epoch <= epoch < cfg.epochs:
                 say(f"stopped after epoch {epoch} (resume: --resume {run_dir})")
                 return

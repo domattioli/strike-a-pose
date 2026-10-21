@@ -2,6 +2,8 @@
 
 Encoder: stride-2 3x3 conv blocks (BatchNorm + LeakyReLU 0.2) → Linear → latent.
 Decoder: Linear → mirrored stride-2 4x4 transposed-conv blocks → sigmoid in [0, 1].
+Optional VAE head (spec 011): a log-variance Linear beside the encoder's last Linear; the
+mean stays ``encode``, so evaluation and probes never sample.
 """
 
 from collections.abc import Sequence
@@ -34,6 +36,7 @@ class ConvAutoencoder(nn.Module):
         image_size: tuple[int, int] = (256, 192),
         latent_dim: int = 64,
         channels: Sequence[int] = DEFAULT_CHANNELS,
+        variational: bool = False,
     ) -> None:
         super().__init__()
         h, w = (int(v) for v in image_size)
@@ -59,9 +62,20 @@ class ConvAutoencoder(nn.Module):
             nn.ConvTranspose2d(rev[-1], 1, 4, stride=2, padding=1),
             nn.Sigmoid(),
         )
+        # spec 011: the VAE's log-variance head on the flattened bottleneck, built last so
+        # every other parameter initializes exactly as for the plain AE at the same seed.
+        self.variational = bool(variational)
+        self.logvar = nn.Linear(flat, latent_dim) if self.variational else None
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder(x)
+
+    def encode_dist(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """``(mu, logvar)`` of the latent (spec 011); ``(encode(x), None)`` for the plain AE."""
+        if self.logvar is None:
+            return self.encoder(x), None
+        h = self.encoder[:-1](x)
+        return self.encoder[-1](h), self.logvar(h)
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.decoder(z)
@@ -77,6 +91,7 @@ class ConvAutoencoder(nn.Module):
             "image_size": list(self.image_size),
             "latent_dim": self.latent_dim,
             "channels": list(self.channels),
+            "variational": self.variational,
         }
 
 

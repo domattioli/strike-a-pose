@@ -542,5 +542,9 @@ unaffected).
   `/home/user/sap-run` with absolute-path configs in `data/configs-wip/`; killed by a container
   restart after epoch 16 and resumed 13:24 UTC; the stale lock of the old boot was replaced as
   designed).
+- Keep-alive: the container is reclaimed whenever the session has no running tracked task, even
+  with a detached job (R0 lost minutes 13:29–14:22 that way). While a campaign runs, keep a
+  harness-tracked background watcher (≤ 2 h, re-armed on completion) alive; the hourly heartbeat
+  alone is not enough.
 - Capsule baselines `runs/baselines-capsule_proc_v1-20261021T110723Z`: pose baselines equal the
   published SMPL ones to ≤ 1e-4 (013 SC-005).

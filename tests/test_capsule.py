@@ -262,3 +262,71 @@ def test_generate_with_capsule_body(body_file, tmp_path, shape):
     }  # fmt: skip
     for s in man["samples"]:
         assert np.array(Image.open(out / s["mask"])).any()
+
+
+# (j) capsule twin configs (spec 013 FR-008) ------------------------------------------------
+
+CAPSULE_V1_TWINS = {"generate": "default", "baselines": "baselines", "ae": "ae",
+                    "ae_seed1": "ae_seed1", "ae_mask": "ae_mask", "ae_vae": "ae_vae",
+                    "ae_vae_beta0.1": "ae_vae_beta0.1", "ae_vae_beta0.001": "ae_vae_beta0.001",
+                    "ae_reg": "ae_reg", "probe": "probe"}  # fmt: skip
+
+
+def _twins():
+    for name, src in CAPSULE_V1_TWINS.items():
+        yield ROOT / f"configs/{src}.yaml", ROOT / f"configs/capsule_proc_v1/{name}.yaml"
+    for d in "abcd":
+        for name in ("generate", "baselines", "ae", "probe"):
+            yield (ROOT / f"configs/smpl_proc_v2{d}/{name}.yaml",
+                   ROOT / f"configs/capsule_proc_v2{d}/{name}.yaml")  # fmt: skip
+
+
+def _loader(path: Path):
+    from strike_a_pose.datagen.config import load_config as gen
+    from strike_a_pose.eval import config as baseline_config
+    from strike_a_pose.eval import probe_config
+    from strike_a_pose.train import config as train_config
+
+    stem = path.stem
+    if stem in ("generate", "default"):
+        return gen
+    if stem == "baselines":
+        return baseline_config.load_config
+    if stem == "probe":
+        return probe_config.load_config
+    return train_config.load_config
+
+
+def test_capsule_configs_are_twins_of_the_smpl_configs():
+    twins = list(_twins())
+    on_disk = sorted((ROOT / "configs").glob("capsule_proc_*/*.yaml"))
+    assert sorted(dst for _, dst in twins) == on_disk and len(on_disk) == 26
+    for src, dst in twins:
+        load = _loader(dst)
+        smpl, capsule = load(src).to_dict(), load(dst).to_dict()
+        assert set(smpl) == set(capsule), dst
+        for key in smpl:
+            want = smpl[key]
+            if key == "smpl_model_path":
+                want = "assets/synthetic/capsule_v1.npz"
+            elif isinstance(want, str) and "smpl_proc_" in want:
+                want = want.replace("smpl_proc_", "capsule_proc_")
+            assert capsule[key] == want, (dst, key)
+        text = dst.read_text()
+        assert text.startswith(f"# Capsule twin of {src.relative_to(ROOT)} (spec 013)")
+        body = text.split("\n", 1)[1]  # the header line names the SMPL source
+        assert "smpl_proc_" not in body and "SMPL_NEUTRAL" not in body
+
+
+def test_capsule_generate_configs_generate_on_capsule_body(body_file, tmp_path):
+    from strike_a_pose.datagen.config import load_config
+
+    for d in ("v1", "v2a", "v2b", "v2c", "v2d"):
+        cfg = load_config(ROOT / f"configs/capsule_proc_{d}/generate.yaml").to_dict()
+        assert cfg["dataset_name"] == f"capsule_proc_{d}"
+        cfg |= {"smpl_model_path": str(body_file), "num_poses": 2,
+                "image": {"height": 64, "width": 48},
+                "camera_ring": {**cfg["camera_ring"], "focal_px": 80.0}}  # fmt: skip
+        out = generate_dataset(config_from_dict(cfg), 0, output_root=tmp_path)
+        assert validate_dataset(out) == [], d
+        assert load_manifest(out)["config"] == cfg

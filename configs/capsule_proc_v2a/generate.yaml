@@ -1,0 +1,18 @@
+# Capsule twin of configs/smpl_proc_v2a/generate.yaml (spec 013): infrastructure test on the interim capsule body,
+# not SMPL; only dataset / run names, paths and the body file differ (test-enforced).
+# capsule_proc_v2a = capsule_proc_v1 + the arms-down table (spec 010 FR-010 as amended by spec 014: independent
+# single-change datasets v2a-v2d, each compared with capsule_proc_v1).
+# Run: strike-a-pose-data generate --config configs/capsule_proc_v2a/generate.yaml --seed 0
+# Then validate, split (--seed 0, default fractions) and run the baselines, AE and probe
+# configs next to this file: campaign procedure in docs/HANDOFF.md.
+# Before the split: scripts/intersection_check.py (fails above 5 % of poses) and the
+# visual check on the capsule images (campaign procedure).
+dataset_name: capsule_proc_v2a
+output_root: data/generated
+smpl_model_path: assets/synthetic/capsule_v1.npz
+pose_source: procedural
+num_poses: 2000
+num_betas: 10
+image: {height: 256, width: 192}
+camera_ring: {count: 8, distance_m: 3.5, height_m: 0.0, focal_px: 320.0}
+ranges_version: armsdown-v1   # arms lowered -/+65 deg; shoulder z +-20, collar z +-10

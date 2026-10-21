@@ -530,3 +530,17 @@ unaffected).
   procedure"); `scripts/run_status.py` says when a run looks dead, and the run-dir lock
   refuses a resume while its process is alive.
 - `.venv` is ~5.5 GB (PyPI torch with CUDA wheels) until #12 lands.
+
+## Capsule campaign: live state (2026-10-21, autonomous window)
+
+- Running detached: `data/capsule_queue.sh` (idempotent, git-ignored under `data/`; re-run it to
+  continue after a container restart: `cd /home/user/strike-a-pose && setsid nohup
+  data/capsule_queue.sh >> data/capsule_queue.log 2>&1 < /dev/null &`). Order: R0 (resume) →
+  probe → R0b → R1 mask → R2 VAE β 0.01 → R3 reg, probe after each; no new run starts after
+  18:40 UTC 2026-10-21 (override with `LAST_START_UTC`).
+- R0 = `runs/ae-capsule_proc_v1-20261021T111109Z` (started at e131cc7 from the clean worktree
+  `/home/user/sap-run` with absolute-path configs in `data/configs-wip/`; killed by a container
+  restart after epoch 16 and resumed 13:24 UTC; the stale lock of the old boot was replaced as
+  designed).
+- Capsule baselines `runs/baselines-capsule_proc_v1-20261021T110723Z`: pose baselines equal the
+  published SMPL ones to ≤ 1e-4 (013 SC-005).

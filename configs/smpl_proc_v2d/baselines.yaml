@@ -1,12 +1,13 @@
-# Copy of configs/baselines.yaml for smpl_proc_v5 (spec 010 FR-010): names and paths differ.
-# Mean / PCA baselines on smpl_proc_v5 (spec 003).
-# Run: strike-a-pose-eval baseline --config configs/smpl_proc_v5/baselines.yaml
+# Copy of configs/baselines.yaml for smpl_proc_v2d (spec 010 FR-010, amended by spec 014): names and
+# paths differ; no image PCA (spec 010 FR-014).
+# Mean / PCA baselines on smpl_proc_v2d (spec 003).
+# Run: strike-a-pose-eval baseline --config configs/smpl_proc_v2d/baselines.yaml
 # Fit on train only; val and test are scored (test is never tuned on).
-run_name: baselines-smpl_proc_v5
+run_name: baselines-smpl_proc_v2d
 run_root: runs                       # git-ignored
 seed: 0
-dataset_dir: data/generated/smpl_proc_v5
-split_file: splits/smpl_proc_v5.json
+dataset_dir: data/generated/smpl_proc_v2d
+split_file: splits/smpl_proc_v2d.json
 eval_splits: [val, test]
 batch_size: 256
 image_pca_ks: []                     # no image PCA: ~25-30 GB at 25,600 images (FR-014)

@@ -11,12 +11,15 @@ code; each stage ends green (`uv run --locked ruff check .`, `uv run --locked ru
 
 ## Stage 2 — configs and rename (`feat(014): independent realism datasets + table rename`)
 
-- [ ] T002 Tests (red first), `tests/test_realism.py`: `V2 = "armsdown-v1"`; the old name
+- [x] T002 Tests (red first), `tests/test_realism.py`: `V2 = "armsdown-v1"`; the old name
   rejected; the series tests rewritten (each v2x against v1, no guard exemption, the directory
   set is exactly v2a–v2d; v2d's PCA keys); `test_series_configs_generate_on_synthetic_model` over
   v2a–v2d.
-- [ ] T003 `procedural.py` version string; `configs/smpl_proc_v2{a,b,c,d}/`; remove
+- [x] T003 `procedural.py` version string; `configs/smpl_proc_v2{a,b,c,d}/`; remove
   `configs/smpl_proc_v{2,3,4,5}/`.
+  Red run: 10 failed (old name, no v2a–v2d directories). Stage checks: ruff and format clean;
+  pytest 447 passed in 1017 s (446 in 238 s before; the machine was shared with a live
+  training run, so wall times of this slice are not comparable with earlier slices').
 
 ## Stage 3 — intersection check (`feat(014): intersection check`)
 

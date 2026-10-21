@@ -1,15 +1,16 @@
-# Copy of configs/probe.yaml for smpl_proc_v5 (spec 010 FR-010): names and paths differ.
-# Latent probe on smpl_proc_v5 (spec 006).
-# Run: strike-a-pose-eval probe --config configs/smpl_proc_v5/probe.yaml
+# Copy of configs/probe.yaml for smpl_proc_v2c (spec 010 FR-010, amended by spec 014): names and
+# paths differ.
+# Latent probe on smpl_proc_v2c (spec 006).
+# Run: strike-a-pose-eval probe --config configs/smpl_proc_v2c/probe.yaml   (CPU, a few min on 4 vCPU)
 # Frozen encoder of an AE run's scored weights (best.pt by default, spec 008) -> latents
 # (cached under runs/probe-cache); ridge + MLP probes fit on train, one hyper-parameter
 # chosen on val, test scored once.
-run_name: probe-smpl_proc_v5
+run_name: probe-smpl_proc_v2c
 run_root: runs                          # git-ignored
 seed: 0
-dataset_dir: data/generated/smpl_proc_v5
-split_file: splits/smpl_proc_v5.json
-checkpoint: runs/ae-smpl_proc_v5-YYYYmmddTHHMMSSZ/best.pt   # this dataset's AE run
+dataset_dir: data/generated/smpl_proc_v2c
+split_file: splits/smpl_proc_v2c.json
+checkpoint: runs/ae-smpl_proc_v2c-YYYYmmddTHHMMSSZ/best.pt   # this dataset's AE run
 cache_dir: runs/probe-cache             # latents keyed by checkpoint/manifest/split SHA-256
 batch_size: 256                         # loading / encoding
 eval_splits: [val, test]                # val: selection + report; test: scored once

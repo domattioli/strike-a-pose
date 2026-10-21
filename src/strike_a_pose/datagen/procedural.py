@@ -8,8 +8,9 @@ Faithful port of the predecessor's sampler (body-model-visualizer
 3. Euler 'xyz' (scipy lower-case = extrinsic, R = Rz @ Ry @ Rx) -> axis-angle.
 Root orientation is zero. Tables are versioned in RANGES_TABLES (the version and the table
 are recorded in the manifest); never change a published table, add a version instead.
-Spec 010 adds ``predecessor-v2-armsdown``: shoulder / collar z narrowed and the arms lowered
-by fixed offsets added after sparsification (research R1).
+Spec 010 adds ``armsdown-v1`` (named ``predecessor-v2-armsdown`` until slice 014; never
+generated under that name): shoulder / collar z narrowed and the arms lowered by fixed offsets
+added after sparsification (research R1). Not the predecessor's table.
 """
 
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ import numpy as np
 from .skeleton import SMPL24_JOINT_NAMES
 
 RANGES_VERSION = "predecessor-v1-nohands"  # the default table (smpl_proc_v1)
-ARMSDOWN_VERSION = "predecessor-v2-armsdown"  # spec 010 FR-003
+ARMSDOWN_VERSION = "armsdown-v1"  # spec 010 FR-003 (renamed by spec 014)
 ARMSDOWN_OFFSET_DEG = 65  # arm lowering at the shoulders: left (16) z -65, right (17) z +65
 SPARSIFY_MIN_KEEP = 5  # keep k >= 5 of the 69 values, zero the rest
 

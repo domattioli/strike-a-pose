@@ -1,12 +1,13 @@
-# Copy of configs/baselines.yaml for smpl_proc_v3 (spec 010 FR-010): names and paths differ.
-# Mean / PCA baselines on smpl_proc_v3 (spec 003).
-# Run: strike-a-pose-eval baseline --config configs/smpl_proc_v3/baselines.yaml
+# Copy of configs/baselines.yaml for smpl_proc_v2a (spec 010 FR-010, amended by spec 014): names and
+# paths differ.
+# Mean / PCA baselines on smpl_proc_v2a (spec 003).
+# Run: strike-a-pose-eval baseline --config configs/smpl_proc_v2a/baselines.yaml
 # Fit on train only; val and test are scored (test is never tuned on).
-run_name: baselines-smpl_proc_v3
+run_name: baselines-smpl_proc_v2a
 run_root: runs                       # git-ignored
 seed: 0
-dataset_dir: data/generated/smpl_proc_v3
-split_file: splits/smpl_proc_v3.json
+dataset_dir: data/generated/smpl_proc_v2a
+split_file: splits/smpl_proc_v2a.json
 eval_splits: [val, test]
 batch_size: 256
 image_pca_ks: [8, 16, 32, 64, 128]   # 64 = AE latent size (004 start); one fit at max k

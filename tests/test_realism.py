@@ -85,7 +85,7 @@ def test_fixture_config_regenerates_body_free_content(synthetic_smpl_npz, tmp_pa
 
 # --- FR-003: arms-down table -------------------------------------------------------------
 
-V2 = "predecessor-v2-armsdown"
+V2 = "armsdown-v1"  # renamed from predecessor-v2-armsdown by slice 014 (never generated)
 CHANGED = [(13, 2), (14, 2), (16, 2), (17, 2)]  # (joint, axis) narrowed by the v2 table
 
 
@@ -146,6 +146,7 @@ def test_ranges_version_config():
     for bad in (
         {**base, "ranges_version": "nope"},
         {**base, "ranges_version": 2},
+        {**base, "ranges_version": "predecessor-v2-armsdown"},  # the pre-014 name: no alias
         {**base, "pose_source": "amass", "amass_subsets": ["A"], "ranges_version": V2},
     ):
         with pytest.raises(ConfigError):
@@ -418,24 +419,29 @@ def test_all_options_prefix_property(synthetic_smpl_npz, tmp_path):
             assert (small / s[k]).read_bytes() == (large / s[k]).read_bytes(), s[k]
 
 
-# --- FR-010: the dataset series configs (surrogate ruling Q1: chain) ---------------------
+# --- FR-010 as amended by slice 014: independent single-change datasets, each vs v1 -----
 
-SERIES = {"smpl_proc_v2": "ranges_version", "smpl_proc_v3": "body_shape",
-          "smpl_proc_v4": "camera_jitter", "smpl_proc_v5": "num_poses"}  # fmt: skip
+SERIES = {"smpl_proc_v2a": "ranges_version", "smpl_proc_v2b": "body_shape",
+          "smpl_proc_v2c": "camera_jitter", "smpl_proc_v2d": "num_poses"}  # fmt: skip
 
 
-def test_series_generation_configs_form_a_chain():
-    prev = load_config(ROOT / "configs" / "default.yaml").to_dict()
+def test_series_directories_are_the_independent_datasets():
+    assert {p.name for p in (ROOT / "configs").glob("smpl_proc_*")} == set(SERIES)
+
+
+def test_series_generation_configs_differ_from_v1_in_one_key():
+    v1 = load_config(ROOT / "configs" / "default.yaml").to_dict()
     for ds, key in SERIES.items():
         cur = load_config(ROOT / "configs" / ds / "generate.yaml").to_dict()
         assert cur["dataset_name"] == ds
-        assert {k for k in prev.keys() | cur.keys() if prev.get(k) != cur.get(k)} == {
+        assert {k for k in v1.keys() | cur.keys() if v1.get(k) != cur.get(k)} == {
             "dataset_name", key,
-        }  # fmt: skip
-        prev = cur
-    v5 = load_config(ROOT / "configs" / "smpl_proc_v5" / "generate.yaml")
-    assert v5.num_poses == 4000 and v5.ranges_version == V2
-    assert v5.body_shape == BodyShapeConfig() and v5.camera_jitter == CameraJitterConfig()
+        }, ds  # fmt: skip
+    cfg = {ds: load_config(ROOT / "configs" / ds / "generate.yaml") for ds in SERIES}
+    assert cfg["smpl_proc_v2a"].ranges_version == V2
+    assert cfg["smpl_proc_v2b"].body_shape == BodyShapeConfig()
+    assert cfg["smpl_proc_v2c"].camera_jitter == CameraJitterConfig()
+    assert cfg["smpl_proc_v2d"].num_poses == 4000
 
 
 def test_series_run_configs_match_v1():
@@ -451,17 +457,17 @@ def test_series_run_configs_match_v1():
             cur = load(ROOT / "configs" / ds / f"{kind}.yaml").to_dict()
             want = {"run_name", "dataset_dir", "split_file"} | ({"checkpoint"} if kind == "probe"
                                                                 else set())  # fmt: skip
-            if ds == "smpl_proc_v5":
+            if ds == "smpl_proc_v2d":
                 want |= {"baselines": {"image_pca_ks"}, "ae": {"context_pca_k"}}.get(kind, set())
-            if kind == "ae":  # spec 012 guards: the 010 amendment adds them to these configs
-                want |= {"early_stop", "abort_on_divergence"}
-            assert {k for k in v1 if v1[k] != cur[k]} == want and set(cur) == set(v1)
+            assert {k for k in v1 if v1[k] != cur[k]} == want and set(cur) == set(v1), (ds, kind)
             assert cur["run_name"] == f"{kind}-{ds}"
             assert cur["dataset_dir"] == f"data/generated/{ds}"
             assert cur["split_file"] == f"splits/{ds}.json"
-    v5 = ROOT / "configs" / "smpl_proc_v5"
-    assert baseline_config.load_config(v5 / "baselines.yaml").image_pca_ks == ()
-    assert train_config.load_config(v5 / "ae.yaml").context_pca_k is None
+        ae = train_config.load_config(ROOT / "configs" / ds / "ae.yaml")  # spec 012 guards
+        assert ae.early_stop is not None and ae.abort_on_divergence
+    v2d = ROOT / "configs" / "smpl_proc_v2d"
+    assert baseline_config.load_config(v2d / "baselines.yaml").image_pca_ks == ()
+    assert train_config.load_config(v2d / "ae.yaml").context_pca_k is None
 
 
 def test_series_configs_generate_on_synthetic_model(synthetic_smpl_npz, tmp_path):

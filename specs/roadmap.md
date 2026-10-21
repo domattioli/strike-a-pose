@@ -6,10 +6,12 @@ Post-MVP: exactly one slice, 006 `latent-probe` (surrogate ruling 2026-10-20); s
 Then 007 `split-content-hash`, which implements the operator-approved open question #14
 (2026-10-20; approved at surrogate scope, operator sign-off pending), 008
 `best-val-selection`, which implements the operator's choice B for open question #13
-(2026-10-20; approved at surrogate scope, operator sign-off pending), and 009
+(2026-10-20; approved at surrogate scope, operator sign-off pending), 009
 `region-metrics`, which implements the operator's choice (i) for open question #16
 (chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope, operator sign-off
-pending).
+pending), and 010 `dataset-realism`, which implements the operator's decision on open
+question #15 (chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope,
+operator sign-off pending; datasets and runs wait for SMPL).
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -36,12 +38,14 @@ baseline numbers are reported alongside for context (not as a bar to beat).
 Out of MVP (later candidates): generation/interpolation, real-image datasets, GPU
 rails (Kaggle), per-region (hands/face/feet) image MSE (surrogate ruling 2026-10-20 #4;
 implemented in 009 under the operator's choice (i) for #16, 2026-10-20: hands / feet /
-head box, SMPL-24 has no face joint), training improvements / VAE, dataset realism (open
-questions below).
+head box, SMPL-24 has no face joint), training improvements / VAE, dataset realism
+(implemented as opt-in generator options in 010 under the operator's #15 decision; the
+datasets `smpl_proc_v2`…`v5` and their runs follow its run procedure once SMPL is
+available; open questions below).
 
 Post-MVP slices (surrogate ruling 2026-10-20 #1: exactly one, then stop; 007 implements
 the operator-approved open question #14, 008 the operator's choice B for #13, 009 the
-operator's choice (i) for #16):
+operator's choice (i) for #16, 010 the operator's decision on #15):
 
 | # | Slug | Purpose | Depends on | Done when |
 |---|------|---------|------------|-----------|
@@ -49,6 +53,7 @@ operator's choice (i) for #16):
 | 007 | `split-content-hash` | Split files pin the manifest content (manifest without its generating `code`) instead of the raw bytes: `split_version` 2, `SplitCommitWarning` on a code mismatch, v1 read-only (open question #14) | 002 | Fixture split rewritten as v2 with the same pose lists; no numerical change; CI green; follow-up F1 rewrites `splits/smpl_proc_v1.json` once SMPL is available |
 | 008 | `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default: `select_weights: best_val \| final`, final weights when val is empty or never finite, `selection` block in `metrics.json` (`train_version` 2), resume-safe; 60 epochs and cosine lr unchanged (open question #13, option B) | 004 | Selection, fallback and resume tested on the fixture (scripted val curve); fixture smoke numbers unchanged; CI green; the published 004 / 006 numbers stay final weights until the re-baseline run |
 | 009 | `region-metrics` | Every image model (003 mean image / PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also reports its MSE in `hands` / `feet` / `head` regions (squares on the true 2D keypoints of joints 22 / 23, 7 / 8 / 10 / 11, 15; `region_mask`, `masked_mse`, labels passed to `score_images`); additive `metrics.json` keys, `metrics_version` 1 / `train_version` 2 unchanged; no training or config change (open question #16, option (i)) | 003, 004 | Fixture runs report the regions (003 and 004 identical for the baselines), every existing number unchanged; CI green; first real numbers with the re-baseline run |
+| 010 | `dataset-realism` | Opt-in generator options with omit-when-default manifest serialization: `ranges_version: predecessor-v2-armsdown` (arms lowered ∓65° after sparsification, shoulder z `[-20, 20)`, collar z `[-10, 10)`), `body_shape` (per-pose betas N(0, 1) clipped at ±2, own random stream), `camera_jitter` (camera moved in height / distance, aimed at the ring's look-at point, tilted down; projected-vertex in-frame check, recorded ring-camera fallback); configs for the chain `smpl_proc_v2` → `v5`; 003 `image_pca_ks: []` (open question #15) | 001, 003 | Every option tested on the synthetic body model; today's datasets byte-identical (fixture pins, before/after synthetic comparison); CI green; datasets and runs after SMPL access and F1 (run procedure) |
 
 ## Open questions (batched; answer all at once)
 
@@ -85,6 +90,14 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
     (2026-10-20). Follow-up F1 (needs SMPL): rewrite `splits/smpl_proc_v1.json` as v2.
 15. Dataset realism: arms-down poses, random betas (body shape), camera variation
     (height, distance, pitch, non-ring yaw)?
+    Operator decision, 2026-10-20: all four changes, each as its own dataset version and
+    experiment, in this order: (a) arms-down poses, (b) random body shape, (c) camera ring
+    jitter (small height / distance / pitch around the 8 named cameras, in-frame check, no
+    free cameras), (d) more poses (config only); defaults reproduce today's dataset byte for
+    byte. Implemented in 010 `dataset-realism` (2026-10-21) as opt-in options and the config
+    chain `smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) → `v5` (+ 4,000
+    poses); the 001 answer "keep arms-out limitation" holds for the default table only.
+    Datasets, splits and runs: 010 run procedure (needs SMPL; after F1).
 16. Training improvements / VAE (blur, lost extremities, mild overfitting in 004)?
     Operator choice (i), 2026-10-20: per-region MSE metrics first (hands / feet / head
     box; metrics only, before the re-baseline run), implemented in 009 `region-metrics`
@@ -304,3 +317,27 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   regions included. Cost: 1.0–1.3 s per model per 1,600-image split. The published 003 /
   004 / 006 numbers predate 009; the re-baseline run brings the first per-region
   numbers.
+- 2026-10-21: slice 010 `dataset-realism` (autonomous run, Fable surrogate scope; spec
+  approved at surrogate scope 2026-10-21, operator sign-off pending; approval basis: the
+  operator's decision on open question #15, 2026-10-20). Three opt-in generator config
+  blocks, each left out of the manifest `config` while at its default, so today's
+  datasets regenerate byte for byte (pins against the committed fixture manifest; a
+  before/after generation of synthetic datasets with today's configs is byte-identical):
+  `ranges_version: predecessor-v2-armsdown` (shoulder z narrowed to `[-20, 20)`, collar z
+  to `[-10, 10)`, arms lowered by ∓65° after sparsification; every other draw identical to
+  the default table for the same seed, so `smpl_proc_v2` vs `smpl_proc_v1` is a
+  controlled comparison; this reopens the 001 answer "keep arms-out limitation" for the
+  new table only, and the collar narrowing departs from the predecessor's table),
+  `body_shape` (per-pose betas N(0, std²) clipped at ±clip from their own random stream,
+  shared by the pose's views) and `camera_jitter` (per-sample camera moved in height and
+  distance, aimed at the ring's look-at point and tilted down, accepted only if every mesh
+  vertex projects inside the image with a margin, else the ring camera; labels record
+  `camera.jitter`; names, yaw and the manifest camera list stay the ring's). Surrogate
+  rulings (batch Q1–Q4): a cumulative chain `smpl_proc_v2` (arms-down) → `v3` (+ shape) →
+  `v4` (+ jitter) → `v5` (+ 4,000 poses), each compared with its predecessor; the
+  aim-and-tilt jitter; the standard split for 4,000 poses; 003 `image_pca_ks: []` for the
+  4,000-pose dataset, whose image PCA needs an estimated 25–30 GB. Configs
+  `configs/smpl_proc_v{2,3,4,5}/{generate,baselines,ae,probe}.yaml`. No dataset, split or
+  run exists yet: the run procedure (F1 → `smpl_proc_v1` re-baseline → v2 → v3 → v4 → v5,
+  ≈ 8.5 h CPU after the re-baseline, with an arms-down visual check before the v2 split) is
+  in 010 `tasks.md`.

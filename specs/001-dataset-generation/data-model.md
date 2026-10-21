@@ -26,12 +26,21 @@ Skeleton name: `"smpl24"`.
 | `amass_subsets` | list[str] | `[]`; ≥1 required if `amass` | sub-collection dir names under `amass_root` |
 | `num_poses` | int ≥1 | 2000 | |
 | `frame_stride` | int ≥1 | 30 | |
-| `num_betas` | int | 10 | betas all zero (Q4) |
+| `num_betas` | int | 10 | betas all zero (Q4) unless `body_shape` (slice 010) |
 | `image.height` / `image.width` | int | 256 / 192 | |
 | `camera_ring.count` | int ≥1 | 8 | |
 | `camera_ring.distance_m` | float >0 | 3.5 | |
 | `camera_ring.height_m` | float | 0.0 | |
 | `camera_ring.focal_px` | float >0 | 320.0 | |
+| `ranges_version` | str | `predecessor-v1-nohands` | slice 010; or `predecessor-v2-armsdown`; procedural only |
+| `body_shape` | null \| {`std` >0, `clip` >0} | null | slice 010; per-pose betas N(0, std²) clipped at ±clip (defaults 1.0, 2.0) |
+| `camera_jitter` | null \| {`height_m`, `distance_m`, `pitch_deg`, `margin_px`, `max_attempts`} | null | slice 010; [lo, hi] ranges (defaults [-0.3, 0.3] m, [0, 0.5] m, [0, 5]° down), 2 px, 16 |
+
+Fields added after layout v1 (slice 010 and later) are left out of `to_dict()` (the
+manifest `config`) while they hold their defaults, so earlier configs serialize unchanged.
+Random streams (slice 010): poses `default_rng(seed)` (unchanged); body shape
+`default_rng([seed, 1, pose_index])`; camera jitter `default_rng([seed, 2, pose_index,
+ring_index])`. Details: [010 data-model](../010-dataset-realism/data-model.md).
 
 Unknown keys → error. Seed is NOT in the config; it is a required CLI flag
 (FR-001) and recorded in the manifest.

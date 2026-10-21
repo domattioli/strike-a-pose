@@ -49,12 +49,12 @@ Hash helpers (`strike_a_pose.data`): `manifest_sha256(dataset_dir)` (raw bytes) 
 | `joints_3d_cam` | tensor float32 | `[J, 3]` | metres, camera frame (OpenCV: x right, y down, z forward) |
 | `joints_3d_world` | tensor float32 | `[J, 3]` | metres, world frame (+Y up) |
 | `pose` | tensor float32 | `[72]` | SMPL axis-angle, radians, root zeroed, hands zeroed |
-| `betas` | tensor float32 | `[num_betas]` | zeros (mean shape) |
+| `betas` | tensor float32 | `[num_betas]` | zeros (mean shape); the pose's random betas with the 001 `body_shape` option (slice 010) |
 | `camera` | dict | | |
 | `camera.K` | tensor float32 | `[3, 3]` | intrinsics, pixels |
-| `camera.R` | tensor float32 | `[3, 3]` | world → camera rotation |
-| `camera.t` | tensor float32 | `[3]` | world → camera translation, metres |
-| `camera.yaw_deg` | tensor float32 | `[]` | ring yaw, degrees |
+| `camera.R` | tensor float32 | `[3, 3]` | world → camera rotation (the sample's camera: per sample with the 001 `camera_jitter` option, slice 010) |
+| `camera.t` | tensor float32 | `[3]` | world → camera translation, metres (likewise) |
+| `camera.yaw_deg` | tensor float32 | `[]` | ring yaw, degrees (never jittered) |
 | `sample_id` | str | | `f"{pose_index:05d}_{camera_name}"` |
 | `pose_index` | int | | pose draw index (split unit) |
 | `camera_name` | str | | e.g. `Front_0` |

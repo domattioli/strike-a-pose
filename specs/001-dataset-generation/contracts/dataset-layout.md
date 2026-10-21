@@ -23,14 +23,14 @@ All floats rounded to 6 decimals. Arrays are nested lists.
 | `sample_id` | str | |
 | `pose_index` | int | |
 | `camera_name` | str | |
-| `pose_source` | {`type`: "procedural", `ranges_version`: str, `euler_deg`: [24][3]} or {`type`: "amass", `file`: str, `frame`: int, `root_orient`: [3]} | pose origin (amended 2026-10-20) |
+| `pose_source` | {`type`: "procedural", `ranges_version`: str, `euler_deg`: [24][3]} or {`type`: "amass", `file`: str, `frame`: int, `root_orient`: [3]} | pose origin (amended 2026-10-20); `euler_deg` includes the table's offsets (slice 010) |
 | `pose` | [72] | SMPL axis-angle, root zeroed |
-| `betas` | [num_betas] | zeros |
+| `betas` | [num_betas] | zeros, or the pose's random betas with `body_shape` (same for its views; slice 010) |
 | `joints_3d_world` | [24][3] | metres, world frame |
 | `joints_3d_cam` | [24][3] | metres, camera frame (OpenCV) |
 | `keypoints_2d` | [24][2] | pixels (u=x right, v=y down) |
 | `visibility` | [24] bool | in front and inside image |
-| `camera` | {`name`, `K` [3][3], `R` [3][3], `t` [3], `width`, `height`, `yaw_deg`} | |
+| `camera` | {`name`, `K` [3][3], `R` [3][3], `t` [3], `width`, `height`, `yaw_deg`} (+ `jitter`) | `R`, `t`: the sample's camera; `name`, `K`, size, `yaw_deg`: its ring camera; `jitter` {`height_m`, `distance_m`, `pitch_deg`, `attempts`, `fallback`} only with `camera_jitter` (slice 010) |
 
 Invariant (SC-003): `project(K, R·X_w + t)` equals `keypoints_2d` within 1 px
 and `joints_3d_cam = R·joints_3d_world + t` within 1e-4 m.
@@ -38,6 +38,12 @@ and `joints_3d_cam = R·joints_3d_world + t` within 1e-4 m.
 ## manifest.json
 
 JSON, sorted keys, indent 2, trailing newline. Fields per data-model.md.
+
+Slice 010 (2026-10-21): `config` leaves out the generator fields added after layout v1
+(`ranges_version`, `body_shape`, `camera_jitter`) while they hold their defaults, so earlier
+datasets are byte-identical; `cameras` is always the ring; `inputs.pose_source.ranges_deg[*]`
+carries `offset_deg` for tables with offsets. All additions are optional keys:
+`schema_version` stays 1.
 
 ## CLI (`strike-a-pose-data`)
 

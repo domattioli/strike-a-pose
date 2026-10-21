@@ -125,7 +125,9 @@ changelog, citing the run directory, config and git commit.
 - **FR-005**: Baselines MUST be fit on the train split only (not configurable)
   and evaluated on a configured list of splits (default val, test):
   - image: per-pixel **mean image**; **PCA** reconstruction for each `k` in a
-    configured list (outputs clamped to `[0, 1]`);
+    configured list (outputs clamped to `[0, 1]`) *(amended 2026-10-21 by slice 010,
+    FR-014: the list may be empty — no image PCA, `fit.image_pca` null — for datasets
+    whose image PCA does not fit in memory)*;
   - pose: **mean pose** of root-relative 3D joints; **PCA** reconstruction of
     root-relative 3D joints for each `k` in a configured list;
   - pose baselines are also scored in 2D by projecting the predicted joints

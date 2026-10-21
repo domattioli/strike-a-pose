@@ -2,8 +2,9 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `010-dataset-realism`)
 **Created**: 2026-10-21
-**Status**: Approved at surrogate scope (surrogate rulings 2026-10-21; operator sign-off
-pending); plan, tasks and analyze 2026-10-21 ([plan.md](plan.md), [tasks.md](tasks.md)).
+**Status**: Implemented 2026-10-21 (verification: [tasks.md](tasks.md) T018–T019; datasets
+and runs: its run procedure, needs SMPL). Approved at surrogate scope (surrogate rulings
+2026-10-21; operator sign-off pending).
 Approval basis: the operator's #15 decision quoted below; the surrogate ruled (a) on Q1–Q3
 and (b) on Q4 and accepted every lead default.
 **Input**: Operator answer to roadmap open question #15 ("Dataset realism: arms-down poses,

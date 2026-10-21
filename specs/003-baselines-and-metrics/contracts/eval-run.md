@@ -63,7 +63,7 @@ Flat mapping; unknown keys are an error.
 | `split_file` | str | required | frozen 002 split file for that dataset |
 | `eval_splits` | list[str] | `[val, test]` | splits to score (subset of train/val/test, unique) |
 | `batch_size` | int > 0 | `256` | loading / scoring batch size |
-| `image_pca_ks` | list[int > 0] | `[8, 16, 32, 64, 128]` | image PCA sizes (one fit at max k) |
+| `image_pca_ks` | list[int > 0] | `[8, 16, 32, 64, 128]` | image PCA sizes (one fit at max k); may be `[]` (slice 010 FR-014): no image PCA, `fit.image_pca` null, no `pca_k<K>` image entries or figure columns |
 | `pose_pca_ks` | list[int > 0] | `[4, 8, 16, 32]` | pose PCA sizes |
 | `iou_threshold` | float in (0, 1) | `0.075` | silhouette threshold |
 | `figure_split` | str | `val` | split shown in the figure (must be in `eval_splits`) |

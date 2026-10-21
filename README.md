@@ -13,7 +13,8 @@ Post-MVP slice 006 (latent probe) done 2026-10-20 under provisional surrogate
 rulings (operator sign-off 2026-10-21). Slice 007 (split content hash) implements the
 operator-approved roadmap question #14, slice 008 (best-val weight selection) the
 operator's choice B for question #13 (both 2026-10-20), and slice 009 (per-region image
-metrics, 2026-10-21) the operator's choice (i) for question #16 (all three approved at
+metrics, 2026-10-21) the operator's choice (i) for question #16, and slice 010 (dataset
+realism options, 2026-10-21) the operator's decision on question #15 (all four approved at
 surrogate scope, operator sign-off pending); the remaining open questions are listed in
 the roadmap.
 
@@ -28,6 +29,7 @@ the roadmap.
 | 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2); warning on a commit mismatch | implemented (roadmap #14; follow-up F1: rewrite `splits/smpl_proc_v1.json`, needs SMPL) |
 | 008 `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default (`select_weights`), the final weights when val is empty | implemented (roadmap #13, operator choice B) |
 | 009 `region-metrics` | Every image model also reports its MSE in hands / feet / head regions around the true 2D keypoints (`region_mask`, `masked_mse`) | implemented (roadmap #16, operator choice (i)) |
+| 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs for the chain `smpl_proc_v2` → `v5` | implemented (roadmap #15); datasets and runs wait for SMPL |
 
 ## Install
 
@@ -54,6 +56,23 @@ uv run strike-a-pose-data generate --config configs/default.yaml --seed 0
 uv run strike-a-pose-data validate data/generated/smpl_proc_v1
 uv run strike-a-pose-data validate tests/fixtures/smpl_fixture   # committed 16-sample fixture
 ```
+
+Realism options (slice [010](specs/010-dataset-realism/spec.md); each off by default and then
+left out of the manifest, so `smpl_proc_v1` regenerates byte for byte):
+`ranges_version: predecessor-v2-armsdown` lowers the arms (∓65° at the shoulders after
+sparsification; every other angle drawn as with the default table), `body_shape: {std, clip}`
+gives each pose random SMPL betas N(0, std²) clipped at ±clip (shared by its 8 views), and
+`camera_jitter` renders each sample from a camera near its ring camera (height ±0.3 m,
+0–0.5 m farther, aimed at the ring's look-at point and tilted 0–5° down), kept only if every
+mesh vertex projects 2 px inside the image, else the ring camera; labels record the deltas in
+`camera.jitter`, while `camera_name` / `yaw_deg` stay the ring camera's. More poses is
+`num_poses`. The committed chain `configs/smpl_proc_v2` … `v5` adds one change per version
+(v2 arms-down, v3 + shape, v4 + jitter, v5 + 4,000 poses); each directory holds the
+`generate`, `baselines`, `ae` and `probe` configs. The run procedure (needs SMPL; after F1 and
+a `smpl_proc_v1` re-baseline) is in [`specs/010-dataset-realism/tasks.md`](specs/010-dataset-realism/tasks.md).
+For 4,000 poses the 003 image PCA would need an estimated 25–30 GB (≥ 32 GB machine), so
+`smpl_proc_v5` runs its baselines with `image_pca_ks: []` (mean image and pose baselines only)
+and its AE with `context_pca_k: null`.
 
 Freeze a train/val/test split once per dataset (whole poses, all 8 camera views
 together; refuses to overwrite) and commit the file under `splits/`. `val` is for

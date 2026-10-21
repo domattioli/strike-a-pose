@@ -1,4 +1,4 @@
-# Handoff — strike-a-pose (as of 2026-10-21, after slice 009)
+# Handoff — strike-a-pose (as of 2026-10-21, after slice 010)
 
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
@@ -39,6 +39,19 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   training variants keep their predictors behind it (`predict_rows`) and get regions
   without further change (009 plan, "Where the next slice hooks in"). The published
   numbers predate 009.
+- Slice 010 `dataset-realism` (roadmap #15, operator decision 2026-10-20) implemented
+  2026-10-21; approved at surrogate scope, operator sign-off pending. Opt-in generator
+  options, each left out of the manifest `config` while off, so `smpl_proc_v1` regenerates
+  byte for byte (fixture pins; same-machine before/after synthetic comparison identical):
+  `ranges_version: predecessor-v2-armsdown` (arms lowered ∓65° after sparsification,
+  shoulder z `[-20, 20)`, collar z `[-10, 10)`: the collar narrowing departs from the
+  predecessor's table; every other draw equals v1's for the same seed), `body_shape`
+  (per-pose betas N(0, 1) clipped at ±2, own stream) and `camera_jitter` (per-sample camera
+  moved ±0.3 m in height and 0–0.5 m farther, aimed at the ring's look-at point and tilted
+  0–5° down, kept only if every mesh vertex projects 2 px inside the image, else the ring
+  camera; labels record `camera.jitter`). 003 accepts `image_pca_ks: []`. Configs for the
+  chain `configs/smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) → `v5`
+  (+ 4,000 poses). No new dataset, split or run exists: run procedure below (item 5).
 
 ## Next work (from roadmap open questions)
 
@@ -65,10 +78,10 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
    **#16 option (i)** (per-region image metrics) implemented in slice 009 (2026-10-21).
    Any new train config key must add its pre-key value to `train.config.LEGACY_VALUES`
    (008 plan); new image predictors are scored through `score_images` with the split's
-   labels (009 plan). Not started: #15 dataset realism (arms-down, random betas, camera
-   variation), the other #16 options (training improvements / VAE), and the SMPL-asset
-   access problem (GitHub access to `domattioli/smpl-assets` was refused in the
-   2026-10-20 sessions, which blocks F1).
+   labels (009 plan); **#15** (dataset realism) implemented as generator options in slice
+   010 (2026-10-21), its datasets and runs are item 5. Not started: the other #16 options
+   (training improvements / VAE) and the SMPL-asset access problem (`domattioli/smpl-assets`
+   exists but is still empty, which blocks F1 and every run).
 4. **Re-baseline run** (after SMPL access → F1; 009 has landed): `strike-a-pose-train
    --config configs/ae.yaml` (as committed: `select_weights: best_val`), launched
    detached and resumable (see "Environment gotchas"); then set `checkpoint` in
@@ -77,7 +90,23 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
    report best-val weights, compared with the published final-weight 004 numbers with
    the val-only caveat. Its `metrics.json` brings the first per-region numbers (`ae`,
    `mean_image`, `pca_k64` on val and test); re-running the 003 baselines
-   (`configs/baselines.yaml`, ≈ 3 min) adds them for every PCA k (optional).
+   (`configs/baselines.yaml`, ≈ 3 min) adds them for every PCA k (optional for the
+   re-baseline alone, required as the reference row of item 5).
+5. **Dataset realism runs (#15, slice 010; needs SMPL):** generation waits for F1 and a
+   same-code `smpl_proc_v1` re-baseline (item 4 plus the 003 baselines). Then, in order,
+   `smpl_proc_v2` → `v3` → `v4` → `v5`, each with `configs/<dataset>/{generate,baselines,
+   ae,probe}.yaml`: generate (seed 0), validate, split (`--seed 0`, default fractions;
+   commit `splits/<dataset>.json`), baselines, AE (detached, resumable), probe; before the
+   `smpl_proc_v2` split, the arms-down visual check with real SMPL (record it in 001
+   research R9). Commands, the jitter acceptance one-liner and what to commit: 010
+   `tasks.md`, "Follow-up R". Time on 4 vCPU: ≈ 100 min CPU per 2,000-pose dataset
+   (generate ≈ 5 min / 351 MB, baselines ≈ 3 min, AE ≈ 85 min, probe ≈ 8 min);
+   `smpl_proc_v5` ≈ 200 min (700 MB; baselines without image PCA, AE without the PCA
+   column: image PCA on 25,600 images needs ≈ 25–30 GB, a ≥ 32 GB machine); ≈ 8.5 h CPU in
+   all, about twice that in calendar time with container restarts. Comparisons:
+   `smpl_proc_v2` vs `smpl_proc_v1` is controlled (same draws except four arm angles);
+   `v3`+ are compared with their predecessor; 009 region numbers across datasets carry
+   the caveat of 010 clarification 21.
 
 ## F1 commands
 
@@ -126,13 +155,14 @@ EOF
 
 ## Operator decisions requested (2026-10-20 closing message)
 
-Put to the operator in one batch; nothing below was started. Sequencing that
+Put to the operator in one batch (answers noted per item). Sequencing that
 applies to every option needing numbers: SMPL access → F1 (regenerate
 `smpl_proc_v1`, rewrite its split as v2) → retrain (≈ 85 min CPU per AE run on
 4 vCPU, 2–3 h wall-clock with container restarts; probe ≈ 8 min, baselines
-≈ 3 min). No checkpoint or dataset exists in a fresh container. Any generator
-change (#15) must land *after* F1, because new config fields enter
-`manifest.config` and F1's provenance check could then never match `9000c915…`.
+≈ 3 min). No checkpoint or dataset exists in a fresh container. Generation of
+the #15 datasets waits for F1 and a same-code v1 re-baseline (slice 010 keeps
+its new config fields out of v1 manifests, so F1's provenance check is
+unaffected).
 
 - **SMPL access**: `domattioli/smpl-assets` was not reachable from this session
   (GitHub access refused; not in the session's repo list). Options: grant the
@@ -152,7 +182,9 @@ change (#15) must land *after* F1, because new config fields enter
   changes the run" and the resume logic); D fewer epochs (e.g. 40; a 40-epoch
   cosine run is not epoch 40 of the 60-epoch run, result unknown). Lead
   recommendation: B, landed before the one re-baseline run that F1 forces anyway.
-- **#15 dataset realism** (today: predecessor range table, arms near the SMPL
+- **#15 dataset realism**: *answered 2026-10-20 (all four, in order (a)–(d), each
+  its own dataset version and experiment), implemented in slice 010; runs: Next
+  work item 5.* Options as put (then: predecessor range table, arms near the SMPL
   rest pose, mean shape, 8-camera level ring at 3.5 m; none of the options is
   config-selectable yet, each needs code + tests + 001 FR-002/FR-003 and layout
   contract amendments + operator sign-off, and its own dataset version

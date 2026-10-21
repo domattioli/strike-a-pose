@@ -81,17 +81,20 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Stage 7 — docs (`docs(010)`)
 
-- [ ] T015 001 spec (FR-002, FR-003, edge case, Q4, Q9 update, reopened arms-out answer),
+- [x] T015 001 spec (FR-002, FR-003, edge case, Q4, Q9 update, reopened arms-out answer),
   layout contract, data-model, research R5 / R9 — dated "amended 2026-10-21 by slice 010".
-- [ ] T016 002 sample contract (`betas`, `camera.R/t`, `yaw_deg`); 003 research R2, 003
+- [x] T016 002 sample contract (`betas`, `camera.R/t`, `yaw_deg`); 003 research R2, 003
   contract + spec (FR-014); 006 probe contract note; 009 spec FR-001 note.
-- [ ] T017 README (status table, Usage: options, series configs, run procedure, memory note);
+- [x] T017 README (status table, Usage: options, series configs, run procedure, memory note);
   roadmap (#15 implemented by 010, row, status, changelog 2026-10-21 appended); HANDOFF (state,
   next work = F1 → v1 re-baseline → v2 → v3 → v4 → v5, the "#15 after F1" clause replaced).
 
 ## Verification record
 
-- [ ] T018 Red runs noted per stage; final ruff / format / pytest (count, wall time).
+- [x] T018 Red runs noted per stage; final ruff / format / pytest (count, wall time). Final
+  (stage 7, 2026-10-21): ruff check and ruff format --check clean (125 files); pytest 334
+  passed in 36.1 s (307 at `7625437`); CI smoke commands run locally into the scratchpad:
+  `validate` fixture OK, fixture baselines, fixture train, fixture probe all exit 0 (10 s).
 - [x] T019 SC-002 before / after synthetic comparison (T003 datasets vs regenerated after
   stage 5): manifest, labels, checksums, images byte-identical. Done after stage 5 (code of
   `4c8db57` + the stage-5 changes): `proc_small` 74 files, `proc_full` 50, `amass_small` 50;
@@ -148,3 +151,13 @@ uv run --locked strike-a-pose-eval probe --config configs/$DS/probe.yaml \
   agree in spec clarification 6 and research R1. No open `[NEEDS CLARIFICATION]`.
 - Risk noted: the draw-structure property requires that no table turns a zero-width range
   non-zero (research R1); the v2 table only narrows non-zero ranges.
+
+## Implementation notes (2026-10-21)
+
+- Each realism config block landed with its feature (stages 3–5) instead of all in stage 2,
+  so no commit accepts an option the generator ignores; stage 2 carried the serialization
+  machinery, the v1 pins and FR-014.
+- `test_sample_betas_stream`: the first expectation for the clip rate was wrong (at std 1 and
+  clip 0.5 the clipped share is 0.62); fixed in the test, the code was right.
+- Commit trailers follow the session's attribution reminder (the coordinator's brief named a
+  different model line; flagged in the report).

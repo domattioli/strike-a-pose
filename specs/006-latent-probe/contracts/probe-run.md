@@ -19,7 +19,7 @@ Flat mapping; unknown keys are an error.
 | `cache_dir` | str \| null | `runs/probe-cache` | latent cache directory (null: no cache) |
 | `batch_size` | int > 0 | `256` | loading / encoding batch |
 | `eval_splits` | list[str] | `[val, test]` | splits reported; must contain `val` (selection) |
-| `targets` | list[str] | `[joints_world, joints_cam, yaw, smpl_pose]` | unique subset of these |
+| `targets` | list[str] | `[joints_world, joints_cam, yaw, smpl_pose]` | unique subset of these (slice 010: `yaw` is always the ring index, also with `camera_jitter`; `joints_cam` is in the sample's own camera frame) |
 | `ridge_lambdas` | list[float > 0] | `[1e-4, 1e-3, 1e-2, 1e-1, 1, 10]` | ridge grid (penalty `λ·n` on standardized latents) |
 | `mlp_hidden` | list[int > 0] | `[256, 256]` | MLP hidden widths (ReLU) |
 | `mlp_epochs` | int > 0 | `100` | MLP passes over train |

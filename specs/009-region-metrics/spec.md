@@ -224,7 +224,10 @@ scoring of US1 and US2 is built from these functions.
   half-size projected at each joint's depth, `h = f · s / z`, with `f` and `z` from the
   sample's `K` and `joints_3d_cam` (both in the sample dict); not the projected torso
   length, which varies 12.5–43 px with pose on the fixture. A dataset version that changes
-  the camera distance or the body shape (#15) revisits this table.
+  the camera distance or the body shape (#15) revisits this table. *(Note 2026-10-21, slice
+  010 clarification 21: the table stays unchanged for the 010 datasets; region numbers
+  compare models within a dataset, and across datasets only with the caveat that camera
+  jitter makes bodies up to 12.5 % smaller and random shapes a few % larger or smaller.)*
 - **FR-002** (region mask): `strike_a_pose.eval.metrics` MUST provide a pure batched
   function that builds a region's mask from 2D keypoints `[B, J, 2]` (u, v px), visibility
   `[B, J]`, the image size `(H, W)`, the region's joints and its half-size h: pixel (r, c)

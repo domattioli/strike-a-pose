@@ -30,6 +30,9 @@
 - 2D: predicted root-relative joints + true root (world) → project with true
   `K, R, t` (`u = fx·x/z + cx`, `v = fy·y/z + cy`, same as 001 `cameras.project`)
   → pixel distance to the label `keypoints_2d` over visible joints.
+- *Note 2026-10-21 (slice 010)*: with the `camera_jitter` option `R` varies per sample,
+  so "`R_c` constant per camera" no longer holds for such datasets; the world-frame
+  scoring (MPJPE is rotation-invariant) and the per-sample 2D projection are unaffected.
 
 ## R3 — Silhouette threshold
 

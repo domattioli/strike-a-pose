@@ -73,6 +73,10 @@ Decisions made by the lead (opus) at plan time, 2026-10-17.
 - Names for count = 8 (Q2): `Front_0, FrontRight_45, Right_90, BackRight_135,
   Back_180, BackLeft_225, Left_270, FrontLeft_315`. Other counts:
   `Cam<i>_<deg>`.
+- *Amended 2026-10-21 (slice 010)*: optional per-sample jitter around ring camera i:
+  centre `(−(d+δd)·sinθ, h+δh, (d+δd)·cosθ)`, aimed at `(0, h, 0)`, then tilted down by
+  δp; accepted iff every mesh vertex projects inside the image with a margin, else the
+  ring camera. Name and yaw stay the ring's. [010 research](../010-dataset-realism/research.md) R3.
 
 ## R6. Visibility
 
@@ -132,7 +136,10 @@ replaces an interim self-chosen table that was never released.
 
 - Visual check (12 poses, real SMPL): knees/elbows bend plausibly. Observations,
   kept faithful: shoulder z is ±50° around the SMPL T-pose, so arms are never
-  lowered to the sides; left/right shoulder and wrist ranges are not mirrored;
+  lowered to the sides (this table only: the 2026-10-21 table
+  `predecessor-v2-armsdown` of slice 010 lowers them, [010 research](../010-dataset-realism/research.md)
+  R1; its visual check with real SMPL is recorded here by the 010 run procedure before
+  the `smpl_proc_v2` split is frozen — not done yet); left/right shoulder and wrist ranges are not mirrored;
   some strong spine bends; hand joints 22/23 are non-zero (predecessor table).
 - Predecessor cameras (option only, not adopted; we keep our ring): look-at
   (0,1,0), up +Y, eyes at y=2: Front (0,2,3), FL (4/3,2,8/3), FR (-4/3,2,8/3),

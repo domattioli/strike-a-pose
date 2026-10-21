@@ -10,6 +10,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -109,15 +110,32 @@ def scripted_train(monkeypatch):
     return install
 
 
+def _wait_for_exec(proc, needle: bytes, timeout=10.0):
+    """Block until /proc/<pid>/cmdline contains needle (the child has exec'd)."""
+    path = Path(f"/proc/{proc.pid}/cmdline")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            if needle in path.read_bytes():
+                return
+        except OSError:
+            pass
+        time.sleep(0.01)
+    raise AssertionError(f"child {proc.pid} never showed {needle!r} in its cmdline")
+
+
 @pytest.fixture
 def helper():
     """A live process whose command line names strike-a-pose-train (a stand-in lock owner)."""
     p = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(120)", "strike-a-pose-train"]
     )
-    yield p
-    p.kill()
-    p.wait()
+    try:
+        _wait_for_exec(p, b"strike-a-pose-train")
+        yield p
+    finally:
+        p.kill()
+        p.wait()
 
 
 def _cfg(tmp_path: Path, root: str, split: Path | None = None, **kw) -> TrainConfig:
@@ -479,6 +497,7 @@ def test_lock_liveness_accepts_python_m_launches():
         [sys.executable, "-c", "import time; time.sleep(120)", "-m", "strike_a_pose.train.cli"]
     )
     try:
+        _wait_for_exec(p, b"strike_a_pose.train.cli")
         assert lock_alive({"pid": p.pid, "boot_id": boot_id()})
     finally:
         p.kill()

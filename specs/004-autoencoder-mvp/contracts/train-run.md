@@ -112,16 +112,34 @@ created.
   "context": {"fit_split": "train", "pca_k": 64, "pca_k_effective": 64},
   "selection": {"select_weights": "best_val", "weights": "best_val", "selected_by": "val loss",
                 "epoch": 34, "val_loss": 0.0, "checkpoint": "best.pt"},
-  "units": {"image_mse": "…", "psnr_db": "…", "silhouette_iou": "…"},
+  "regions": {"feet": {"half_size_px": 8, "joints": ["left_ankle", "right_ankle", "left_foot", "right_foot"]},
+              "hands": {"half_size_px": 10, "joints": ["left_hand", "right_hand"]},
+              "head": {"half_size_px": 14, "joints": ["head"]}},
+  "units": {"image_mse": "…", "psnr_db": "…", "silhouette_iou": "…", "regions": "…"},
   "splits": {
     "val": {"samples": 1600, "poses": 200,
-            "image": {"ae": {"image_mse": 0.0, "psnr_db": 0.0, "silhouette_iou": 0.0},
-                      "mean_image": {"…": 0.0},
-                      "pca_k64": {"k": 64, "k_effective": 64, "…": 0.0}}},
+            "image": {"ae": {"image_mse": 0.0, "psnr_db": 0.0, "silhouette_iou": 0.0,
+                             "regions": {"feet": {"image_mse": 0.0, "samples": 1600},
+                                         "hands": {"image_mse": 0.0, "samples": 1600},
+                                         "head": {"image_mse": 0.0, "samples": 1600}}},
+                      "mean_image": {"…": 0.0, "regions": {"…": {"image_mse": 0.0, "samples": 1600}}},
+                      "pca_k64": {"k": 64, "k_effective": 64, "…": 0.0, "regions": {"…": "…"}}}},
     "test": {"…": "…"}
   }
 }
 ```
+
+Per-region image metrics (slice 009, 2026-10-21; additive, so `train_version` stays 2 and
+`metrics_version` 1): every image-model entry (`ae`, `mean_image`, `pca_k<K>`) of a split
+with samples carries `regions` (`hands`, `feet`, `head`: `image_mse`, `samples`), with the
+top-level `regions` definitions and `units.regions`, exactly as in the 003 contract
+(`score_images` with labels, the same code for every image model). They are scored in the
+evaluation after the selected weights are loaded, from the same predictions as the headline
+metrics, so the `ae` regions are those of the weights `selection` names. For this the scored
+splits (val when it is in `eval_splits`, every other eval split) keep their 2D keypoints and
+visibility in memory next to the masks (≈ 0.2 KB per sample); no config key, file, log line
+or figure changes, and a run directory started before slice 009 resumes unchanged and
+reports regions when it finishes.
 
 `selection` (slice 008) names the scored weights: `select_weights` (the configured
 rule), `weights` (applied: `best_val` | `final`), `selected_by` (`"val loss"` |

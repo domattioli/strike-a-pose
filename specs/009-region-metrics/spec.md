@@ -3,7 +3,7 @@
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `009-region-metrics`)
 **Created**: 2026-10-20
 **Status**: Approved at surrogate scope (surrogate rulings 2026-10-20; operator sign-off
-pending); plan/implementation not started.
+pending); plan, tasks and analyze 2026-10-21 ([plan.md](plan.md), [tasks.md](tasks.md)).
 Approval basis: the operator's choice of option (i) for roadmap open question #16
 (2026-10-20), quoted below; the surrogate ruled (a) on the three batch questions and
 accepted every lead default.
@@ -496,7 +496,9 @@ overturnable by the operator.
     segmentation, region overlays, per-region numbers for the train split, training,
     config, CI and probe changes, re-running published runs. *(lead default)*
 16. Q: Dates? → A: the session clock, 2026-10-20; the roadmap changelog entry is appended
-    at the end. *(lead default)*
+    at the end. *(lead default)* *(Plan, 2026-10-21: phase 2 runs on 2026-10-21 by the
+    session clock, so the dated notes of the Documentation scope ("amended 2026-10-21 by
+    slice 009") and the roadmap changelog entry carry 2026-10-21.)*
 
 ### Clarification batch for the surrogate (sent and ruled 2026-10-20)
 

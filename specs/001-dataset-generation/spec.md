@@ -107,6 +107,9 @@ fixture manifest and read every sample.
     after fixed frame-stride subsampling (root zeroed, hands zero).
   The manifest MUST record the pose source and, for `procedural`, the ranges
   table and its version. Body shape is the neutral SMPL model at mean shape.
+  *(Amended 2026-10-21 by slice 013: any SMPL-format body file may be configured; the interim
+  capsule body serves infrastructure runs only; the neutral SMPL model stays the body of every
+  reported result. [013 spec](../013-capsule-body/spec.md).)*
   *(Amended 2026-10-21 by slice 010: `ranges_version` selects the procedural table,
   `predecessor-v1-nohands` (default) or `predecessor-v2-armsdown` (arms lowered ∓65°
   after sparsification, shoulder z `[-20, 20)`, collar z `[-10, 10)`); `body_shape` gives

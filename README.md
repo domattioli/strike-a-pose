@@ -37,6 +37,7 @@ of them yet (the published numbers below predate them; the campaign brings the f
 | 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs (amended by 014) | implemented (roadmap #15); datasets and runs wait for SMPL |
 | 011 `training-variants` | Config-selectable training variants, the plain AE as default and control: weight decay (AdamW), pixel shifts, latent dropout, mask-weighted MSE, a VAE (`variational`, `beta`); configs `ae_mask` / `ae_vae` / `ae_reg` | implemented (roadmap #16, options (ii)–(iv)); runs wait for SMPL |
 | 012 `run-guards` | Opt-in trainer guards (early stop on a val plateau, divergence abort with exit 5), a run-dir lock, a batched mean image, CPU model + pixel checksums hash in `run_info.json`, `scripts/run_status.py`, the campaign configs and procedure | implemented (operator decision 2026-10-21); the campaign waits for SMPL |
+| 013 `capsule-body` | Interim license-free body: 28 rigid capsules on SMPL's rest skeleton (recovered from the fixture), `strike-a-pose-data make-capsule-body`, twin configs `configs/capsule_proc_*/` | implemented (operator decision 2026-10-21); interim campaign running, results are infrastructure tests |
 | 014 `realism-ablations` | Amends 010: independent single-change datasets `smpl_proc_v2a`–`v2d` (each vs v1), the arms-down table renamed `armsdown-v1`, `scripts/intersection_check.py` (limb–torso intersection count; v2a's split gate at 5 % of poses) | implemented (operator decisions 2026-10-21); datasets wait for SMPL |
 
 ## Install
@@ -285,6 +286,8 @@ Exit codes and the on-disk layout are specified in
 The published 003 / 004 / 006 runs below predate the per-region image metrics (slice
 009); per-region numbers come with the next full run. The slice 011 training variants have no
 runs yet: their numbers come with its experiment procedure (needs SMPL).
+Infrastructure runs on the interim capsule body (slice 013) are recorded in
+[`docs/results/013-capsule/`](docs/results/013-capsule/README.md), not here.
 
 Baselines on `smpl_proc_v1` (fit on train, 12,800 images; val / test 1,600 images
 each; images in [0, 1]; MPJPE root-relative). Context for the autoencoder (004),

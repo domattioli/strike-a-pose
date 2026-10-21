@@ -90,6 +90,16 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   (per-segment elliptic cylinders, Kabsch-fitted rest frames, 1 cm margin); v2a's split is not
   frozen above 5 %; the visual check stays. Verified on the synthetic body only (the real-SMPL
   rate is unknown until the v2a step).
+- Slice 013 `capsule-body` (operator decision 2026-10-21: SMPL still unavailable) implemented
+  2026-10-21; approved at surrogate scope (rulings Q1 mirror the campaign with v2a–v2d, Q2 (a),
+  Q3 (b)), operator sign-off pending. `datagen/capsule.py` + `strike-a-pose-data
+  make-capsule-body`: an interim license-free SMPL-format body (28 rigid capsules on SMPL's rest
+  skeleton, recovered at build time from the committed fixture labels; 5,952 vertices, 18.9 MB,
+  SHA-256 `bc1f3eb7…` pinned). Twin configs `configs/capsule_proc_{v1,v2a,v2b,v2c,v2d}/`
+  (test-enforced copies of the SMPL configs). `capsule_proc_v1` is generated, its split
+  `splits/capsule_proc_v1.json` is frozen (same pose assignment as `smpl_proc_v1`) and its
+  baselines reproduce the published pose numbers (SC-005). Results are infrastructure tests:
+  `docs/results/013-capsule/`.
 
 ## Pending operator sign-off
 
@@ -112,6 +122,10 @@ Each slice is approved at surrogate scope; key surrogate rulings in one line:
   test (per-segment inscribed elliptic cylinders, 1 cm margin, ≥ 1 vertex = intersecting pose),
   a script rather than a CLI subcommand, and a gate failure skipping v2a (no unattended table
   change).
+- 013 `capsule-body`: Q1 mirror the campaign on capsule twins, Q2 (a) results only under
+  `docs/results/013-capsule/`, Q3 (b) skeleton derived at build time from the fixture
+  (**operator confirmation of the license reading requested**: 72 SMPL-derived joint
+  coordinates, already public in the fixture labels; no SMPL array used).
 
 Open operator decisions: the promotion rule (above); the winners' dataset: which of v2a–v2d
 (or v1 only) the winning variants run on (default if no answer: v2a).
@@ -120,7 +134,8 @@ Open operator decisions: the promotion rule (above); the winners' dataset: which
 
 1. **The campaign** (needs `assets/smpl/SMPL_NEUTRAL.npz`; `domattioli/smpl-assets` exists
    but was still empty at the last check): "Campaign procedure" below, starting with F1
-   ("F1 commands"). The v2a–v2d configs are committed (slice 014).
+   ("F1 commands"). The v2a–v2d configs are committed (slice 014). Until then, the interim
+   capsule campaign ("Interim capsule campaign" below; slice 013) runs without SMPL.
 2. **#12 approved, on hold**: switch torch to the CPU wheel index
    (`specs/002-data-pipeline/research.md` R1) only after the campaign's runs are done:
    changing `uv.lock` mid-campaign breaks "same locked environment". `download.pytorch.org`
@@ -296,6 +311,28 @@ its rule passes, start nothing after a stop outcome. Re-arm this check-in with s
 about 50 minutes, verbatim, unless the campaign stopped or finished. Reply in at most 5 lines:
 any failure, abort or stop first, then step, state, action, next check-in.
 ```
+
+## Interim capsule campaign
+
+Spec 013; runs now, without SMPL. Procedure = the campaign procedure above with the capsule
+configs, F1 skipped:
+
+- Body: `uv run --locked strike-a-pose-data make-capsule-body` (writes
+  `assets/synthetic/capsule_v1.npz`, checks the pinned SHA-256 `bc1f3eb7…`; "unchanged" if
+  present).
+- Substitute `configs/default.yaml` → `configs/capsule_proc_v1/generate.yaml`,
+  `configs/<run>.yaml` → `configs/capsule_proc_v1/<run>.yaml`, `configs/smpl_proc_v2{a,b,c,d}/`
+  → `configs/capsule_proc_v2{a,b,c,d}/`, `splits/smpl_proc_*` → `splits/capsule_proc_*`; the
+  capsule R0 (`ae-capsule_proc_v1`) is the control of capsule runs only; v2a's visual check is
+  done on the capsule images.
+- Order: v1 R0 → R0b → R1 → R2 → R3 → v2a → v2b → v2c → v2d; decision rules, guards, check-ins
+  and `scripts/run_status.py` as above.
+- Results: `docs/results/013-capsule/<run>/` and its README table (infrastructure tests, never
+  README headline numbers); campaign-log rows marked `capsule`.
+- SMPL arrival preempts: the session installing SMPL stops the running capsule step (its run
+  dir stays resumable), logs it and starts F1; capsule steps resume only if the operator asks.
+  Capsule outcomes may lead to code fixes (a slice, tests first), never to changes of the SMPL
+  campaign's configs, thresholds or order.
 
 ## Campaign log
 

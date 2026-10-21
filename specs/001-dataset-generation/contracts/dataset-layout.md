@@ -56,7 +56,16 @@ would silently change the meaning of every existing v1 manifest, so it requires 
 ```text
 strike-a-pose-data generate --config PATH --seed INT [--overwrite] [--output-root PATH]
 strike-a-pose-data validate DATASET_DIR
+strike-a-pose-data make-capsule-body [--out PATH] [--fixture DIR] [--overwrite]
 ```
+
+- `make-capsule-body` (slice 013): writes the interim capsule body (default
+  `assets/synthetic/capsule_v1.npz`; skeleton from the fixture dir, default
+  `tests/fixtures/smpl_fixture`). Exit codes: 0 written or unchanged (same bytes); 1 the built
+  file's SHA-256 differs from the pinned one (nothing written); 3 fixture labels missing; 4 the
+  file exists with other bytes and `--overwrite` not given. `smpl_model_path` may name any
+  SMPL-format body; `inputs.smpl_model` then records that file's name and SHA-256 (no schema
+  change).
 
 - `generate` exit codes: 0 ok; 2 config error; 3 missing SMPL (or, for `pose_source: amass`, AMASS) assets
   (message names the missing file and points to `docs/data-assets.md`;

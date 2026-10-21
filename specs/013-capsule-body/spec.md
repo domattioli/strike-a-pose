@@ -2,10 +2,10 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `013-capsule-body`)
 **Created**: 2026-10-21
-**Status**: Approved at surrogate scope (surrogate rulings 2026-10-21; operator sign-off
-pending). Rulings: Q1 mirror the campaign with independent single-change datasets, Q2 (a),
-Q3 (b). Staged implementation: the body builder first (branch `wip-013`); configs and the
-README / roadmap / HANDOFF edits (FR-008 to FR-010) after slice 012 and the 010 amendments land.
+**Status**: Implemented 2026-10-21 (verification: [tasks.md](tasks.md) T008). Approved at
+surrogate scope (surrogate rulings 2026-10-21; operator sign-off pending, including the license
+reading of Q3). Rulings: Q1 mirror the campaign with independent single-change datasets, Q2 (a),
+Q3 (b). Configs follow the SMPL configs after slices 012 and 014 (the 010 amendment).
 **Input**: Operator decision 2026-10-21, relayed by the orchestrator: the licensed SMPL model is
 still unavailable (the private repo `domattioli/smpl-assets` is empty), so the project gets an
 interim, license-free body, "a capsule humanoid built on SMPL's own skeleton", so that the

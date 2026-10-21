@@ -19,11 +19,26 @@ Stages per [plan.md](plan.md). `[x]` done on `wip-013`.
 
 ## Stage 3 — after slice 012 and the 010 amendments land (orchestrator sends the brief)
 
-- [ ] T006 Twin configs `configs/capsule_proc_{v1,v2a,v2b,v2c,v2d}/` (FR-008) + test FR-011 (j).
-- [ ] T007 Docs: `docs/data-assets.md`, 001 contract CLI + note, 001 spec dated note, README,
-  roadmap, HANDOFF capsule procedure (FR-009, FR-010).
-- [ ] T008 Verification: SC-004 (full `capsule_proc_v1` build, generate, validate, split pose
-  lists) and SC-005 (pose baselines); timings recorded here.
+- [x] T006 Twin configs (26 files): `configs/capsule_proc_v1/{generate,baselines,ae,ae_seed1,
+  ae_mask,ae_vae,ae_vae_beta0.1,ae_vae_beta0.001,ae_reg,probe}.yaml` and
+  `configs/capsule_proc_v2{a,b,c,d}/{generate,baselines,ae,probe}.yaml`, each its SMPL
+  counterpart with only names, paths and the body file changed; tests FR-011 (j)
+  (`test_capsule_configs_are_twins_of_the_smpl_configs`, generation on the capsule body).
+  `splits/capsule_proc_v1.json` committed.
+- [x] T007 Docs: `docs/data-assets.md`, 001 contract CLI + note, 001 spec dated note, README
+  (status row + Results pointer), roadmap (row + changelog), HANDOFF ("Interim capsule
+  campaign", state, sign-off list), `docs/results/013-capsule/README.md` (FR-009, FR-010).
+- [x] T008 Verification (orchestrator, live, 2026-10-21): body built, SHA-256 `bc1f3eb7…`
+  equals the pin; `data/generated/capsule_proc_v1` generated; its manifest `config` equals
+  `load_config("configs/capsule_proc_v1/generate.yaml").to_dict()` (checked); the frozen
+  `splits/capsule_proc_v1.json` has `splits/smpl_proc_v1.json`'s pose lists (checked; SC-004).
+  SC-005: run `runs/baselines-capsule_proc_v1-20261021T110723Z`: pose baselines equal the
+  published `smpl_proc_v1` ones to ≤ 1e-4; image baselines val mean-image MSE 0.01509,
+  PCA-64 0.00509 (infrastructure numbers). R0 `runs/ae-capsule_proc_v1-20261021T111109Z`
+  training. Checks: ruff, ruff format, full pytest pinned to one core: 473 passed, 2 failed
+  (`test_train_guards.py` lock-liveness tests: they read `/proc/<pid>/cmdline` right after
+  `Popen`; on a single pinned core the child has not exec'd yet; they pass unpinned; 012 test
+  race, not 013).
 
 ## Analyze (2026-10-21)
 

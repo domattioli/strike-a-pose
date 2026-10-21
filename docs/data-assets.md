@@ -41,6 +41,21 @@ np.savez(
 )
 ```
 
+## Interim capsule body (no license needed; slice 013)
+
+While SMPL is unavailable, `configs/capsule_proc_*/` generate datasets with a license-free
+stand-in: 28 rigid capsules on SMPL's rest skeleton, which is recovered at build time from the
+committed fixture labels (the only SMPL-derived input). It is **not SMPL**; its results are
+infrastructure tests (`docs/results/013-capsule/`), never reported results.
+
+```bash
+uv run --locked strike-a-pose-data make-capsule-body   # -> assets/synthetic/capsule_v1.npz
+```
+
+The command checks the file's SHA-256 against the pinned
+`bc1f3eb7275ce0fabf6fdab3fb80e36dc2bcd29eb96a6590b009dac5d0b4116a` (exit 1 and nothing written
+on a mismatch) and reports "unchanged" when the file is already there. Never commit it.
+
 ## AMASS poses (optional, `pose_source: amass`)
 
 1. Register at <https://amass.is.tue.mpg.de> and accept the AMASS license (and

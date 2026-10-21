@@ -85,8 +85,8 @@ def test_train_epoch_partial_last_batch(train_images):
     torch.manual_seed(0)
     m = ConvAutoencoder()
     opt = torch.optim.Adam(m.parameters(), lr=1e-3)
-    loss, lr = train_epoch(m, opt, train_images, 3, torch.Generator().manual_seed(0))  # 3+3+2
-    assert 0 < loss < 1 and lr == 1e-3
+    st = train_epoch(m, opt, train_images, 3, torch.Generator().manual_seed(0))  # 3+3+2
+    assert 0 < st["train_loss"] < 1 and st["lr"] == 1e-3
     assert opt.state[next(iter(m.parameters()))]["step"] == 3
 
 

@@ -19,7 +19,7 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
 
 ## Stage 2 — config + optimizer + regularization (`feat(011): config + optimizer + regularization`)
 
-- [ ] T004 Tests (red first), `tests/test_train_variants.py`: config defaults / rejections /
+- [x] T004 Tests (red first), `tests/test_train_variants.py`: config defaults / rejections /
   `beta`–`variational` coupling / `LEGACY_VALUES` = defaults; regression: 2 epochs of
   `train_epoch` (defaults, `make_optimizer`) vs an inline copy of the pre-011 loop (Adam,
   `F.mse_loss`) on the fixture train images, batch 3: equal losses, parameters, optimizer
@@ -27,11 +27,15 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
   zero fill, exact values); dropout p = 0 no draw; fixture runs (small channels): regularized
   run repeats exactly, all-knobs resume equals uninterrupted, legacy run dir resumes;
   `history.csv` columns, `training.objective`.
-- [ ] T005 `train/config.py`: six fields, validation, `MAX_SHIFT_PX`, `LEGACY_VALUES`.
-- [ ] T006 `train/objective.py`: `Objective`, `shift_batch`; `train/trainer.py`:
+- [x] T005 `train/config.py`: six fields, validation, `MAX_SHIFT_PX`, `LEGACY_VALUES`.
+- [x] T006 `train/objective.py`: `Objective`, `shift_batch`; `train/trainer.py`:
   `make_optimizer` (AdamW), `train_epoch(…, objective=None)` → dict, dropout on z, history
   columns + legacy row completion, `training.objective`; adapt
   `tests/test_train.py::test_train_epoch_partial_last_batch` to the dict return.
+  Stage record: tests written before the code (not run red: the module cannot import before
+  T005–T006). Shipped without `mask_weight` / `variational` / `beta` (stages 3–4 add each
+  key with its code, so no key is ever accepted and ignored). Checks: ruff and format clean;
+  pytest 354 passed in 37.95 s (343 before); CI smoke train + probe OK.
 
 ## Stage 3 — mask-weighted MSE (`feat(011): mask-weighted MSE`)
 

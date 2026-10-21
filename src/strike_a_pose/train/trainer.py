@@ -14,6 +14,7 @@ import random
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -44,11 +45,13 @@ from strike_a_pose.runlog import (
 )
 
 from .config import TrainConfig, load_run_config, with_legacy_values
+from .objective import Objective, shift_batch
 
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
 IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou", "regions")}
-HISTORY_FIELDS = ("epoch", "train_loss", "val_loss", "lr", "epoch_s")
+# train_recon / train_kl: spec 011 (appended; runs before it have the first five columns)
+HISTORY_FIELDS = ("epoch", "train_loss", "val_loss", "lr", "epoch_s", "train_recon", "train_kl")
 CHECKPOINT, BEST = "checkpoint.pt", "best.pt"  # resume state; best-val weights
 CL = torch.channels_last
 
@@ -91,24 +94,41 @@ def train_epoch(
     batch_size: int,
     gen: torch.Generator,
     sched: torch.optim.lr_scheduler.LRScheduler | None = None,
-) -> tuple[float, float]:
-    """One shuffled pass (last batch may be smaller); returns (mean MSE, last lr used)."""
+    objective: Objective | None = None,
+) -> dict:
+    """One shuffled pass (last batch may be smaller) under ``objective`` (spec 011; None:
+    the plain AE, today's computation). Returns the epoch means of the loss
+    (``train_loss``), of its reconstruction term (``train_recon``) and of the KL term
+    (``train_kl``, None unless variational) and the last lr used (``lr``)."""
+    obj = objective or Objective()
     model.train()
     n = images.shape[0]
     perm = torch.randperm(n, generator=gen)
-    total, lr = 0.0, float("nan")
+    total = recon_total = 0.0
+    lr = float("nan")
     for i in range(0, n, batch_size):
         idx = perm[i : i + batch_size]
-        x = to_float(images[idx]).contiguous(memory_format=CL)
+        x = to_float(shift_batch(images[idx], obj.shift_px)).contiguous(memory_format=CL)
         opt.zero_grad(set_to_none=True)
-        loss = F.mse_loss(model(x), x)
+        z = model.encode(x)
+        if obj.dropout:  # bottleneck dropout, training only (p = 0: no call, no draw)
+            z = F.dropout(z, obj.dropout, training=True)
+        recon = F.mse_loss(model.decode(z), x)
+        loss = recon
         loss.backward()
         lr = float(opt.param_groups[0]["lr"])
         opt.step()
         if sched is not None:
             sched.step()
         total += float(loss.detach()) * len(idx)
-    return total / n, lr
+        recon_total += float(recon.detach()) * len(idx)
+    return {"train_loss": total / n, "train_recon": recon_total / n, "train_kl": None, "lr": lr}
+
+
+def make_optimizer(params, cfg: TrainConfig) -> torch.optim.Optimizer:
+    """AdamW with the configured decoupled weight decay over one param group (spec 011);
+    at ``weight_decay`` 0 it steps exactly like the pre-011 Adam, whose saved states load."""
+    return torch.optim.AdamW(params, lr=cfg.lr, weight_decay=cfg.weight_decay)
 
 
 @torch.no_grad()
@@ -327,7 +347,13 @@ def _selection_line(sel: dict, last: dict) -> str:
 
 def _history_row(r: dict) -> list:
     return [r["epoch"], _fmt(r["train_loss"]), _fmt(r["val_loss"]), _fmt(r["lr"], ".6g"),
-            f"{r['epoch_s']:.1f}"]  # fmt: skip
+            f"{r['epoch_s']:.1f}", _fmt(r["train_recon"]), _fmt(r["train_kl"])]  # fmt: skip
+
+
+def _complete_row(r: dict) -> dict:
+    """A checkpointed history row with the spec 011 columns (rows from before it lack them:
+    the plain AE's reconstruction term is its loss, and it has no KL)."""
+    return r if "train_recon" in r else r | {"train_recon": r["train_loss"], "train_kl": None}
 
 
 def _setup(cfg: TrainConfig) -> dict:
@@ -462,7 +488,8 @@ def _train_and_evaluate(
     val = load_split(val_ds, cfg.batch_size, masks="val" in cfg.eval_splits)
     say(f"loaded train {train['n']} / val {val['n']} images ({time.monotonic() - t0:.0f} s)")
 
-    opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
+    opt = make_optimizer(model.parameters(), cfg)
+    objective = Objective.from_config(cfg)
     steps_per_epoch = math.ceil(train["n"] / cfg.batch_size)
     sched = make_scheduler(opt, cfg.lr_schedule, cfg.epochs * steps_per_epoch)
     gen = torch.Generator().manual_seed(cfg.seed)
@@ -474,7 +501,7 @@ def _train_and_evaluate(
         if sched is not None:
             sched.load_state_dict(ckpt["scheduler"])
         _set_rng_state(gen, ckpt["rng"])
-        rows = list(ckpt["history"])
+        rows = [_complete_row(r) for r in ckpt["history"]]
         elapsed0, train0 = ckpt["elapsed_s"], ckpt["train_wall_s"]
     hist_path = run_dir / "history.csv"
     _write_history(hist_path, rows)
@@ -484,10 +511,12 @@ def _train_and_evaluate(
         wr = csv.writer(fh)
         for epoch in range(len(rows) + 1, cfg.epochs + 1):
             te = time.monotonic()
-            tl, lr = train_epoch(model, opt, train["image"], cfg.batch_size, gen, sched)
+            st = train_epoch(model, opt, train["image"], cfg.batch_size, gen, sched, objective)
+            tl, lr = st["train_loss"], st["lr"]
             vl = eval_loss(model, val["image"], cfg.batch_size)
             dt = time.monotonic() - te
-            row = {"epoch": epoch, "train_loss": tl, "val_loss": vl, "lr": lr, "epoch_s": dt}
+            row = {"epoch": epoch, "train_loss": tl, "val_loss": vl, "lr": lr, "epoch_s": dt,
+                   "train_recon": st["train_recon"], "train_kl": st["train_kl"]}  # fmt: skip
             rows.append(row)
             wr.writerow(_history_row(row))
             fh.flush()
@@ -593,6 +622,7 @@ def _train_and_evaluate(
             "final_val_loss": vals[-1],
             "best_val_epoch": best["epoch"] if best else None,
             "best_val_loss": best["val_loss"] if best else None,
+            "objective": {"weight_decay": cfg.weight_decay, **asdict(objective)},  # spec 011
         },
         "context": {
             "fit_split": "train",

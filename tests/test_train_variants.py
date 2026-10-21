@@ -1,0 +1,245 @@
+"""Training variants (spec 011): config keys, optimizer, regularization, records, resume."""
+
+import csv
+import json
+from pathlib import Path
+
+import pytest
+import torch
+import torch.nn.functional as F
+import yaml
+
+from strike_a_pose.data import PoseImageDataset
+from strike_a_pose.eval.config import ConfigError
+from strike_a_pose.models import ConvAutoencoder
+from strike_a_pose.train.cli import main
+from strike_a_pose.train.config import LEGACY_VALUES, TrainConfig, config_from_dict, load_config
+from strike_a_pose.train.objective import Objective, shift_batch
+from strike_a_pose.train.trainer import (
+    CL,
+    HISTORY_FIELDS,
+    load_split,
+    make_optimizer,
+    resume_training,
+    run_training,
+    to_float,
+    train_epoch,
+)
+
+ROOT = Path(__file__).parents[1]
+CFG = ROOT / "configs" / "ae_fixture.yaml"
+FIXTURE = ROOT / "tests" / "fixtures" / "smpl_fixture"
+SPLIT = ROOT / "splits" / "smpl_fixture.json"
+SMALL = {"channels": [4, 4, 4, 4, 4, 4], "latent_dim": 8}  # fast; the rules do not need size
+NEW_KEYS = {"weight_decay": 0.0, "shift_px": 0, "dropout": 0.0}  # spec 011 keys: defaults
+REG = {"weight_decay": 0.05, "shift_px": 4, "dropout": 0.1}  # configs/ae_reg.yaml
+ALL_KNOBS = {**REG}  # every knob on (resume test)
+HIST_KEYS = ("train_loss", "val_loss", "lr", "train_recon", "train_kl")
+
+
+@pytest.fixture(autouse=True)
+def _cwd(monkeypatch):
+    monkeypatch.chdir(ROOT)  # config paths are repo-relative
+
+
+@pytest.fixture(scope="module")
+def train_images() -> torch.Tensor:
+    ds = PoseImageDataset(FIXTURE, split="train", split_file=SPLIT)
+    return load_split(ds, batch_size=4)["image"]
+
+
+def _cfg(tmp_path: Path, root: str, **kw) -> TrainConfig:
+    return load_config(CFG).with_overrides(run_root=str(tmp_path / root), epochs=3, **SMALL, **kw)
+
+
+def _hist(d: Path) -> list[dict]:
+    with (d / "history.csv").open() as fh:
+        return [{k: r[k] for k in HIST_KEYS} for r in csv.DictReader(fh)]
+
+
+def _metrics(d: Path) -> dict:
+    return json.loads((d / "metrics.json").read_text())
+
+
+# ------------------------------------------------------------------ config (FR-001, FR-002)
+
+
+def test_defaults_are_the_plain_ae_and_the_legacy_values():
+    cfg = TrainConfig("d", "s.json")
+    assert {k: getattr(cfg, k) for k in NEW_KEYS} == NEW_KEYS
+    assert {k: LEGACY_VALUES[k] for k in NEW_KEYS} == NEW_KEYS
+    assert config_from_dict({"dataset_dir": "d", "split_file": "s.json"}) == cfg
+
+
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {"weight_decay": -0.1},
+        {"weight_decay": float("nan")},
+        {"weight_decay": "0.1"},
+        {"dropout": 1.0},
+        {"dropout": -0.1},
+        {"dropout": True},
+        {"shift_px": -1},
+        {"shift_px": 33},
+        {"shift_px": 2.0},
+        {"shift_px": True},
+    ],
+)
+def test_invalid_variant_keys(kw):
+    with pytest.raises(ConfigError, match=next(iter(kw))):
+        config_from_dict({"dataset_dir": "d", "split_file": "s.json", **kw})
+
+
+def test_variant_keys_are_normalized():
+    cfg = config_from_dict(
+        {
+            "dataset_dir": "d",
+            "split_file": "s.json",
+            "weight_decay": 1,
+            "shift_px": 32,
+            "dropout": 0,
+        }  # fmt: skip
+    )
+    assert (cfg.weight_decay, cfg.shift_px, cfg.dropout) == (1.0, 32, 0.0)
+    assert isinstance(cfg.weight_decay, float) and isinstance(cfg.dropout, float)
+    assert config_from_dict(yaml.safe_load(yaml.safe_dump(cfg.to_dict()))) == cfg
+
+
+# ------------------------------------------------------------------ defaults (FR-011)
+
+
+def _pre_011_epoch(model, opt, images: torch.Tensor, batch_size: int, gen) -> float:
+    """Inline copy of the pre-011 ``train_epoch`` loop: the regression reference."""
+    model.train()
+    n = images.shape[0]
+    perm = torch.randperm(n, generator=gen)
+    total = 0.0
+    for i in range(0, n, batch_size):
+        idx = perm[i : i + batch_size]
+        x = to_float(images[idx]).contiguous(memory_format=CL)
+        opt.zero_grad(set_to_none=True)
+        loss = F.mse_loss(model(x), x)
+        loss.backward()
+        opt.step()
+        total += float(loss.detach()) * len(idx)
+    return total / n
+
+
+def test_defaults_equal_the_pre_011_loop(train_images):
+    """US1-1: the default objective with AdamW(weight_decay=0) is bitwise today's loop with
+    Adam: losses, weights and buffers, optimizer state, global RNG state."""
+    runs = []
+    for new in (False, True):
+        torch.manual_seed(0)
+        m = ConvAutoencoder().to(memory_format=CL)
+        gen = torch.Generator().manual_seed(0)
+        if new:
+            opt = make_optimizer(m.parameters(), TrainConfig("d", "s.json"))
+            losses = [train_epoch(m, opt, train_images, 3, gen)["train_loss"] for _ in range(2)]
+        else:
+            opt = torch.optim.Adam(m.parameters(), lr=1e-3)
+            losses = [_pre_011_epoch(m, opt, train_images, 3, gen) for _ in range(2)]
+        runs.append((losses, m, opt, torch.get_rng_state()))
+    (la, a, oa, ra), (lb, b, ob, rb) = runs
+    assert isinstance(ob, torch.optim.AdamW) and ob.param_groups[0]["weight_decay"] == 0.0
+    assert la == lb and torch.equal(ra, rb)
+    sa, sb = a.state_dict(), b.state_dict()
+    assert all(torch.equal(sa[k], sb[k]) for k in sa)
+    for p, q in zip(a.parameters(), b.parameters(), strict=True):
+        assert all(torch.equal(oa.state[p][k], ob.state[q][k]) for k in oa.state[p])
+
+
+def test_weight_decay_reaches_adamw():
+    m = ConvAutoencoder((32, 16), 4, (2, 2))
+    opt = make_optimizer(m.parameters(), TrainConfig("d", "s.json", weight_decay=0.05))
+    assert len(opt.param_groups) == 1 and opt.param_groups[0]["weight_decay"] == 0.05
+    assert opt.param_groups[0]["decoupled_weight_decay"] is True
+
+
+# ------------------------------------------------------------------ shift + dropout
+
+
+def test_shift_batch_moves_each_image_with_zero_fill():
+    u8 = torch.arange(1, 2 * 5 * 4 + 1).reshape(2, 1, 5, 4).to(torch.uint8)
+    torch.manual_seed(3)
+    off = torch.randint(-2, 3, (2, 2))  # the draw shift_batch makes
+    torch.manual_seed(3)
+    out = shift_batch(u8, 2)
+    assert out.dtype == torch.uint8 and out.shape == u8.shape
+    for b, (dy, dx) in enumerate(off.tolist()):
+        for i in range(5):
+            for j in range(4):
+                si, sj = i - dy, j - dx
+                want = int(u8[b, 0, si, sj]) if 0 <= si < 5 and 0 <= sj < 4 else 0
+                assert int(out[b, 0, i, j]) == want
+
+
+def test_shift_zero_is_the_identity_without_draws():
+    u8 = torch.randint(0, 255, (3, 1, 8, 6), dtype=torch.uint8)
+    state = torch.get_rng_state()
+    assert shift_batch(u8, 0) is u8 and torch.equal(state, torch.get_rng_state())
+
+
+def test_dropout_and_shift_change_training_only(train_images):
+    def epoch(obj: Objective) -> tuple[float, torch.Tensor]:
+        torch.manual_seed(0)
+        m = ConvAutoencoder((256, 192), 8, (4, 4, 4, 4, 4, 4))
+        opt = make_optimizer(m.parameters(), TrainConfig("d", "s.json"))
+        st = train_epoch(m, opt, train_images, 4, torch.Generator().manual_seed(0), objective=obj)
+        assert st["train_recon"] == st["train_loss"] and st["train_kl"] is None
+        return st["train_loss"], torch.get_rng_state()
+
+    base, rng0 = epoch(Objective())
+    for obj in (Objective(dropout=0.5), Objective(shift_px=4)):
+        loss, rng = epoch(obj)
+        assert loss != base and not torch.equal(rng, rng0)
+
+
+# ------------------------------------------------------------------ fixture runs
+
+
+def test_regularized_run_repeats_and_records(tmp_path):
+    a = run_training(_cfg(tmp_path, "a", **REG))
+    b = run_training(_cfg(tmp_path, "b", **REG))
+    with (a / "history.csv").open() as fh:
+        assert tuple(next(csv.reader(fh))) == HISTORY_FIELDS
+    ha = _hist(a)
+    assert ha == _hist(b) and len(ha) == 3
+    assert all(r["train_recon"] == r["train_loss"] and r["train_kl"] == "" for r in ha)
+    assert (a / "metrics.json").read_bytes() == (b / "metrics.json").read_bytes()
+    objective = _metrics(a)["training"]["objective"]
+    assert {k: objective[k] for k in REG} == REG
+    assert {k: yaml.safe_load((a / "config.yaml").read_text())[k] for k in REG} == REG
+
+
+def test_resume_with_every_knob_equals_uninterrupted(tmp_path):
+    full = run_training(_cfg(tmp_path, "full", **ALL_KNOBS))
+    d = run_training(_cfg(tmp_path, "cut", **ALL_KNOBS), stop_after_epoch=1)
+    assert not (d / "metrics.json").exists()
+    resume_training(d)
+    assert _hist(d) == _hist(full)
+    assert (d / "metrics.json").read_bytes() == (full / "metrics.json").read_bytes()
+    a, b = torch.load(d / "checkpoint.pt"), torch.load(full / "checkpoint.pt")
+    assert all(torch.equal(a["model"][k], b["model"][k]) for k in b["model"])
+
+
+def test_run_dir_from_before_011_resumes(tmp_path):
+    """US1-2: no 011 key in config.yaml / checkpoint.pt, history rows without the new columns,
+    an Adam optimizer state: the run resumes with the legacy values and equals a full run."""
+    full = run_training(_cfg(tmp_path, "full"))
+    d = run_training(_cfg(tmp_path, "cut"), stop_after_epoch=1)
+    c = yaml.safe_load((d / "config.yaml").read_text())
+    (d / "config.yaml").write_text(
+        yaml.safe_dump({k: v for k, v in c.items() if k not in NEW_KEYS})
+    )
+    ck = torch.load(d / "checkpoint.pt")
+    ck["config"] = {k: v for k, v in ck["config"].items() if k not in NEW_KEYS}
+    old = ("train_recon", "train_kl")
+    ck["history"] = [{k: v for k, v in r.items() if k not in old} for r in ck["history"]]
+    for g in ck["optimizer"]["param_groups"]:
+        g["decoupled_weight_decay"] = False  # as torch.optim.Adam saved it before 011
+    torch.save(ck, d / "checkpoint.pt")
+    assert main(["--resume", str(d)]) == 0
+    assert _hist(d) == _hist(full)
+    assert (d / "metrics.json").read_bytes() == (full / "metrics.json").read_bytes()

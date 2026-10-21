@@ -4,16 +4,19 @@ Builds on the 003 eval contract (metrics, PCA, run-dir conventions).
 Breaking changes bump `train_version` in `metrics.json`. v2 (slice 008
 `best-val-selection`, 2026-10-20): the scored weights are chosen by `select_weights`
 (default: the epoch with the lowest val loss, `best.pt`) and named in `metrics.json`
-`selection`; v1 runs always scored the final weights.
+`selection`; v1 runs always scored the final weights. Slice 011 `training-variants`
+(2026-10-21) adds optional training variants (config keys below; their defaults are the plain
+AE, bit for bit) with additive records; `train_version` stays 2.
 
 ## Model (`strike_a_pose.models.ConvAutoencoder`)
 
 ```python
 ConvAutoencoder(image_size=(256, 192), latent_dim=64,
-                channels=(16, 32, 64, 128, 256, 256))
-model.encode(x: Tensor[B, 1, H, W]) -> Tensor[B, latent_dim]
+                channels=(16, 32, 64, 128, 256, 256), variational=False)
+model.encode(x: Tensor[B, 1, H, W]) -> Tensor[B, latent_dim]   # mu for a VAE
+model.encode_dist(x) -> (mu, logvar | None)                    # slice 011
 model.decode(z: Tensor[B, latent_dim]) -> Tensor[B, 1, H, W]   # in [0, 1] (sigmoid)
-model(x) -> decode(encode(x))
+model(x) -> decode(encode(x))                                  # deterministic
 ```
 
 Encoder: per channel width `c`: `Conv2d(k3, s2, p1) → BatchNorm2d → LeakyReLU(0.2)`;
@@ -23,6 +26,13 @@ LeakyReLU(0.2)` blocks → final `ConvTranspose2d(k4, s2, p1)` to 1 channel → 
 `H` and `W` must be divisible by `2^n` (`n = len(channels)`), else `ValueError`.
 `load_checkpoint(path) -> (ConvAutoencoder, dict)` rebuilds the model in eval mode
 from `checkpoint.pt` or `best.pt`.
+
+VAE (slice 011, `variational=True`): a `logvar = Linear(flat, latent_dim)` head on the
+flattened bottleneck (the input of the encoder's last `Linear`), created after encoder and
+decoder, so every other parameter initializes as for the plain AE at the same seed; state
+keys `logvar.weight`, `logvar.bias`; 3,323,569 parameters at the defaults (plain 3,126,897).
+`hparams()` carries `variational`; a checkpoint without it loads as the plain AE. Code from
+before slice 011 cannot load a VAE checkpoint.
 
 ## Train config (YAML, `configs/ae*.yaml`)
 
@@ -39,7 +49,7 @@ Flat mapping; unknown keys are an error.
 | `channels` | list[int > 0] | `[16, 32, 64, 128, 256, 256]` | encoder widths (decoder mirrors) |
 | `epochs` | int > 0 | `60` | passes over train |
 | `batch_size` | int > 0 | `64` | train batch; also eval batch |
-| `lr` | float > 0 | `0.001` | Adam learning rate |
+| `lr` | float > 0 | `0.001` | learning rate (AdamW since slice 011, equal to Adam at `weight_decay: 0`) |
 | `lr_schedule` | `constant` \| `cosine` | `cosine` | cosine: per-step decay from `lr` to 0 |
 | `eval_splits` | list[str] | `[val, test]` | splits scored after training (unique, not `train`) |
 | `select_weights` | `best_val` \| `final` | `best_val` | scored weights (slice 008): `best_val` = the earliest epoch with the lowest finite val loss (`best.pt`), falling back to the final epoch when val is empty or has no finite loss; `final` = the last epoch |
@@ -47,10 +57,31 @@ Flat mapping; unknown keys are an error.
 | `iou_threshold` | float in (0, 1) | `0.075` | silhouette threshold (003) |
 | `figure_split` | str | `val` | split shown (must be in `eval_splits`) |
 | `figure_samples` | int > 0 | `6` | figure rows (evenly spaced samples) |
+| `mask_weight` | float ≥ 0 | `0.0` | slice 011: α of the mask-weighted MSE (objective below); 0 = plain MSE |
+| `variational` | bool | `false` | slice 011: VAE (`logvar` head, reparameterized training, KL term) |
+| `beta` | float ≥ 0 | `0.0` | slice 011: KL weight; > 0 iff `variational` |
+| `weight_decay` | float ≥ 0 | `0.0` | slice 011: AdamW decoupled weight decay (every parameter, one group) |
+| `shift_px` | int in [0, 32] | `0` | slice 011: each train image shifted by its own integer offset in `[-k, k]²`, zero fill |
+| `dropout` | float in [0, 1) | `0.0` | slice 011: dropout on the latent in training (after sampling) |
 
 The per-epoch val loss is computed when `val` has samples, whether or not `val`
 is in `eval_splits`; it never changes training (epochs, lr, optimizer) and, under
 `best_val`, selects the scored weights.
+
+The slice 011 keys default to the pre-011 computation and carry that value in
+`train.config.LEGACY_VALUES`, so run directories started before them resume.
+
+### Training objective (slice 011)
+
+Per train batch: `x` in `[0, 1]` (after the shift), `z = mu` (plain) or
+`mu + exp(logvar / 2)·eps` (VAE), then dropout, `y = decode(z)`, `m = [x > 0]` (the
+silhouette), `P = H·W`. `recon = mse_loss(y, x)` when `mask_weight` is 0, else
+`sum(w·(y − x)²) / sum(w)` with `w = 1 + mask_weight·m` (sums over the batch). VAE:
+`KL = mean_b ½·sum_j (mu² + exp(logvar) − 1 − logvar)` (nats per image),
+`loss = recon + beta·KL / P`; otherwise `loss = recon`. Shift offsets, `eps` and dropout
+masks come from the global torch RNG (saved per epoch, so a resume stays exact), each only
+when its knob is on. The val loss, the selection, the metrics and the figure use the
+eval-mode `model(x) = decode(mu)` with the plain MSE, whatever the variant.
 
 ## CLI
 
@@ -92,8 +123,8 @@ created.
 |---|---|
 | `config.yaml` | resolved config (overrides applied) |
 | `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset` (incl. `manifest_content_sha256`, slice 007), `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `model_parameters`, `train_wall_s`, `figure`, `sessions` (one per process: `started_utc`, `start_epoch`, `argv`, `git`); `wall_s`/`train_wall_s` sum the sessions |
-| `history.csv` | header `epoch,train_loss,val_loss,lr,epoch_s`; one row per epoch (1-based); `val_loss` empty when val is empty; `lr` = rate at the epoch's last step |
-| `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels}, "optimizer": state_dict, "scheduler": state_dict \| null, "rng": {"shuffle", "torch", "numpy", "python"}, "history": [row, …], "elapsed_s": float, "train_wall_s": float, "epoch": int, "config": dict, "train_version": 2}`; resume state of the last finished epoch, written atomically after every epoch, before that epoch's `best.pt`; the scored file only when the final weights are scored (`selection.checkpoint`); never committed |
+| `history.csv` | header `epoch,train_loss,val_loss,lr,epoch_s,train_recon,train_kl` (the last two since slice 011; runs before it have the first five); one row per epoch (1-based); `train_loss` = epoch mean of the objective, `train_recon` = of its reconstruction term (= `train_loss` unless `variational`), `train_kl` = mean KL in nats per image (empty unless `variational`); `val_loss` empty when val is empty; `lr` = rate at the epoch's last step |
+| `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels, variational}, "optimizer": state_dict, "scheduler": state_dict \| null, "rng": {"shuffle", "torch", "numpy", "python"}, "history": [row, …], "elapsed_s": float, "train_wall_s": float, "epoch": int, "config": dict, "train_version": 2}`; resume state of the last finished epoch, written atomically after every epoch, before that epoch's `best.pt`; the scored file only when the final weights are scored (`selection.checkpoint`); never committed |
 | `best.pt` | `{"model", "model_hparams", "epoch", "val_loss", "config", "train_version": 2}` of the earliest epoch with the lowest finite val loss so far (NaN never counts), written atomically after that epoch's `checkpoint.pt` whenever val has samples (also under `select_weights: final`, where it is informational); absent when val is empty or never finite; loads with `load_checkpoint`; the scored file under `best_val` (slice 008; additive since surrogate ruling 2026-10-20 #3); never committed. On resume the best is recomputed from the checkpointed full-precision history and the file reconciled (CLI). |
 | `metrics.json` | below |
 | `recon_<figure_split>.png` | 003 grid: columns `true`, `ae` (the scored weights), `mean_image`, `pca k=K` |
@@ -105,10 +136,11 @@ created.
   "train_version": 2,
   "metrics_version": 1,
   "dataset": {"name": "smpl_proc_v1", "manifest_sha256": "…", "split_file_sha256": "…"},
-  "model": {"name": "ConvAutoencoder", "latent_dim": 64, "channels": [16, 32, 64, 128, 256, 256], "parameters": 3126897},
+  "model": {"name": "ConvAutoencoder", "latent_dim": 64, "channels": [16, 32, 64, 128, 256, 256], "parameters": 3126897, "variational": false},
   "training": {"epochs": 60, "steps": 12000, "train_samples": 12800,
                "first_train_loss": 0.0, "final_train_loss": 0.0,
-               "first_val_loss": 0.0, "final_val_loss": 0.0},
+               "first_val_loss": 0.0, "final_val_loss": 0.0,
+               "objective": {"mask_weight": 0.0, "beta": 0.0, "weight_decay": 0.0, "shift_px": 0, "dropout": 0.0}},
   "context": {"fit_split": "train", "pca_k": 64, "pca_k_effective": 64},
   "selection": {"select_weights": "best_val", "weights": "best_val", "selected_by": "val loss",
                 "epoch": 34, "val_loss": 0.0, "checkpoint": "best.pt"},
@@ -140,6 +172,11 @@ splits (val when it is in `eval_splits`, every other eval split) keep their 2D k
 visibility in memory next to the masks (≈ 0.2 KB per sample); no config key, file, log line
 or figure changes, and a run directory started before slice 009 resumes unchanged and
 reports regions when it finishes.
+
+Training variants (slice 011, 2026-10-21; additive): `model.variational` and
+`training.objective` (`mask_weight`, `beta`, `weight_decay`, `shift_px`, `dropout`).
+`first_train_loss` / `final_train_loss` are the configured objective and compare across runs
+only at equal objective keys; every image metric is the plain one of `decode(mu)`.
 
 `selection` (slice 008) names the scored weights: `select_weights` (the configured
 rule), `weights` (applied: `best_val` | `final`), `selected_by` (`"val loss"` |

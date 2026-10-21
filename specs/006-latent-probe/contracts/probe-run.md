@@ -65,6 +65,12 @@ and the encoder set match; otherwise recomputed and overwritten. Never committed
 | `skeleton_<figure_split>.png` | rows = evenly spaced samples; columns: true, ridge, mlp (trained encoder, `joints_world`) drawn on the input image (true skeleton blue, prediction orange) |
 | `yaw_confusion_<figure_split>.png` | 8×8 count grids (rows true, columns predicted) for the trained-encoder ridge and MLP yaw probes |
 
+VAE checkpoints (slice 011 `training-variants`, 2026-10-21): a `variational` 004 checkpoint
+loads like any other; its encoder is probed through `encode(x)` = μ (deterministic, no
+sampling), and the random-encoder control stays a plain seeded encoder (the same weights as
+an untrained VAE's encoder at that seed). `encoder.variational` (additive; `probe_version`
+stays 1) records which kind was probed.
+
 ### `metrics.json` (`probe_version` 1)
 
 ```json
@@ -72,7 +78,7 @@ and the encoder set match; otherwise recomputed and overwritten. Never committed
   "probe_version": 1,
   "metrics_version": 1,
   "dataset": {"name": "…", "manifest_sha256": "…", "split_file_sha256": "…"},
-  "encoder": {"checkpoint_sha256": "…", "epoch": 60, "latent_dim": 64},
+  "encoder": {"checkpoint_sha256": "…", "epoch": 60, "latent_dim": 64, "variational": false},
   "fit": {"split": "train", "samples": 12800, "poses": 1600},
   "units": {"mpjpe_mm": "…", "kp2d_px": "…", "accuracy": "…", "angle_deg": "…"},
   "classes": ["Front_0", "…"],

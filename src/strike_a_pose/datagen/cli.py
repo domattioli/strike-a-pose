@@ -29,10 +29,21 @@ def main(argv: list[str] | None = None) -> int:
         "--fractions", nargs=3, type=float, default=None, metavar=("TRAIN", "VAL", "TEST")
     )
     sp.add_argument("--overwrite", action="store_true")
+    cb = sub.add_parser(
+        "make-capsule-body",
+        help="write the interim license-free capsule body (spec 013; not SMPL)",
+    )
+    cb.add_argument("--out", default="assets/synthetic/capsule_v1.npz")
+    cb.add_argument(
+        "--fixture", default="tests/fixtures/smpl_fixture", help="skeleton source (fixture dir)"
+    )
+    cb.add_argument("--overwrite", action="store_true")
     a = p.parse_args(argv)
 
     if a.cmd == "split":
         return _split(a)
+    if a.cmd == "make-capsule-body":
+        return _make_capsule_body(a)
 
     if a.cmd == "validate":
         errs = validate_dataset(a.dataset_dir)
@@ -86,6 +97,40 @@ def _split(a: argparse.Namespace) -> int:
     c = split["counts"]
     counts = ", ".join(f"{k} {c[k]['poses']}/{c[k]['samples']}" for k in SPLITS)
     print(f"wrote {out} (poses/samples: {counts})")
+    return 0
+
+
+def _make_capsule_body(a: argparse.Namespace) -> int:
+    import hashlib
+    from pathlib import Path
+
+    import numpy as np
+
+    from .capsule import CAPSULE_V1_SHA256, build_capsule_bytes
+
+    try:
+        data, digest = build_capsule_bytes(a.fixture)
+    except MissingAssetError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_ASSETS
+    if digest != CAPSULE_V1_SHA256:
+        print(
+            f"error: built capsule body {digest} differs from the pinned {CAPSULE_V1_SHA256}"
+            f" (numpy {np.__version__}, Python {sys.version.split()[0]}); nothing written",
+            file=sys.stderr,
+        )
+        return 1
+    out = Path(a.out)
+    if out.exists():
+        if hashlib.sha256(out.read_bytes()).hexdigest() == digest:
+            print(f"unchanged {out} sha256 {digest}")
+            return 0
+        if not a.overwrite:
+            print(f"error: {out} exists with other bytes; pass --overwrite", file=sys.stderr)
+            return EXIT_EXISTS
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(data)
+    print(f"wrote {out} sha256 {digest}")
     return 0
 
 

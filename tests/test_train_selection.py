@@ -119,14 +119,20 @@ def _selection(rule: str, weights: str, by: str, epoch: int, val_loss, checkpoin
 
 
 def _rescore(weights: Path, cfg: TrainConfig) -> tuple[dict, list[np.ndarray]]:
-    """Val scores (as written to metrics.json) and figure tiles of a file's weights."""
+    """Val scores (as written to metrics.json, regions included: spec 009) and figure tiles
+    of a file's weights."""
     model, _ = load_checkpoint(weights)
     model = model.to(memory_format=torch.channels_last)  # the trainer's layout
     ds = PoseImageDataset(cfg.dataset_dir, split="val", split_file=cfg.split_file)
     a = load_split(ds, cfg.batch_size, masks=True)
     x = to_float(a["image"]).reshape(a["n"], -1)
     scores = score_images(
-        lambda b: predict_rows(model, b), x, a["mask"], cfg.batch_size, cfg.iou_threshold
+        lambda b: predict_rows(model, b),
+        x,
+        a["mask"],
+        cfg.batch_size,
+        cfg.iou_threshold,
+        labels=(a["kp2d"], a["visible"], a["image_size"]),
     )
     h, w = a["image_size"]
     shown = predict_rows(model, x[figure_indices(a["n"], cfg.figure_samples)])

@@ -17,6 +17,11 @@ from strike_a_pose.eval.report import FIG_HEADER, FIG_PAD
 ROOT = Path(__file__).parents[1]
 CFG = ROOT / "configs" / "baselines_fixture.yaml"
 FIXTURE = ROOT / "tests" / "fixtures" / "smpl_fixture"
+REGIONS_BLOCK = {  # spec 009 FR-001 / FR-007
+    "feet": {"half_size_px": 8, "joints": ["left_ankle", "right_ankle", "left_foot", "right_foot"]},
+    "hands": {"half_size_px": 10, "joints": ["left_hand", "right_hand"]},
+    "head": {"half_size_px": 14, "joints": ["head"]},
+}
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +73,11 @@ def test_fixture_run_directory(tmp_path, capsys):
     assert set(t["pose"]) == {"mean_pose", "pca_k2"}
     for r in t["image"].values():
         assert 0 < r["image_mse"] < 1 and r["psnr_db"] > 0 and 0 <= r["silhouette_iou"] <= 1
+        assert set(r["regions"]) == {"hands", "feet", "head"}  # spec 009 FR-005
+        for g in r["regions"].values():
+            assert 0 <= g["image_mse"] <= 1 and g["samples"] == 8  # all fixture joints visible
+    assert m["regions"] == REGIONS_BLOCK and "regions" in m["units"]
+    assert all("regions" not in r for r in t["pose"].values())
     assert t["image"]["pca_k4"]["k_effective"] == 4
     pk = t["pose"]["pca_k2"]
     assert pk["k_effective"] == 0 and pk["mpjpe_mm"] == t["pose"]["mean_pose"]["mpjpe_mm"]

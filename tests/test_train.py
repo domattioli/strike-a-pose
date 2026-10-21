@@ -20,6 +20,7 @@ from strike_a_pose.data import (
 )
 from strike_a_pose.data.split import manifest_sha256
 from strike_a_pose.datagen.io import dumps, load_manifest
+from strike_a_pose.eval.cli import main as eval_main
 from strike_a_pose.eval.report import FIG_HEADER, FIG_PAD
 from strike_a_pose.models import ConvAutoencoder, load_checkpoint
 from strike_a_pose.train.cli import main
@@ -55,6 +56,20 @@ def test_load_split_matches_loader(train_images):
     assert train_images.shape == (8, 1, 256, 192) and train_images.dtype == torch.uint8
     for i in (0, 7):
         assert torch.equal(to_float(train_images[i]), ds[i]["image"])  # bit-identical
+
+
+def test_load_split_keeps_labels_with_masks():
+    """Spec 009 FR-006: scored splits (masks=True) keep the 2D keypoints and visibility."""
+    ds = PoseImageDataset(FIXTURE, split="test", split_file=SPLIT)
+    a = load_split(ds, batch_size=3, masks=True)  # 3 + 3 + 2
+    assert a["kp2d"].shape == (8, 24, 2) and a["kp2d"].dtype == torch.float32
+    assert a["visible"].shape == (8, 24) and a["visible"].dtype == torch.bool
+    for i in (0, 4, 7):
+        s = ds[i]
+        assert torch.equal(a["kp2d"][i], s["keypoints_2d"])
+        assert torch.equal(a["visible"][i], s["visibility"])
+        assert torch.equal(a["mask"][i], s["mask"].reshape(-1))
+    assert not {"mask", "kp2d", "visible"} & set(load_split(ds, batch_size=3))
 
 
 def test_overfit_fixed_batch(train_images):
@@ -140,6 +155,10 @@ def test_fixture_train_run(tmp_path, capsys):
     assert ts["samples"] == 8 and set(ts["image"]) == {"ae", "mean_image", "pca_k4"}
     for r in ts["image"].values():
         assert 0 < r["image_mse"] < 1 and r["psnr_db"] > 0 and 0 <= r["silhouette_iou"] <= 1
+        assert set(r["regions"]) == {"hands", "feet", "head"}  # spec 009 FR-006
+        for g in r["regions"].values():
+            assert 0 <= g["image_mse"] <= 1 and g["samples"] == 8
+    assert set(m["regions"]) == {"hands", "feet", "head"} and "regions" in m["units"]
 
     fig = Image.open(d / "recon_test.png")
     rows, cols = 4, 4  # figure_samples; true, ae, mean, pca
@@ -150,6 +169,25 @@ def test_fixture_train_run(tmp_path, capsys):
 
     model, ckpt = load_checkpoint(d / "checkpoint.pt")
     assert ckpt["epoch"] == 10 and ckpt["config"]["seed"] == 3 and model.latent_dim == 64
+
+
+def test_baseline_entries_equal_the_003_run(tmp_path):
+    """Spec 009 FR-009 (k): the 003 baseline run and a 004 run score the mean image and PCA
+    k=4 identically, regions included. The AE does not enter these entries (small, 1 epoch);
+    both fixture configs use batch size 4."""
+    root3 = tmp_path / "b"
+    cfg3 = ROOT / "configs" / "baselines_fixture.yaml"
+    assert eval_main(["baseline", "--config", str(cfg3), "--run-root", str(root3)]) == 0
+    m3 = json.loads((next(root3.iterdir()) / "metrics.json").read_text())
+    cfg = load_config(CFG).with_overrides(
+        run_root=str(tmp_path / "t"), epochs=1, channels=[4] * 6, latent_dim=8
+    )
+    m4 = json.loads((run_training(cfg) / "metrics.json").read_text())
+    i3, i4 = m3["splits"]["test"]["image"], m4["splits"]["test"]["image"]
+    for name in ("mean_image", "pca_k4"):
+        assert set(i4[name]["regions"]) == {"hands", "feet", "head"}
+        assert i3[name] == i4[name], name
+    assert m3["regions"] == m4["regions"] and m3["units"]["regions"] == m4["units"]["regions"]
 
 
 def test_repeatable(tmp_path):

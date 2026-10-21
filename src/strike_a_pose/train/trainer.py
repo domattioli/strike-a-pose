@@ -26,7 +26,12 @@ from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.eval.baselines import UNITS
 from strike_a_pose.eval.config import ConfigError
 from strike_a_pose.eval.pca import fit_pca
-from strike_a_pose.eval.report import figure_indices, grid_figure, score_images
+from strike_a_pose.eval.report import (
+    figure_indices,
+    grid_figure,
+    region_definitions,
+    score_images,
+)
 from strike_a_pose.models import ConvAutoencoder
 from strike_a_pose.runlog import (
     environment_summary,
@@ -42,14 +47,16 @@ from .config import TrainConfig, load_run_config, with_legacy_values
 
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
-IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou")}
+IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou", "regions")}
 HISTORY_FIELDS = ("epoch", "train_loss", "val_loss", "lr", "epoch_s")
 CHECKPOINT, BEST = "checkpoint.pt", "best.pt"  # resume state; best-val weights
 CL = torch.channels_last
 
 
 def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> dict:
-    """Read a dataset split into memory: uint8 images ``[n, 1, H, W]`` (+ bool masks)."""
+    """Read a dataset split into memory: uint8 images ``[n, 1, H, W]``; with ``masks`` (the
+    scored splits) also bool masks ``[n, H*W]`` and the labels of the region metrics (spec
+    009): 2D keypoints ``kp2d`` float32 ``[n, 24, 2]`` (px) and ``visible`` bool ``[n, 24]``."""
     n = len(ds)
     h, w = ds.image_size
     a: dict = {"n": n, "image_size": (h, w)}
@@ -57,6 +64,8 @@ def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> di
     a["pose_index"] = torch.empty(n, dtype=torch.int64)
     if masks:
         a["mask"] = torch.empty((n, h * w), dtype=torch.bool)
+        a["kp2d"] = torch.empty((n, 24, 2), dtype=torch.float32)
+        a["visible"] = torch.empty((n, 24), dtype=torch.bool)
     i = 0
     for b in DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0):
         m = b["image"].shape[0]
@@ -64,6 +73,8 @@ def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> di
         a["pose_index"][i : i + m] = b["pose_index"]
         if masks:
             a["mask"][i : i + m] = b["mask"].reshape(m, -1)
+            a["kp2d"][i : i + m] = b["keypoints_2d"]
+            a["visible"][i : i + m] = b["visibility"]
         i += m
     return a
 
@@ -536,9 +547,10 @@ def _train_and_evaluate(
         out: dict = {"samples": n, "poses": int(a["pose_index"].unique().numel()) if n else 0}
         if n:
             x = to_float(a["image"]).reshape(n, -1)
+            labels = (a["kp2d"], a["visible"], a["image_size"])  # region metrics (spec 009)
             img = {}
             for name, fn in preds.items():
-                r = score_images(fn, x, a["mask"], cfg.batch_size, cfg.iou_threshold)
+                r = score_images(fn, x, a["mask"], cfg.batch_size, cfg.iou_threshold, labels=labels)
                 if name == pca_name:
                     r |= {"k": cfg.context_pca_k, "k_effective": pca.k_effective(cfg.context_pca_k)}
                 img[name] = r
@@ -588,6 +600,7 @@ def _train_and_evaluate(
             "pca_k_effective": pca.k_effective(cfg.context_pca_k) if pca is not None else None,
         },
         "selection": selection,
+        "regions": region_definitions(),
         "units": IMAGE_UNITS,
         "splits": splits,
     }

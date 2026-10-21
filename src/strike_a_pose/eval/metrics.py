@@ -1,10 +1,11 @@
 """Reconstruction and pose metrics (contract: specs/003-baselines-and-metrics/contracts).
 
 Every function takes NumPy arrays or torch tensors with a leading batch dim and
-returns per-sample values ``[B]`` of the same array type. Math runs in torch; NumPy
-inputs keep their dtype.
+returns per-sample values ``[B]`` of the same array type (``region_mask``: a bool
+``[B, H, W]`` mask). Math runs in torch; NumPy inputs keep their dtype.
 """
 
+from collections.abc import Sequence
 from typing import TypeVar
 
 import numpy as np
@@ -15,6 +16,15 @@ Array = TypeVar("Array", np.ndarray, torch.Tensor)
 IOU_THRESHOLD = 0.075  # half the renderer's ambient floor (body >= 0.15, background 0)
 PSNR_MSE_FLOOR = 1e-10  # caps PSNR at 100 dB for max_val = 1
 ROOT_JOINT = 0  # pelvis (smpl24)
+
+# Image regions (spec 009 FR-001): name -> (SMPL-24 joint indices, half-size h in px); each
+# region is the union of (2h + 1)-px squares on its joints. Sized for the 001 camera ring
+# (3.5 m, focal 320 px, 256 x 192, ~91 px/m); generalization: h = f * s / z per joint.
+REGIONS: dict[str, tuple[tuple[int, ...], int]] = {
+    "hands": ((22, 23), 10),  # left_hand, right_hand (knuckles): 21 px ~ 23 cm
+    "feet": ((7, 8, 10, 11), 8),  # left/right ankle, left/right foot: 17 px ~ 19 cm each
+    "head": ((15,), 14),  # head (low in the head; no face joint): 29 px ~ 32 cm
+}
 
 
 def _t(x) -> torch.Tensor:
@@ -83,6 +93,63 @@ def keypoint_error_2d(pred: Array, target: Array, visible: Array | None = None) 
     v = _t(visible).bool()
     n = v.sum(dim=1)
     s = torch.where(v, err, torch.zeros_like(err)).sum(dim=1)
+    nan = torch.full_like(s, float("nan"))
+    return _out(torch.where(n > 0, s / n.clamp_min(1), nan), pred)
+
+
+def region_mask(
+    keypoints: Array,
+    visible: Array,
+    image_size: tuple[int, int],
+    joints: Sequence[int],
+    half_size: int,
+) -> Array:
+    """Pixels of a region: bool ``[B, H, W]`` from keypoints ``[B, J, 2]`` and ``visible [B, J]``.
+
+    The pixel holding keypoint (u, v) (pixels, u right, v down) is row ⌊v⌋, column ⌊u⌋
+    (the renderer samples pixel centres). Pixel (r, c) belongs to the region iff some
+    listed joint is visible with ``|r - ⌊v⌋| <= half_size`` and ``|c - ⌊u⌋| <= half_size``:
+    the union of the visible joints' (2h + 1)² squares, clipped to the image; invisible
+    joints add nothing. Returned as the keypoints' array type.
+    """
+    kp, vis = _t(keypoints), _t(visible).bool()
+    if kp.ndim != 3 or kp.shape[-1] != 2 or tuple(vis.shape) != tuple(kp.shape[:2]):
+        raise ValueError(
+            f"expected keypoints [B, J, 2] and visible [B, J], got {tuple(kp.shape)}, "
+            f"{tuple(vis.shape)}"
+        )
+    if half_size < 0:
+        raise ValueError(f"half_size must be >= 0, got {half_size}")
+    h, w = image_size
+    rows = torch.arange(h, dtype=torch.float64)
+    cols = torch.arange(w, dtype=torch.float64)
+    mask = torch.zeros((kp.shape[0], h, w), dtype=torch.bool)
+    for j in joints:  # floor in float64: exact for float32 and float64 keypoints
+        c = torch.floor(kp[:, j, 0].to(torch.float64))
+        r = torch.floor(kp[:, j, 1].to(torch.float64))
+        in_r = ((rows[None] - r[:, None]).abs() <= half_size) & vis[:, j, None]
+        in_c = (cols[None] - c[:, None]).abs() <= half_size
+        mask |= in_r[:, :, None] & in_c[:, None, :]
+    return _out(mask, keypoints)
+
+
+def masked_mse(pred: Array, target: Array, mask: Array) -> Array:
+    """Per-sample mean of ``(pred - target)²`` over the ``mask`` pixels; NaN where empty.
+
+    ``pred``, ``target`` and bool ``mask`` of equal shape ``[B, ...]``; ``[B]`` of ``pred``'s
+    array type and float dtype (as :func:`image_mse`).
+    """
+    p, t, m = _t(pred), _t(target), _t(mask)
+    if p.shape != t.shape or p.shape != m.shape:
+        raise ValueError(
+            f"shape mismatch {tuple(p.shape)} vs {tuple(t.shape)} vs mask {tuple(m.shape)}"
+        )
+    if not p.is_floating_point():
+        p = p.to(torch.float64)
+    se = _flat((p - t) ** 2)
+    m = _flat(m.bool())
+    n = m.sum(dim=1)
+    s = torch.where(m, se, torch.zeros_like(se)).sum(dim=1)
     nan = torch.full_like(s, float("nan"))
     return _out(torch.where(n > 0, s / n.clamp_min(1), nan), pred)
 

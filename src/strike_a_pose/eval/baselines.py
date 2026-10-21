@@ -28,7 +28,7 @@ from strike_a_pose.runlog import (
 from .config import BaselineConfig
 from .metrics import ROOT_JOINT, keypoint_error_2d, mpjpe, project_points
 from .pca import PCA, fit_pca
-from .report import figure_indices, grid_figure, score_images
+from .report import figure_indices, grid_figure, region_definitions, score_images
 
 METRICS_VERSION = 1
 UNITS = {
@@ -37,6 +37,12 @@ UNITS = {
     "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean",
     "mpjpe_mm": "mm, root-relative (pelvis) 3D joint error, world frame (= camera frame)",
     "kp2d_px": "px, mean over visible joints; prediction + true root projected with true camera",
+    "regions": (
+        "per-pixel mean squared error (images in [0, 1]) over every pixel of the region, body "
+        "and background, per image; mean over the images whose region is non-empty (samples); "
+        "a region (top-level regions) is the union of the squares of side 2*half_size_px+1 px "
+        "centred on the pixels of its visible joints, clipped to the image"
+    ),
 }
 
 
@@ -109,8 +115,11 @@ def score_split(b: Baselines, a: dict, cfg: BaselineConfig) -> dict:
     if n == 0:
         return out
     img: dict = {}
+    labels = (a["kp2d"], a["visible"], a["image_size"])  # region metrics (spec 009)
     for name, k, pred in _image_predictors(b, cfg):
-        r = score_images(pred, a["image"], a["mask"], cfg.batch_size, cfg.iou_threshold)
+        r = score_images(
+            pred, a["image"], a["mask"], cfg.batch_size, cfg.iou_threshold, labels=labels
+        )
         if k is not None:
             r |= {"k": k, "k_effective": b.image_pca.k_effective(k)}
         img[name] = r
@@ -223,6 +232,7 @@ def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
             "split_file_sha256": split_sha,
         },
         "fit": fit,
+        "regions": region_definitions(),
         "units": UNITS,
         "splits": splits,
     }

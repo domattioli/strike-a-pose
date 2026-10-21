@@ -1,4 +1,4 @@
-# Handoff — strike-a-pose (as of 2026-10-20, after slice 008)
+# Handoff — strike-a-pose (as of 2026-10-21, after slice 009)
 
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
@@ -28,6 +28,17 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   dirs started before a config key existed resume with its legacy value
   (`train.config.LEGACY_VALUES`). The published 004 / 006 numbers stay final-epoch
   weights until the re-baseline run. `configs/probe.yaml` names a placeholder run dir.
+- Slice 009 `region-metrics` (roadmap #16, operator choice (i), 2026-10-20) implemented
+  2026-10-21; approved at surrogate scope, operator sign-off pending. Every image model
+  (003 mean image and each PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also reports its MSE
+  in three regions around the true 2D keypoints: `hands` (21-px squares on joints 22 / 23),
+  `feet` (17 px on 7 / 8 / 10 / 11), `head` (29 px on 15); `metrics.json` gains `regions`
+  per image entry, a top-level definitions block and `units.regions` (`metrics_version` 1,
+  `train_version` 2 unchanged; no config key, training or figure change). The scoring
+  seam is `score_images(…, labels=(kp2d, visible, image_size))`; the next slice's
+  training variants keep their predictors behind it (`predict_rows`) and get regions
+  without further change (009 plan, "Where the next slice hooks in"). The published
+  numbers predate 009.
 
 ## Next work (from roadmap open questions)
 
@@ -50,20 +61,23 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
    3 attempts); torch stays on PyPI; the switch waits for a session whose egress policy
    allows that host. Check with
    `curl -sS -o /dev/null -w "%{http_code}" https://download.pytorch.org/whl/cpu/`.
-3. **#13 answered** (operator choice B, 2026-10-20) and implemented in slice 008. Next
-   slice per the orchestrator: 009, per-region image metrics (#16 option (i)); it hooks
-   into the evaluation block after `load_selected_weights` in `train/trainer.py`, and
-   any new train config key must add its pre-009 value to `train.config.LEGACY_VALUES`
-   (008 plan, "Where slice 009 hooks in"). Not started in the 008 session: #15 dataset
-   realism (arms-down, random betas, camera variation), the other #16 options
-   (training improvements / VAE), and the SMPL-asset access problem (GitHub access to
-   `domattioli/smpl-assets` was refused in the 2026-10-20 sessions, which blocks F1).
-4. **Re-baseline run** (after SMPL access → F1 → 009): `strike-a-pose-train --config
-   configs/ae.yaml` (as committed: `select_weights: best_val`), launched detached and
-   resumable (see "Environment gotchas"); then set `checkpoint` in `configs/probe.yaml`
-   to that run's `best.pt` (its `metrics.json` `selection.checkpoint`) and run the
-   probe. README, roadmap and `docs/results/` then report best-val weights, compared
-   with the published final-weight 004 numbers with the val-only caveat.
+3. **#13 answered** (operator choice B, 2026-10-20) and implemented in slice 008;
+   **#16 option (i)** (per-region image metrics) implemented in slice 009 (2026-10-21).
+   Any new train config key must add its pre-key value to `train.config.LEGACY_VALUES`
+   (008 plan); new image predictors are scored through `score_images` with the split's
+   labels (009 plan). Not started: #15 dataset realism (arms-down, random betas, camera
+   variation), the other #16 options (training improvements / VAE), and the SMPL-asset
+   access problem (GitHub access to `domattioli/smpl-assets` was refused in the
+   2026-10-20 sessions, which blocks F1).
+4. **Re-baseline run** (after SMPL access → F1; 009 has landed): `strike-a-pose-train
+   --config configs/ae.yaml` (as committed: `select_weights: best_val`), launched
+   detached and resumable (see "Environment gotchas"); then set `checkpoint` in
+   `configs/probe.yaml` to that run's `best.pt` (its `metrics.json`
+   `selection.checkpoint`) and run the probe. README, roadmap and `docs/results/` then
+   report best-val weights, compared with the published final-weight 004 numbers with
+   the val-only caveat. Its `metrics.json` brings the first per-region numbers (`ae`,
+   `mean_image`, `pca_k64` on val and test); re-running the 003 baselines
+   (`configs/baselines.yaml`, ≈ 3 min) adds them for every PCA k (optional).
 
 ## F1 commands
 
@@ -170,7 +184,8 @@ change (#15) must land *after* F1, because new config fields enter
 - Pushed and CI green at `5382075` (slices 007 and 008 landed). Slice 009
   `region-metrics`: spec approved at surrogate scope
   (`specs/009-region-metrics/spec.md`, "Notes for the plan"); plan/tasks/implementation
-  not started — next step is phase 2 with a fresh lead.
+  not started — next step is phase 2 with a fresh lead. *(Phase 2 landed 2026-10-21; see
+  State.)*
 - `domattioli/smpl-assets` now exists and is attachable but is still empty
   (operator just created it); F1 and every retrain wait for `SMPL_NEUTRAL.npz`
   (expected SHA-256 `f408141b…`, the fixture manifest's `inputs.smpl_model.sha256`).

@@ -11,9 +11,11 @@ decreases and held-out reconstructions are recognizable (plan:
 [`specs/roadmap.md`](specs/roadmap.md); numbers under [Results](#results)).
 Post-MVP slice 006 (latent probe) done 2026-10-20 under provisional surrogate
 rulings (operator sign-off 2026-10-21). Slice 007 (split content hash) implements the
-operator-approved roadmap question #14, and slice 008 (best-val weight selection) the
-operator's choice B for question #13 (both 2026-10-20; approved at surrogate scope,
-operator sign-off pending); the remaining open questions are listed in the roadmap.
+operator-approved roadmap question #14, slice 008 (best-val weight selection) the
+operator's choice B for question #13 (both 2026-10-20), and slice 009 (per-region image
+metrics, 2026-10-21) the operator's choice (i) for question #16 (all three approved at
+surrogate scope, operator sign-off pending); the remaining open questions are listed in
+the roadmap.
 
 | Slice | What | State |
 |---|---|---|
@@ -25,6 +27,7 @@ operator sign-off pending); the remaining open questions are listed in the roadm
 | 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) |
 | 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2); warning on a commit mismatch | implemented (roadmap #14; follow-up F1: rewrite `splits/smpl_proc_v1.json`, needs SMPL) |
 | 008 `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default (`select_weights`), the final weights when val is empty | implemented (roadmap #13, operator choice B) |
+| 009 `region-metrics` | Every image model also reports its MSE in hands / feet / head regions around the true 2D keypoints (`region_mask`, `masked_mse`) | implemented (roadmap #16, operator choice (i)) |
 
 ## Install
 
@@ -104,14 +107,28 @@ uv run strike-a-pose-eval baseline --config configs/baselines.yaml           # f
 uv run strike-a-pose-eval baseline --config configs/baselines_fixture.yaml   # 16-sample fixture
 ```
 
+Besides the whole-image MSE, PSNR and silhouette IoU, every image model (here the mean
+image and each PCA k; in a training run also the autoencoder) is scored by its MSE in
+three regions built from the true 2D keypoints (spec
+[009](specs/009-region-metrics/spec.md)): `hands` (21-px squares on both hand joints),
+`feet` (17-px squares on both ankle and both foot joints) and `head` (a 29-px square on
+the head joint; SMPL-24 has no face joint). A region is the union of its visible joints'
+squares, clipped to the image, and every pixel in it counts, body and background; joints
+outside the image are dropped, and `samples` counts the images whose region is
+non-empty. Each region holds its own mix of body and background pixels, so compare
+models within a region, not regions with each other or with the whole-image MSE
+(`metrics.json`: `regions` in every image entry, the definitions at the top level).
+
 The metric functions (`image_mse`, `psnr`, `silhouette_iou`, `mpjpe`,
-`keypoint_error_2d`) live in `strike_a_pose.eval` and accept NumPy arrays or torch
-tensors. Baseline numbers for `smpl_proc_v1` are under [Results](#results).
+`keypoint_error_2d`, and the region helpers `region_mask` and `masked_mse`) live in
+`strike_a_pose.eval` and accept NumPy arrays or torch tensors. Baseline numbers for
+`smpl_proc_v1` are under [Results](#results).
 
 Train the convolutional autoencoder (latent 64) from a config: it fits on `train`,
 logs train/val loss per epoch to `history.csv`, checkpoints after every epoch, then
 scores the selected weights next to the mean image and PCA k=64 (refit on train in the
-same run) on `val` and `test` and writes a reconstruction figure with them. Which
+same run) on `val` and `test`, whole-image and per region (hands, feet, head, as for the
+baselines), and writes a reconstruction figure with them. Which
 weights are scored is set by `select_weights` (spec
 [008](specs/008-best-val-selection/spec.md)): `best_val` (default) scores the epoch with
 the lowest val loss, kept as `best.pt`, and falls back to the final weights when val is
@@ -174,6 +191,9 @@ Exit codes and the on-disk layout are specified in
 [`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).
 
 ## Results
+
+The published 003 / 004 / 006 runs below predate the per-region image metrics (slice
+009); per-region numbers come with the next full run.
 
 Baselines on `smpl_proc_v1` (fit on train, 12,800 images; val / test 1,600 images
 each; images in [0, 1]; MPJPE root-relative). Context for the autoencoder (004),

@@ -4,9 +4,12 @@ Status: **Slice list + order APPROVED (operator, 2026-10-17).** MVP done (2026-1
 Q2 confirmed by surrogate ruling 2026-10-20; all surrogate rulings and autonomous clarifications approved by the operator 2026-10-21.
 Post-MVP: exactly one slice, 006 `latent-probe` (surrogate ruling 2026-10-20); stop after it.
 Then 007 `split-content-hash`, which implements the operator-approved open question #14
-(2026-10-20; approved at surrogate scope, operator sign-off pending), and 008
+(2026-10-20; approved at surrogate scope, operator sign-off pending), 008
 `best-val-selection`, which implements the operator's choice B for open question #13
-(2026-10-20; approved at surrogate scope, operator sign-off pending).
+(2026-10-20; approved at surrogate scope, operator sign-off pending), and 009
+`region-metrics`, which implements the operator's choice (i) for open question #16
+(chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope, operator sign-off
+pending).
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -31,17 +34,21 @@ baseline numbers are reported alongside for context (not as a bar to beat).
 | 005 | `repo-foundation` | `pyproject.toml`, ruff, pytest, CI workflow (lint + tests + smoke) | — | CI green on an empty package; can land before or with 001 |
 
 Out of MVP (later candidates): generation/interpolation, real-image datasets, GPU
-rails (Kaggle), per-region (hands/face/feet) image MSE (surrogate ruling 2026-10-20 #4),
-training improvements / VAE, dataset realism (open questions below).
+rails (Kaggle), per-region (hands/face/feet) image MSE (surrogate ruling 2026-10-20 #4;
+implemented in 009 under the operator's choice (i) for #16, 2026-10-20: hands / feet /
+head box, SMPL-24 has no face joint), training improvements / VAE, dataset realism (open
+questions below).
 
 Post-MVP slices (surrogate ruling 2026-10-20 #1: exactly one, then stop; 007 implements
-the operator-approved open question #14, 008 the operator's choice B for #13):
+the operator-approved open question #14, 008 the operator's choice B for #13, 009 the
+operator's choice (i) for #16):
 
 | # | Slug | Purpose | Depends on | Done when |
 |---|------|---------|------------|-----------|
 | 006 | `latent-probe` | Frozen 004 encoder → latents; linear (ridge) and small MLP probes for root-relative 3D joints (MPJPE mm), camera yaw (8-way), SMPL pose; eval CLI `strike-a-pose-eval probe` | 002, 003, 004 (checkpoint) | Probe numbers next to the 003 pose baselines from a logged run; CI green |
 | 007 | `split-content-hash` | Split files pin the manifest content (manifest without its generating `code`) instead of the raw bytes: `split_version` 2, `SplitCommitWarning` on a code mismatch, v1 read-only (open question #14) | 002 | Fixture split rewritten as v2 with the same pose lists; no numerical change; CI green; follow-up F1 rewrites `splits/smpl_proc_v1.json` once SMPL is available |
 | 008 | `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default: `select_weights: best_val \| final`, final weights when val is empty or never finite, `selection` block in `metrics.json` (`train_version` 2), resume-safe; 60 epochs and cosine lr unchanged (open question #13, option B) | 004 | Selection, fallback and resume tested on the fixture (scripted val curve); fixture smoke numbers unchanged; CI green; the published 004 / 006 numbers stay final weights until the re-baseline run |
+| 009 | `region-metrics` | Every image model (003 mean image / PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also reports its MSE in `hands` / `feet` / `head` regions (squares on the true 2D keypoints of joints 22 / 23, 7 / 8 / 10 / 11, 15; `region_mask`, `masked_mse`, labels passed to `score_images`); additive `metrics.json` keys, `metrics_version` 1 / `train_version` 2 unchanged; no training or config change (open question #16, option (i)) | 003, 004 | Fixture runs report the regions (003 and 004 identical for the baselines), every existing number unchanged; CI green; first real numbers with the re-baseline run |
 
 ## Open questions (batched; answer all at once)
 
@@ -79,6 +86,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
 15. Dataset realism: arms-down poses, random betas (body shape), camera variation
     (height, distance, pitch, non-ring yaw)?
 16. Training improvements / VAE (blur, lost extremities, mild overfitting in 004)?
+    Operator choice (i), 2026-10-20: per-region MSE metrics first (hands / feet / head
+    box; metrics only, before the re-baseline run), implemented in 009 `region-metrics`
+    (2026-10-21). Options (ii)–(v) (regularization, loss shaping, VAE, capacity sweep)
+    still open.
 
 ## Changelog
 
@@ -267,3 +278,29 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   `encoder.checkpoint_sha256` (byte-identical on the pre-008 checkpoint). The published
   004 / 006 numbers (final weights of a pre-008 run) stay as reported until the
   re-baseline run (after SMPL access, F1 and slice 009).
+- 2026-10-21: slice 009 `region-metrics` (autonomous run, Fable surrogate scope; spec
+  approved at surrogate scope 2026-10-20, operator sign-off pending; approval basis: the
+  operator's choice (i) for open question #16, 2026-10-20). Every image model scored by
+  the project (003 mean image and each PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also
+  reports its MSE inside three regions built from the true 2D keypoints: `hands` (21-px
+  squares on joints 22 / 23), `feet` (17-px squares on 7 / 8 / 10 / 11) and `head` (a
+  29-px square on joint 15; SMPL-24 has no face joint), each the union of its visible
+  joints' squares clipped to the image, all pixels counted, averaged over the images
+  whose region is non-empty (`samples`). Surrogate rulings (batch Q1–Q3, all (a)): these
+  joints and sizes (fixed a priori from body dimensions at the ring's 91 px/m), all
+  pixels of a region, MSE only. Two pure functions in `strike_a_pose.eval.metrics`
+  (`region_mask`, `masked_mse`, constants `REGIONS`); `score_images` takes the
+  keypoints, visibility and image size as one optional keyword group and scores the
+  regions from the same predictions as the headline (bit-identical with and without);
+  the 004 trainer keeps the labels of its scored splits. `metrics.json` gains `regions`
+  per image entry, a top-level `regions` definitions block and `units.regions`;
+  `metrics_version` 1 and `train_version` 2 unchanged; no config key, figure or output
+  line changed; training untouched. Contracts updated in place (003 `eval-run.md`, 004
+  `train-run.md`); dated notes in the 003 and 004 specs. Implementation `1750c99`; pytest
+  307 passed (34–41 s; 267 before); fixture smoke before / after: the 003 and 004
+  `metrics.json` only gain the new keys (25 leaves each, no value changed), figures,
+  configs, history and output lines identical, the 006 probe byte-identical on the same
+  checkpoint; the 003 and 004 runs give identical `mean_image` / `pca_k4` entries,
+  regions included. Cost: 1.0–1.3 s per model per 1,600-image split. The published 003 /
+  004 / 006 numbers predate 009; the re-baseline run brings the first per-region
+  numbers.

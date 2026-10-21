@@ -2,8 +2,8 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `009-region-metrics`)
 **Created**: 2026-10-20
-**Status**: Approved at surrogate scope (surrogate rulings 2026-10-20; operator sign-off
-pending); plan, tasks and analyze 2026-10-21 ([plan.md](plan.md), [tasks.md](tasks.md)).
+**Status**: Implemented 2026-10-21 (verification: [tasks.md](tasks.md) T015). Approved at
+surrogate scope (surrogate rulings 2026-10-20; operator sign-off pending).
 Approval basis: the operator's choice of option (i) for roadmap open question #16
 (2026-10-20), quoted below; the surrogate ruled (a) on the three batch questions and
 accepted every lead default.

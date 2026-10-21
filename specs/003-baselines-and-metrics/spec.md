@@ -105,9 +105,18 @@ changelog, citing the run directory, config and git commit.
   functions accepting NumPy arrays or torch tensors (`[B, ...]` → `[B]`, same
   array type): `image_mse`, `psnr`, `silhouette_iou`, `mpjpe`,
   `keypoint_error_2d`.
+  *(Amended 2026-10-21 by slice [009](../009-region-metrics/spec.md): also
+  `region_mask` (a region's pixels, bool `[B, H, W]`, from 2D keypoints and visibility)
+  and `masked_mse` (per-sample MSE over a mask, NaN when it is empty), with the region
+  constants `REGIONS`.)*
 - **FR-002**: Image metrics work on images in `[0, 1]` (002 normalization):
   per-image mean squared error over pixels; PSNR = `10·log10(1 / max(MSE, 1e-10))`
   dB; silhouette IoU between `pred > threshold` and the true body mask.
+  *(Amended 2026-10-21 by slice [009](../009-region-metrics/spec.md): every image model
+  is also scored by its MSE inside three regions built from the true 2D keypoints —
+  `hands`, `feet`, `head` (squares of side 21 / 17 / 29 px on joints 22 / 23,
+  7 / 8 / 10 / 11 and 15, clipped to the image) — averaged over the images whose region
+  is non-empty; additive `metrics.json` keys, headline metrics unchanged.)*
 - **FR-003**: MPJPE MUST subtract the root joint (pelvis, index 0) from both
   prediction and target, then average the Euclidean joint error; inputs in
   metres, reports in **millimetres** (`× 1000`, key suffix `_mm`).
@@ -142,7 +151,10 @@ changelog, citing the run directory, config and git commit.
 
 - **Eval config** (YAML): see `contracts/eval-run.md`.
 - **Run directory**: see `contracts/eval-run.md`.
-- **metrics.json**: nested `splits → {image, pose} → baseline → metric`.
+- **metrics.json**: nested `splits → {image, pose} → baseline → metric`; image
+  entries also hold `regions → region → {image_mse, samples}` and the file a top-level
+  `regions` definitions block (amended 2026-10-21 by slice
+  [009](../009-region-metrics/spec.md); `metrics_version` stays 1).
 
 ## Success Criteria *(mandatory)*
 

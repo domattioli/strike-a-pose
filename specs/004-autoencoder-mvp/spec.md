@@ -135,6 +135,11 @@ and val loss decrease; the figure shows recognizable held-out bodies.
   weights are scored in place of the final model: `best_val` (default) or `final`. Only
   they are scored, test once, so their gain over the final weights is known on val
   only.)*
+  *(Amended 2026-10-21 by slice [009](../009-region-metrics/spec.md): every scored image
+  model (`ae`, `mean_image`, `pca_k<K>`) is also scored with the 003 `masked_mse` inside
+  the 003 `REGIONS` (`hands`, `feet`, `head`, from the true 2D keypoints, which the
+  scored splits now keep in memory), in the same `score_images` call as its headline
+  metrics; `metrics.json` only gains keys, `train_version` stays 2.)*
 - **FR-007**: The figure MUST use the 003 grid layout (header labels; one row per
   evenly spaced sample) with columns true, AE, mean image, PCA k.
 - **FR-008**: CI MUST run a CPU smoke train on the committed fixture (replacing the

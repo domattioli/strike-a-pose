@@ -58,15 +58,16 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Stage 5 — camera ring jitter (`feat(010): camera ring jitter`)
 
-- [ ] T011 Tests (red first): `camera_jitter` validation and serialization; `jittered_camera`
+- [x] T011 Tests (red first): `camera_jitter` validation and serialization; `jittered_camera`
   with zero deltas == ring `R, t` bit for bit, yaw / name / K unchanged, centre and aim
   geometry; `in_frame`; generated dataset: deltas within ranges, accepted samples keep the
   margin (mask), impossible ranges → all `fallback` and labels equal the no-jitter labels
   apart from `camera.jitter`, rejection ranges exercise retries; manifest `cameras` unchanged;
   002 loader `camera_index` / `yaw_deg` = ring; validates; byte-reproducible; all options
   together; prefix property with all options on.
-- [ ] T012 `cameras.py` (`jittered_camera`, `in_frame`, `choose_camera`), `config.py` block,
-  `generate.py` per-sample camera and `camera.jitter`.
+- [x] T012 `cameras.py` (`jittered_camera`, `in_frame`, `choose_camera`), `config.py` block,
+  `generate.py` per-sample camera and `camera.jitter`. Red run: collection error (no
+  `jittered_camera`). Stage checks: ruff and format clean; pytest 331 passed in 33.6 s.
 
 ## Stage 6 — dataset configs (`feat(010): dataset configs`)
 
@@ -89,8 +90,11 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 ## Verification record
 
 - [ ] T018 Red runs noted per stage; final ruff / format / pytest (count, wall time).
-- [ ] T019 SC-002 before / after synthetic comparison (T003 datasets vs regenerated after
-  stage 5): manifest, labels, checksums, images byte-identical.
+- [x] T019 SC-002 before / after synthetic comparison (T003 datasets vs regenerated after
+  stage 5): manifest, labels, checksums, images byte-identical. Done after stage 5 (code of
+  `4c8db57` + the stage-5 changes): `proc_small` 74 files, `proc_full` 50, `amass_small` 50;
+  manifest content (without `code`), `checksums.json`, every label and PNG identical: 0
+  differences.
 
 ## Follow-up R — run procedure (needs SMPL; not part of "done")
 

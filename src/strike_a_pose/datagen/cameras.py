@@ -1,10 +1,12 @@
-"""Fixed named camera ring, projection, visibility (research R5/R6)."""
+"""Fixed named camera ring, projection, visibility (research R5/R6); ring jitter (spec 010)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
-from .config import CameraRingConfig
+from .config import CameraJitterConfig, CameraRingConfig
+
+JITTER_STREAM = 2  # SeedSequence tag of the per-sample camera stream (shape uses 1)
 
 RING8_NAMES = (
     "Front_0", "FrontRight_45", "Right_90", "BackRight_135",
@@ -53,6 +55,61 @@ def camera_ring(ring: CameraRingConfig, height: int, width: int) -> list[Camera]
         name = RING8_NAMES[i] if ring.count == 8 else f"Cam{i}_{round(yaw)}"
         cams.append(Camera(name, k, r, t, width, height, float(yaw)))
     return cams
+
+
+def jittered_camera(
+    ring_cam: Camera, ring: CameraRingConfig, dh: float, dd: float, dp_deg: float
+) -> Camera:
+    """The ring camera moved by ``dh`` (height) and ``dd`` (distance) at its yaw, aimed at the
+    ring's look-at point ``(0, h, 0)``, then tilted down by ``dp_deg`` (no roll; spec 010 FR-005).
+
+    Name, yaw, intrinsics and image size are the ring camera's. Zero deltas give its ``R, t``
+    bit for bit (the same ``look_at`` call as ``camera_ring``).
+    """
+    th = np.deg2rad(ring_cam.yaw_deg)
+    d, h = ring.distance_m + dd, ring.height_m + dh
+    center = np.array([-d * np.sin(th), h, d * np.cos(th)])
+    aim = np.arctan2(dh, d)  # depression angle toward the look-at point
+    target = np.array([0.0, h - d * np.tan(aim + np.deg2rad(dp_deg)), 0.0])
+    r, t = look_at(center, target)
+    return replace(ring_cam, R=r, t=t)
+
+
+def in_frame(cam: Camera, verts_world: np.ndarray, margin: int) -> bool:
+    """Every vertex in front of the camera and projected into [m, W - m) x [m, H - m)."""
+    xc, uv = project(cam, verts_world)
+    return bool(
+        (xc[:, 2] > 1e-6).all()
+        and (uv[:, 0] >= margin).all() and (uv[:, 0] < cam.width - margin).all()
+        and (uv[:, 1] >= margin).all() and (uv[:, 1] < cam.height - margin).all()
+    )  # fmt: skip
+
+
+def choose_camera(
+    ring_cam: Camera,
+    ring_index: int,
+    verts_world: np.ndarray,
+    ring: CameraRingConfig,
+    jitter: CameraJitterConfig,
+    seed: int,
+    pose_index: int,
+) -> tuple[Camera, dict]:
+    """First in-frame candidate of the sample's own stream, else the ring camera (fallback).
+
+    Returns the used camera and its label record ``{height_m, distance_m, pitch_deg,
+    attempts, fallback}`` (deltas of the used camera; zeros on fallback).
+    """
+    rng = np.random.default_rng([seed, JITTER_STREAM, pose_index, ring_index])
+    for attempt in range(1, jitter.max_attempts + 1):
+        dh = float(rng.uniform(*jitter.height_m))
+        dd = float(rng.uniform(*jitter.distance_m))
+        dp = float(rng.uniform(*jitter.pitch_deg))
+        cam = jittered_camera(ring_cam, ring, dh, dd, dp)
+        if in_frame(cam, verts_world, jitter.margin_px):
+            rec = {"height_m": dh, "distance_m": dd, "pitch_deg": dp, "attempts": attempt}
+            return cam, rec | {"fallback": False}
+    rec = {"height_m": 0.0, "distance_m": 0.0, "pitch_deg": 0.0, "attempts": jitter.max_attempts}
+    return ring_cam, rec | {"fallback": True}
 
 
 def project(cam: Camera, x_world: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

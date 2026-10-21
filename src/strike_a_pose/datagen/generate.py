@@ -16,7 +16,7 @@ from PIL import Image
 
 from .amass import sample_poses
 from .assets import require_dir, require_file, sha256_file
-from .cameras import camera_ring, project, visibility
+from .cameras import camera_ring, choose_camera, project, visibility
 from .config import ConfigError, GenerationConfig
 from .io import SCHEMA_VERSION, write_json
 from .procedural import SPARSIFY_MIN_KEEP, ranges_table, sample_procedural_poses
@@ -135,7 +135,7 @@ def generate_dataset(
     write_json(out / "manifest.json", manifest)
 
     zero_betas = np.zeros(cfg.num_betas)
-    shape = cfg.body_shape
+    shape, jitter = cfg.body_shape, cfg.camera_jitter
     samples, checksums = [], {}
     for rec in poses:
         betas = (
@@ -144,7 +144,13 @@ def generate_dataset(
             else sample_betas(cfg.num_betas, shape.std, shape.clip, seed, rec.index)
         )
         verts, joints = body_model.forward(np.array(rec.pose), betas)
-        for cam in cams:
+        for ring_index, ring_cam in enumerate(cams):
+            cam, jit = ring_cam, None
+            if jitter is not None:
+                cam, jit = choose_camera(
+                    ring_cam, ring_index, verts, cfg.camera_ring, jitter, seed, rec.index
+                )
+            cam_label = cam.to_dict() if jit is None else cam.to_dict() | {"jitter": jit}
             sid = f"{rec.index:05d}_{cam.name}"
             xc, uv = project(cam, joints)
             rgb, mask = render(verts, body_model.faces, cam)
@@ -160,7 +166,7 @@ def generate_dataset(
                 "pose": list(rec.pose), "betas": betas,
                 "joints_3d_world": joints, "joints_3d_cam": xc, "keypoints_2d": uv,
                 "visibility": visibility(xc, uv, cam.height, cam.width),
-                "camera": cam.to_dict(),
+                "camera": cam_label,
             }  # fmt: skip
             sha = write_json(out / lab_rel, labels)
             samples.append(

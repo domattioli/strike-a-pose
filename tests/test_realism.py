@@ -6,7 +6,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from strike_a_pose.datagen.config import ConfigError, config_from_dict, load_config
+from strike_a_pose.datagen.cameras import camera_ring, in_frame, jittered_camera, project
+from strike_a_pose.datagen.config import (
+    CameraRingConfig,
+    ConfigError,
+    config_from_dict,
+    load_config,
+)
 from strike_a_pose.datagen.generate import generate_dataset
 from strike_a_pose.datagen.io import LABEL_KEYS, dumps, load_manifest, load_sample, validate_dataset
 from strike_a_pose.datagen.procedural import (
@@ -250,3 +256,160 @@ def test_num_betas_beyond_model_refused_before_writing(synthetic_smpl_npz, tmp_p
     assert not (tmp_path / "out").exists()
     plain = config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path, num_betas=11))
     assert validate_dataset(generate_dataset(plain, seed=0)) == []  # zeros: no check, as today
+
+
+# --- FR-005: camera ring jitter -----------------------------------------------------------
+
+JITTER = {"height_m": [-0.3, 0.3], "distance_m": [0.0, 0.5], "pitch_deg": [0.0, 5.0],
+          "margin_px": 2, "max_attempts": 16}  # fmt: skip
+
+
+def test_camera_jitter_config():
+    base = {"dataset_name": "x"}
+    assert config_from_dict(base).camera_jitter is None
+    off = config_from_dict({**base, "camera_jitter": None})
+    assert off.to_dict() == config_from_dict(base).to_dict()
+    on = config_from_dict({**base, "camera_jitter": {}}).to_dict()["camera_jitter"]
+    assert on == {"height_m": [-0.3, 0.3], "distance_m": [0.0, 0.5], "pitch_deg": [0.0, 5.0],
+                  "margin_px": 2, "max_attempts": 16}  # fmt: skip
+    ints = config_from_dict({**base, "camera_jitter": {"pitch_deg": [0, 5]}}).to_dict()
+    assert ints["camera_jitter"]["pitch_deg"] == [0.0, 5.0]
+    assert isinstance(ints["camera_jitter"]["pitch_deg"][1], float)
+    for bad in (
+        {"height_m": [-1.5, 0.0]}, {"distance_m": [-0.1, 0.5]}, {"distance_m": [0.0, 3.5]},
+        {"pitch_deg": [0.0, 31.0]}, {"pitch_deg": [5.0, 0.0]}, {"pitch_deg": [1.0]},
+        {"pitch_deg": "0 5"}, {"height_m": [0, float("inf")]}, {"margin_px": -1},
+        {"margin_px": 1.5}, {"max_attempts": 0}, {"max_attempts": True}, {"bogus": 1},
+    ):  # fmt: skip
+        with pytest.raises(ConfigError):
+            config_from_dict({**base, "camera_jitter": bad})
+
+
+def test_jittered_camera_geometry():
+    ring_cfg = CameraRingConfig()
+    for ring_cam in camera_ring(ring_cfg, 256, 192):
+        zero = jittered_camera(ring_cam, ring_cfg, 0.0, 0.0, 0.0)
+        assert np.array_equal(zero.R, ring_cam.R) and np.array_equal(zero.t, ring_cam.t)
+        cam = jittered_camera(ring_cam, ring_cfg, 0.3, 0.5, 5.0)
+        assert (cam.name, cam.yaw_deg, cam.width, cam.height) == (
+            ring_cam.name, ring_cam.yaw_deg, ring_cam.width, ring_cam.height,
+        )  # fmt: skip
+        assert np.array_equal(cam.K, ring_cam.K)
+        assert np.allclose(cam.R @ cam.R.T, np.eye(3)) and np.isclose(np.linalg.det(cam.R), 1)
+        assert abs(cam.R[0, 1]) < 1e-12  # no roll: the image x axis stays horizontal
+        th = np.deg2rad(ring_cam.yaw_deg)
+        assert np.allclose(-cam.R.T @ cam.t, [-4.0 * np.sin(th), 0.3, 4.0 * np.cos(th)])
+        _, uv = project(cam, np.zeros((1, 3)))  # the ring's look-at point
+        assert np.allclose(uv[0], [96.0, 128.0 - 320.0 * np.tan(np.deg2rad(5.0))])
+    raised = CameraRingConfig(height_m=0.2)
+    for ring_cam in camera_ring(raised, 256, 192):
+        zero = jittered_camera(ring_cam, raised, 0.0, 0.0, 0.0)
+        assert np.array_equal(zero.R, ring_cam.R) and np.array_equal(zero.t, ring_cam.t)
+
+
+def test_in_frame():
+    cam = camera_ring(CameraRingConfig(), 256, 192)[0]  # Front_0: v = 128 - 320 y / 3.5
+
+    def at_v(v):
+        return np.array([[0.0, -(v - 128.0) * 3.5 / 320.0, 0.0]])
+
+    assert in_frame(cam, np.zeros((1, 3)), 2)
+    assert in_frame(cam, at_v(253.5), 2) and not in_frame(cam, at_v(254.5), 2)  # v < H - 2
+    assert in_frame(cam, at_v(2.0), 2) and not in_frame(cam, at_v(1.5), 2)  # v >= 2
+    assert in_frame(cam, at_v(255.5), 0) and not in_frame(cam, at_v(256.5), 0)
+    assert not in_frame(cam, np.array([[1.2, 0.0, 0.0]]), 2)  # u = 206 > W
+    assert not in_frame(cam, np.array([[0.0, 0.0, 4.0]]), 2)  # behind the camera
+
+
+def _ring_cameras(out: Path) -> dict:
+    return {c["name"]: c for c in load_manifest(out)["cameras"]}
+
+
+def test_jitter_dataset(synthetic_smpl_npz, tmp_path):
+    cfg = _synth_cfg(synthetic_smpl_npz, tmp_path)
+    plain = generate_dataset(config_from_dict(cfg), 0, output_root=tmp_path / "a")
+    out = generate_dataset(config_from_dict({**cfg, "camera_jitter": JITTER}), 0,
+                           output_root=tmp_path / "b")  # fmt: skip
+    again = generate_dataset(config_from_dict({**cfg, "camera_jitter": JITTER}), 0,
+                             output_root=tmp_path / "c")  # fmt: skip
+    assert validate_dataset(out) == []
+    for f in ("manifest.json", "checksums.json"):
+        assert (out / f).read_bytes() == (again / f).read_bytes()
+    m = load_manifest(out)
+    assert m["cameras"] == load_manifest(plain)["cameras"]
+    assert m["config"]["camera_jitter"] == JITTER
+    ring, moved = _ring_cameras(out), 0
+    for sid, lab in _labels(out).items():
+        assert set(lab) == LABEL_KEYS
+        cam, j = lab["camera"], lab["camera"]["jitter"]
+        assert set(cam) == set(ring[cam["name"]]) | {"jitter"}
+        assert set(j) == {"height_m", "distance_m", "pitch_deg", "attempts", "fallback"}
+        for k in ("name", "K", "width", "height", "yaw_deg"):
+            assert cam[k] == ring[cam["name"]][k]
+        assert -0.3 <= j["height_m"] <= 0.3 and 0.0 <= j["distance_m"] <= 0.5
+        assert 0.0 <= j["pitch_deg"] <= 5.0 and 1 <= j["attempts"] <= 16
+        if not j["fallback"]:
+            moved += cam["R"] != ring[cam["name"]]["R"]
+            mask = load_sample(out, sid)["mask"] > 0
+            assert not mask[:2].any() and not mask[-2:].any()  # margin_px = 2
+            assert not mask[:, :2].any() and not mask[:, -2:].any()
+    assert moved > 20
+
+
+def test_jitter_fallback_and_zero_ranges(synthetic_smpl_npz, tmp_path):
+    cfg = _synth_cfg(synthetic_smpl_npz, tmp_path)
+    plain = generate_dataset(config_from_dict(cfg), 0, output_root=tmp_path / "a")
+    impossible = {"height_m": [0, 0], "distance_m": [0, 0], "pitch_deg": [29, 30],
+                  "max_attempts": 3}  # fmt: skip
+    zero = {"height_m": [0, 0], "distance_m": [0, 0], "pitch_deg": [0, 0], "margin_px": 0}
+    for name, jit in (("f", impossible), ("z", zero)):
+        out = generate_dataset(config_from_dict({**cfg, "camera_jitter": jit}), 0,
+                               output_root=tmp_path / name)  # fmt: skip
+        assert (out / "checksums.json").read_bytes() == (plain / "checksums.json").read_bytes()
+        base = _labels(plain)
+        for sid, lab in _labels(out).items():
+            j = lab["camera"].pop("jitter")
+            assert lab == base[sid]  # ring camera exactly; nothing else changes
+            if name == "f":
+                assert j == {"height_m": 0.0, "distance_m": 0.0, "pitch_deg": 0.0,
+                             "attempts": 3, "fallback": True}  # fmt: skip
+            else:
+                assert j["attempts"] == 1 and j["fallback"] is False
+
+
+def test_jitter_retries(synthetic_smpl_npz, tmp_path):
+    jit = {"pitch_deg": [0.0, 25.0], "margin_px": 2, "max_attempts": 8}
+    out = generate_dataset(config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path,
+                                                       camera_jitter=jit)), seed=0)  # fmt: skip
+    attempts = [lab["camera"]["jitter"]["attempts"] for lab in _labels(out).values()]
+    assert max(attempts) > 1 and validate_dataset(out) == []
+
+
+def test_jittered_dataset_loads_with_ring_indices(synthetic_smpl_npz, tmp_path):
+    from strike_a_pose.data import PoseImageDataset
+
+    out = generate_dataset(config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path,
+                                                       camera_jitter=JITTER, body_shape={})),
+                           seed=0)  # fmt: skip
+    ds = PoseImageDataset(out)
+    ring = list(_ring_cameras(out))
+    for i in range(len(ds)):
+        item = ds[i]
+        lab = load_sample(out, item["sample_id"])["labels"]
+        assert item["camera_index"] == ring.index(item["camera_name"])
+        assert float(item["camera"]["yaw_deg"]) == 45.0 * item["camera_index"]
+        assert np.allclose(item["camera"]["R"].numpy(), lab["camera"]["R"], atol=1e-6)
+
+
+def test_all_options_prefix_property(synthetic_smpl_npz, tmp_path):
+    opts = {"ranges_version": V2, "body_shape": {}, "camera_jitter": JITTER}
+    small = generate_dataset(config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path,
+                                                         num_poses=2, **opts)),
+                             0, output_root=tmp_path / "s")  # fmt: skip
+    large = generate_dataset(config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path,
+                                                         num_poses=3, **opts)),
+                             0, output_root=tmp_path / "l")  # fmt: skip
+    assert validate_dataset(large) == []
+    for s in load_manifest(small)["samples"]:
+        for k in ("image", "mask", "labels"):
+            assert (small / s[k]).read_bytes() == (large / s[k]).read_bytes(), s[k]

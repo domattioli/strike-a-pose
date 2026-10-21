@@ -16,6 +16,7 @@ POSE_SOURCES = ("procedural", "amass")
 ADDED_FIELD_DEFAULTS: dict[str, Any] = {
     "ranges_version": RANGES_VERSION,
     "body_shape": None,
+    "camera_jitter": None,
 }
 
 
@@ -46,6 +47,23 @@ class BodyShapeConfig:
 
 
 @dataclass(frozen=True)
+class CameraJitterConfig:
+    """Per-sample camera around its ring camera (spec 010 FR-005): height and distance deltas
+    (m), then aimed at the ring's look-at point and tilted down by pitch_deg (> 0 = down);
+    accepted only if every mesh vertex projects margin_px inside the image."""
+
+    height_m: tuple[float, float] = (-0.3, 0.3)
+    distance_m: tuple[float, float] = (0.0, 0.5)
+    pitch_deg: tuple[float, float] = (0.0, 5.0)
+    margin_px: int = 2
+    max_attempts: int = 16
+
+
+# camera_jitter range bounds (lo_min, hi_max): sane, upright cameras, never closer than the ring
+_JITTER_BOUNDS = {"height_m": (-1.0, 1.0), "distance_m": (0.0, 3.0), "pitch_deg": (-30.0, 30.0)}
+
+
+@dataclass(frozen=True)
 class GenerationConfig:
     dataset_name: str
     pose_source: str = "procedural"  # "procedural" (default) | "amass"
@@ -61,6 +79,7 @@ class GenerationConfig:
     # spec 010 (left out of to_dict() while at their defaults, see ADDED_FIELD_DEFAULTS)
     ranges_version: str = RANGES_VERSION  # procedural table version
     body_shape: BodyShapeConfig | None = None  # None: mean shape (betas = 0)
+    camera_jitter: CameraJitterConfig | None = None  # None: the ring cameras
 
     def to_dict(self) -> dict[str, Any]:
         """Resolved config for the manifest; fields added after layout v1 are left out while
@@ -70,6 +89,9 @@ class GenerationConfig:
         for key, default in ADDED_FIELD_DEFAULTS.items():
             if getattr(self, key) == default:
                 del d[key]
+        if "camera_jitter" in d:
+            for key in _JITTER_BOUNDS:
+                d["camera_jitter"][key] = list(d["camera_jitter"][key])
         return d
 
 
@@ -100,6 +122,8 @@ def config_from_dict(data: dict[str, Any]) -> GenerationConfig:
             raise ConfigError("amass_subsets: required non-empty list when pose_source is amass")
         if data.get("body_shape") is not None:
             data["body_shape"] = _body_shape(data["body_shape"])
+        if data.get("camera_jitter") is not None:
+            data["camera_jitter"] = _camera_jitter(data["camera_jitter"])
         cfg = GenerationConfig(amass_subsets=tuple(subsets), image=image, camera_ring=ring, **data)
     except TypeError as e:
         raise ConfigError(str(e)) from e
@@ -119,6 +143,25 @@ def _body_shape(data: Any) -> BodyShapeConfig:
     d = _build(BodyShapeConfig, data, "body_shape")
     vals = {k: _number(v, f"body_shape.{k}", positive=True) for k, v in d.items()}
     return BodyShapeConfig(**vals)
+
+
+def _camera_jitter(data: Any) -> CameraJitterConfig:
+    d = dict(_build(CameraJitterConfig, data, "camera_jitter"))
+    for key, (lo_min, hi_max) in _JITTER_BOUNDS.items():
+        if key in d:
+            v = d[key]
+            if not isinstance(v, list | tuple) or len(v) != 2:
+                raise ConfigError(f"camera_jitter.{key} must be a [lo, hi] pair")
+            lo, hi = (_number(x, f"camera_jitter.{key}") for x in v)
+            if not lo_min <= lo <= hi <= hi_max:
+                raise ConfigError(f"camera_jitter.{key} needs {lo_min} <= lo <= hi <= {hi_max}")
+            d[key] = (lo, hi)
+    for key, least in (("margin_px", 0), ("max_attempts", 1)):
+        if key in d:
+            v = d[key]
+            if not isinstance(v, int) or isinstance(v, bool) or v < least:
+                raise ConfigError(f"camera_jitter.{key} must be an integer >= {least}")
+    return CameraJitterConfig(**d)
 
 
 def _check(cfg: GenerationConfig) -> None:

@@ -33,14 +33,15 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Stage 3 — arms-down table (`feat(010): arms-down table`)
 
-- [ ] T007 Tests (red first): v2 ranges and offsets in sampled `euler_deg` (`v == off or
+- [x] T007 Tests (red first): v2 ranges and offsets in sampled `euler_deg` (`v == off or
   lo + off <= v < hi + off`), `pose` = axis-angle of the offset-included angles; v1 / v2 draws
   identical except z of 13 / 14 / 16 / 17; `ranges_table(v2)` rows carry `offset_deg`, v1 rows
   unchanged; config `ranges_version` validation (unknown → error; non-default with `amass` →
   error; default omitted from `to_dict`, v2 serialized); generated synthetic dataset names v2
   in manifest and labels, validates.
-- [ ] T008 `procedural.py` table registry + offsets; `config.py` field + validation;
-  `generate.py` uses the version.
+- [x] T008 `procedural.py` table registry + offsets; `config.py` field + validation;
+  `generate.py` uses the version. Red run: collection error (no `RANGES_TABLES`). Stage checks:
+  ruff and format clean; pytest 318 passed in 31.4 s.
 
 ## Stage 4 — random body shape (`feat(010): random body shape`)
 

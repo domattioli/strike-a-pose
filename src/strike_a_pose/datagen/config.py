@@ -7,10 +7,14 @@ from typing import Any
 
 import yaml
 
+from .procedural import RANGES_TABLES, RANGES_VERSION
+
 POSE_SOURCES = ("procedural", "amass")
 # Generator fields added after dataset layout v1 -> the value that reproduces earlier
 # datasets. to_dict() omits a field while it holds this value (spec 010 FR-002).
-ADDED_FIELD_DEFAULTS: dict[str, Any] = {}
+ADDED_FIELD_DEFAULTS: dict[str, Any] = {
+    "ranges_version": RANGES_VERSION,
+}
 
 
 class ConfigError(ValueError):
@@ -44,6 +48,8 @@ class GenerationConfig:
     num_betas: int = 10
     image: ImageConfig = field(default_factory=ImageConfig)
     camera_ring: CameraRingConfig = field(default_factory=CameraRingConfig)
+    # spec 010 (left out of to_dict() while at their defaults, see ADDED_FIELD_DEFAULTS)
+    ranges_version: str = RANGES_VERSION  # procedural table version
 
     def to_dict(self) -> dict[str, Any]:
         """Resolved config for the manifest; fields added after layout v1 are left out while
@@ -111,6 +117,10 @@ def _check(cfg: GenerationConfig) -> None:
             raise ConfigError(f"{k} must be a number > 0")
     if not isinstance(cfg.camera_ring.height_m, int | float):
         raise ConfigError("camera_ring.height_m must be a number")
+    if not isinstance(cfg.ranges_version, str) or cfg.ranges_version not in RANGES_TABLES:
+        raise ConfigError(f"ranges_version must be one of {list(RANGES_TABLES)}")
+    if cfg.pose_source != "procedural" and cfg.ranges_version != RANGES_VERSION:
+        raise ConfigError("ranges_version applies to pose_source: procedural only")
 
 
 def load_config(path: Path | str) -> GenerationConfig:

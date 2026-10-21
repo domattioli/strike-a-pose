@@ -19,7 +19,7 @@ from .assets import require_dir, require_file, sha256_file
 from .cameras import camera_ring, project, visibility
 from .config import GenerationConfig
 from .io import SCHEMA_VERSION, write_json
-from .procedural import RANGES_VERSION, SPARSIFY_MIN_KEEP, ranges_table, sample_procedural_poses
+from .procedural import SPARSIFY_MIN_KEEP, ranges_table, sample_procedural_poses
 from .render import render
 from .skeleton import SKELETON_NAME, SMPL24_JOINT_NAMES, SMPL24_PARENTS
 from .smpl import SMPLModel
@@ -82,16 +82,17 @@ def generate_dataset(
             return {"type": "amass", "file": rec.source_file, "frame": rec.frame,
                     "root_orient": list(rec.source_root_orient)}  # fmt: skip
     else:
-        poses = sample_procedural_poses(cfg.num_poses, seed)
+        version = cfg.ranges_version
+        poses = sample_procedural_poses(cfg.num_poses, seed, version)
         pose_input = {
-            "type": "procedural", "ranges_version": RANGES_VERSION,
+            "type": "procedural", "ranges_version": version,
             "euler_order": "scipy xyz (extrinsic, R = Rz @ Ry @ Rx), SMPL joint-local axes",
             "sparsify_min_keep": SPARSIFY_MIN_KEEP,
-            "ranges_deg": ranges_table(),
+            "ranges_deg": ranges_table(version),
         }  # fmt: skip
 
         def source_label(rec):
-            return {"type": "procedural", "ranges_version": RANGES_VERSION,
+            return {"type": "procedural", "ranges_version": version,
                     "euler_deg": [list(e) for e in rec.euler_deg]}  # fmt: skip
 
     # 2. output dir

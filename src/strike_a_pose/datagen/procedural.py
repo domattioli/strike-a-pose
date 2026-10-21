@@ -6,17 +6,22 @@ Faithful port of the predecessor's sampler (body-model-visualizer
 2. sparsify: draw k uniform in [0, 69) until k >= 5, keep k randomly chosen of
    the 69 values, zero the rest;
 3. Euler 'xyz' (scipy lower-case = extrinsic, R = Rz @ Ry @ Rx) -> axis-angle.
-Root orientation is zero; body shape is mean shape (betas = 0).
-Bump RANGES_VERSION whenever the table or rule changes (recorded in manifest).
+Root orientation is zero. Tables are versioned in RANGES_TABLES (the version and the table
+are recorded in the manifest); never change a published table, add a version instead.
+Spec 010 adds ``predecessor-v2-armsdown``: shoulder / collar z narrowed and the arms lowered
+by fixed offsets added after sparsification (research R1).
 """
 
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import numpy as np
 
 from .skeleton import SMPL24_JOINT_NAMES
 
-RANGES_VERSION = "predecessor-v1-nohands"
+RANGES_VERSION = "predecessor-v1-nohands"  # the default table (smpl_proc_v1)
+ARMSDOWN_VERSION = "predecessor-v2-armsdown"  # spec 010 FR-003
+ARMSDOWN_OFFSET_DEG = 65  # arm lowering at the shoulders: left (16) z -65, right (17) z +65
 SPARSIFY_MIN_KEEP = 5  # keep k >= 5 of the 69 values, zero the rest
 
 # SMPL joint index -> ((-A, B) for x, y, z): integer degrees uniform in [-A, B).
@@ -52,13 +57,42 @@ RANGES_DEG: dict[int, tuple[tuple[int, int], ...]] = {
 }
 
 
-def ranges_table() -> list[dict]:
-    """Manifest-friendly copy of the ranges (joint name -> per-axis degrees)."""
-    return [
+class RangesTable(NamedTuple):
+    ranges: dict[int, tuple[tuple[int, int], ...]]  # joint -> ((-A, B) for x, y, z)
+    offsets: dict[int, tuple[int, int, int]] | None  # joint -> degrees added after sparsifying
+
+
+def _armsdown_table() -> RangesTable:
+    """v1 table, shoulder z narrowed to [-20, 20), collar z to [-10, 10), arms lowered.
+
+    Only non-zero ranges are narrowed, so every other draw stays identical to v1's for the
+    same seed (spec 010 research R1).
+    """
+    ranges = dict(RANGES_DEG)
+    for j, z in ((13, (-10, 10)), (14, (-10, 10)), (16, (-20, 20)), (17, (-20, 20))):
+        ranges[j] = (ranges[j][0], ranges[j][1], z)
+    off = ARMSDOWN_OFFSET_DEG
+    return RangesTable(ranges, {16: (0, 0, -off), 17: (0, 0, off)})
+
+
+RANGES_TABLES: dict[str, RangesTable] = {
+    RANGES_VERSION: RangesTable(RANGES_DEG, None),
+    ARMSDOWN_VERSION: _armsdown_table(),
+}
+
+
+def ranges_table(version: str = RANGES_VERSION) -> list[dict]:
+    """Manifest-friendly copy of a table (joint name -> per-axis degrees [+ offsets])."""
+    table = RANGES_TABLES[version]
+    rows = [
         {"joint": SMPL24_JOINT_NAMES[j], "index": j,
          "x_deg": list(r[0]), "y_deg": list(r[1]), "z_deg": list(r[2])}
-        for j, r in sorted(RANGES_DEG.items())
+        for j, r in sorted(table.ranges.items())
     ]  # fmt: skip
+    if table.offsets is not None:
+        for row in rows:
+            row["offset_deg"] = list(table.offsets.get(row["index"], (0, 0, 0)))
+    return rows
 
 
 def _rx(a: float) -> np.ndarray:
@@ -102,10 +136,18 @@ class ProceduralPose:
     pose: tuple[float, ...]  # 72 axis-angle values
 
 
-def sample_procedural_poses(n: int, seed: int) -> list[ProceduralPose]:
+def sample_procedural_poses(
+    n: int, seed: int, version: str = RANGES_VERSION
+) -> list[ProceduralPose]:
+    table = RANGES_TABLES[version]
     rng = np.random.default_rng(seed)
-    lo = np.array([[a[0] for a in RANGES_DEG[j]] for j in range(1, 24)], dtype=np.int64)
-    hi = np.array([[a[1] for a in RANGES_DEG[j]] for j in range(1, 24)], dtype=np.int64)
+    lo = np.array([[a[0] for a in table.ranges[j]] for j in range(1, 24)], dtype=np.int64)
+    hi = np.array([[a[1] for a in table.ranges[j]] for j in range(1, 24)], dtype=np.int64)
+    offsets = None
+    if table.offsets is not None:
+        offsets = np.zeros((24, 3))
+        for j, o in table.offsets.items():
+            offsets[j] = o
     nvals = lo.size  # 69
     out = []
     for i in range(n):
@@ -118,6 +160,8 @@ def sample_procedural_poses(n: int, seed: int) -> list[ProceduralPose]:
         flat = np.zeros(nvals)
         flat[keep] = deg.reshape(-1)[keep]
         deg = np.vstack([np.zeros((1, 3)), flat.reshape(23, 3)])
+        if offsets is not None:  # after sparsification: a sparsified value becomes the offset
+            deg = deg + offsets
         aa = np.stack([matrix_to_axis_angle(euler_xyz_to_matrix(np.radians(d))) for d in deg])
         out.append(
             ProceduralPose(

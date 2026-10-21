@@ -35,15 +35,18 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
   Stage record: tests written before the code (not run red: the module cannot import before
   T005–T006). Shipped without `mask_weight` / `variational` / `beta` (stages 3–4 add each
   key with its code, so no key is ever accepted and ignored). Checks: ruff and format clean;
-  pytest 354 passed in 37.95 s (343 before); CI smoke train + probe OK.
+  pytest 354 passed in 37.95 s (334 before); CI smoke train + probe OK.
 
 ## Stage 3 — mask-weighted MSE (`feat(011): mask-weighted MSE`)
 
-- [ ] T007 Tests (red first): `recon_loss` α = 0 `torch.equal` to `F.mse_loss` (value and
+- [x] T007 Tests (red first): `recon_loss` α = 0 `torch.equal` to `F.mse_loss` (value and
   gradient); 2 × 2 hand value; body error costs (1 + α)× background; all-background batch =
   MSE; fixture `(image > 0) == mask` (16 / 16); mask run repeats; `train_loss` = weighted
   objective while `metrics.json` image metrics stay plain.
-- [ ] T008 `recon_loss` in `train/objective.py`, used by `train_epoch`.
+- [x] T008 `recon_loss` in `train/objective.py`, used by `train_epoch`; `mask_weight` key
+  (+ validation, `LEGACY_VALUES`). Stage record: red run = collection error (`recon_loss`
+  missing); then 27 passed in the module. Checks: ruff and format clean; pytest 361 passed in
+  40.94 s; CI smoke train + probe OK (fixture `ae` test MSE 0.13721, as in stage 2).
 
 ## Stage 4 — VAE variant (`feat(011): VAE variant`)
 

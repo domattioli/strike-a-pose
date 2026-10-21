@@ -17,12 +17,23 @@ import torch.nn.functional as F
 class Objective:
     """Per-batch training knobs (spec 011); ``Objective()`` is the plain AE."""
 
+    mask_weight: float = 0.0
     shift_px: int = 0
     dropout: float = 0.0
 
     @classmethod
     def from_config(cls, cfg: Any) -> "Objective":
-        return cls(shift_px=cfg.shift_px, dropout=cfg.dropout)
+        return cls(mask_weight=cfg.mask_weight, shift_px=cfg.shift_px, dropout=cfg.dropout)
+
+
+def recon_loss(y: torch.Tensor, x: torch.Tensor, mask_weight: float) -> torch.Tensor:
+    """Reconstruction term: ``F.mse_loss(y, x)`` at ``mask_weight`` 0 (today's call), else the
+    mask-weighted MSE ``sum(w·(y − x)²) / sum(w)`` over the batch with ``w = 1 + α·[x > 0]``
+    (the silhouette is the non-zero pixels of the rendered image, spec 011 research R3)."""
+    if mask_weight == 0:
+        return F.mse_loss(y, x)
+    w = 1.0 + mask_weight * (x > 0).to(y.dtype)
+    return (w * (y - x) ** 2).sum() / w.sum()
 
 
 def shift_batch(u8: torch.Tensor, k: int) -> torch.Tensor:

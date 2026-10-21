@@ -45,7 +45,7 @@ from strike_a_pose.runlog import (
 )
 
 from .config import TrainConfig, load_run_config, with_legacy_values
-from .objective import Objective, shift_batch
+from .objective import Objective, recon_loss, shift_batch
 
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
@@ -113,7 +113,7 @@ def train_epoch(
         z = model.encode(x)
         if obj.dropout:  # bottleneck dropout, training only (p = 0: no call, no draw)
             z = F.dropout(z, obj.dropout, training=True)
-        recon = F.mse_loss(model.decode(z), x)
+        recon = recon_loss(model.decode(z), x, obj.mask_weight)
         loss = recon
         loss.backward()
         lr = float(opt.param_groups[0]["lr"])

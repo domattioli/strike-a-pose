@@ -14,7 +14,7 @@ from strike_a_pose.eval.config import ConfigError
 from strike_a_pose.models import ConvAutoencoder
 from strike_a_pose.train.cli import main
 from strike_a_pose.train.config import LEGACY_VALUES, TrainConfig, config_from_dict, load_config
-from strike_a_pose.train.objective import Objective, shift_batch
+from strike_a_pose.train.objective import Objective, recon_loss, shift_batch
 from strike_a_pose.train.trainer import (
     CL,
     HISTORY_FIELDS,
@@ -31,9 +31,10 @@ CFG = ROOT / "configs" / "ae_fixture.yaml"
 FIXTURE = ROOT / "tests" / "fixtures" / "smpl_fixture"
 SPLIT = ROOT / "splits" / "smpl_fixture.json"
 SMALL = {"channels": [4, 4, 4, 4, 4, 4], "latent_dim": 8}  # fast; the rules do not need size
-NEW_KEYS = {"weight_decay": 0.0, "shift_px": 0, "dropout": 0.0}  # spec 011 keys: defaults
+NEW_KEYS = {"mask_weight": 0.0, "weight_decay": 0.0, "shift_px": 0, "dropout": 0.0}  # defaults
 REG = {"weight_decay": 0.05, "shift_px": 4, "dropout": 0.1}  # configs/ae_reg.yaml
-ALL_KNOBS = {**REG}  # every knob on (resume test)
+MASK = {"mask_weight": 4.0}  # configs/ae_mask.yaml
+ALL_KNOBS = {**REG, **MASK}  # every knob on (resume test)
 HIST_KEYS = ("train_loss", "val_loss", "lr", "train_recon", "train_kl")
 
 
@@ -74,6 +75,9 @@ def test_defaults_are_the_plain_ae_and_the_legacy_values():
 @pytest.mark.parametrize(
     "kw",
     [
+        {"mask_weight": -1.0},
+        {"mask_weight": float("inf")},
+        {"mask_weight": None},
         {"weight_decay": -0.1},
         {"weight_decay": float("nan")},
         {"weight_decay": "0.1"},
@@ -243,3 +247,57 @@ def test_run_dir_from_before_011_resumes(tmp_path):
     assert main(["--resume", str(d)]) == 0
     assert _hist(d) == _hist(full)
     assert (d / "metrics.json").read_bytes() == (full / "metrics.json").read_bytes()
+
+
+# ------------------------------------------------------------------ mask-weighted MSE (FR-003)
+
+
+def test_recon_loss_at_zero_is_mse_loss_bitwise():
+    torch.manual_seed(0)
+    x = (torch.rand(3, 1, 16, 12) > 0.7) * torch.rand(3, 1, 16, 12)
+    y = torch.rand(3, 1, 16, 12, requires_grad=True)
+    a = recon_loss(y, x, 0.0)
+    (ga,) = torch.autograd.grad(a, y)
+    b = F.mse_loss(y, x)
+    (gb,) = torch.autograd.grad(b, y)
+    assert torch.equal(a, b) and torch.equal(ga, gb)
+
+
+def test_recon_loss_weights_body_pixels():
+    x = torch.tensor([[[[0.0, 0.5], [0.0, 0.0]]]], dtype=torch.float64)  # one body pixel
+    y = torch.tensor([[[[0.1, 0.3], [0.0, 0.2]]]], dtype=torch.float64)
+    # w = [[1, 5], [1, 1]]: (0.01 + 5 * 0.04 + 0 + 0.04) / 8
+    assert float(recon_loss(y, x, 4.0)) == pytest.approx(0.25 / 8, rel=1e-12)
+    body, background = x.clone(), x.clone()
+    body[0, 0, 0, 1] += 0.1  # the same error on the body pixel ...
+    background[0, 0, 1, 1] += 0.1  # ... and on a background pixel
+    ratio = float(recon_loss(body, x, 4.0) / recon_loss(background, x, 4.0))
+    assert ratio == pytest.approx(5.0, rel=1e-9)
+    empty = torch.zeros_like(x)  # no body pixel: w = 1, the plain MSE
+    assert float(recon_loss(y, empty, 4.0)) == pytest.approx(float(F.mse_loss(y, empty)))
+
+
+def test_fixture_silhouette_is_the_nonzero_pixels():
+    """R3: the renderer draws the body at >= 38 / 255 on black, the mask at the same pixels,
+    so the mask weight needs no train masks."""
+    n = 0
+    for split in ("train", "test"):
+        ds = PoseImageDataset(FIXTURE, split=split, split_file=SPLIT)
+        a = load_split(ds, batch_size=4, masks=True)
+        assert torch.equal(a["image"].reshape(a["n"], -1) > 0, a["mask"])
+        n += a["n"]
+    assert n == 16
+
+
+def test_mask_weighted_run_repeats_and_records(tmp_path):
+    plain = run_training(_cfg(tmp_path, "plain"))
+    a = run_training(_cfg(tmp_path, "a", **MASK))
+    b = run_training(_cfg(tmp_path, "b", **MASK))
+    assert _hist(a) == _hist(b) and _hist(a) != _hist(plain)
+    assert (a / "metrics.json").read_bytes() == (b / "metrics.json").read_bytes()
+    m = _metrics(a)
+    assert m["training"]["objective"]["mask_weight"] == 4.0
+    assert (
+        m["splits"]["test"]["image"]["ae"].keys()
+        == _metrics(plain)["splits"]["test"]["image"]["ae"].keys()
+    )

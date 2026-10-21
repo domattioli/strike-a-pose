@@ -71,11 +71,13 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Stage 6 — dataset configs (`feat(010): dataset configs`)
 
-- [ ] T013 `configs/smpl_proc_v{2,3,4,5}/{generate,baselines,ae,probe}.yaml` (FR-010; v5:
+- [x] T013 `configs/smpl_proc_v{2,3,4,5}/{generate,baselines,ae,probe}.yaml` (FR-010; v5:
   `image_pca_ks: []`, `context_pca_k: null`).
-- [ ] T014 Tests: each loads with its loader; consecutive `generate.yaml` differ in
+- [x] T014 Tests: each loads with its loader; consecutive `generate.yaml` differ in
   `dataset_name` + one key; run configs differ from v1's only in names / paths (+ v5 keys);
-  each `generate.yaml` with the synthetic model, 2 poses, 64 × 48 validates.
+  each `generate.yaml` with the synthetic model, 2 poses, 64 × 48 validates. Config files are
+  data, written with the tests (no red run). Stage checks: ruff and format clean; pytest 334
+  passed in 33.2 s. The run procedure is in *Follow-up R* below.
 
 ## Stage 7 — docs (`docs(010)`)
 

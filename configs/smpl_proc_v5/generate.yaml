@@ -1,0 +1,16 @@
+# smpl_proc_v5 = smpl_proc_v4 + 4,000 poses (spec 010 FR-010; chain v2 -> v5).
+# Run: strike-a-pose-data generate --config configs/smpl_proc_v5/generate.yaml --seed 0
+# Then validate, split (--seed 0, default fractions) and run the baselines, AE and probe
+# configs next to this file: run procedure in specs/010-dataset-realism/tasks.md.
+dataset_name: smpl_proc_v5
+output_root: data/generated
+smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
+pose_source: procedural
+num_poses: 4000                          # 2x smpl_proc_v4: the more-poses option
+num_betas: 10
+image: {height: 256, width: 192}
+camera_ring: {count: 8, distance_m: 3.5, height_m: 0.0, focal_px: 320.0}
+ranges_version: predecessor-v2-armsdown   # arms down -/+65 deg; shoulder z +-20, collar z +-10
+body_shape: {std: 1.0, clip: 2.0}         # per-pose betas N(0, 1) clipped at +-2
+camera_jitter: {height_m: [-0.3, 0.3], distance_m: [0.0, 0.5], pitch_deg: [0.0, 5.0],
+                margin_px: 2, max_attempts: 16}   # aim at the ring look-at point, tilt down

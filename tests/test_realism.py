@@ -8,6 +8,8 @@ import pytest
 
 from strike_a_pose.datagen.cameras import camera_ring, in_frame, jittered_camera, project
 from strike_a_pose.datagen.config import (
+    BodyShapeConfig,
+    CameraJitterConfig,
     CameraRingConfig,
     ConfigError,
     config_from_dict,
@@ -413,3 +415,58 @@ def test_all_options_prefix_property(synthetic_smpl_npz, tmp_path):
     for s in load_manifest(small)["samples"]:
         for k in ("image", "mask", "labels"):
             assert (small / s[k]).read_bytes() == (large / s[k]).read_bytes(), s[k]
+
+
+# --- FR-010: the dataset series configs (surrogate ruling Q1: chain) ---------------------
+
+SERIES = {"smpl_proc_v2": "ranges_version", "smpl_proc_v3": "body_shape",
+          "smpl_proc_v4": "camera_jitter", "smpl_proc_v5": "num_poses"}  # fmt: skip
+
+
+def test_series_generation_configs_form_a_chain():
+    prev = load_config(ROOT / "configs" / "default.yaml").to_dict()
+    for ds, key in SERIES.items():
+        cur = load_config(ROOT / "configs" / ds / "generate.yaml").to_dict()
+        assert cur["dataset_name"] == ds
+        assert {k for k in prev.keys() | cur.keys() if prev.get(k) != cur.get(k)} == {
+            "dataset_name", key,
+        }  # fmt: skip
+        prev = cur
+    v5 = load_config(ROOT / "configs" / "smpl_proc_v5" / "generate.yaml")
+    assert v5.num_poses == 4000 and v5.ranges_version == V2
+    assert v5.body_shape == BodyShapeConfig() and v5.camera_jitter == CameraJitterConfig()
+
+
+def test_series_run_configs_match_v1():
+    from strike_a_pose.eval import config as baseline_config
+    from strike_a_pose.eval import probe_config
+    from strike_a_pose.train import config as train_config
+
+    loaders = {"baselines": baseline_config.load_config, "ae": train_config.load_config,
+               "probe": probe_config.load_config}  # fmt: skip
+    for ds in SERIES:
+        for kind, load in loaders.items():
+            v1 = load(ROOT / "configs" / f"{kind}.yaml").to_dict()
+            cur = load(ROOT / "configs" / ds / f"{kind}.yaml").to_dict()
+            want = {"run_name", "dataset_dir", "split_file"} | ({"checkpoint"} if kind == "probe"
+                                                                else set())  # fmt: skip
+            if ds == "smpl_proc_v5":
+                want |= {"baselines": {"image_pca_ks"}, "ae": {"context_pca_k"}}.get(kind, set())
+            assert {k for k in v1 if v1[k] != cur[k]} == want and set(cur) == set(v1)
+            assert cur["run_name"] == f"{kind}-{ds}"
+            assert cur["dataset_dir"] == f"data/generated/{ds}"
+            assert cur["split_file"] == f"splits/{ds}.json"
+    v5 = ROOT / "configs" / "smpl_proc_v5"
+    assert baseline_config.load_config(v5 / "baselines.yaml").image_pca_ks == ()
+    assert train_config.load_config(v5 / "ae.yaml").context_pca_k is None
+
+
+def test_series_configs_generate_on_synthetic_model(synthetic_smpl_npz, tmp_path):
+    for ds in SERIES:
+        d = load_config(ROOT / "configs" / ds / "generate.yaml").to_dict()
+        d |= {"smpl_model_path": str(synthetic_smpl_npz), "num_poses": 2,
+              "image": {"height": 64, "width": 48},
+              "camera_ring": {**d["camera_ring"], "focal_px": 80.0}}  # fmt: skip
+        out = generate_dataset(config_from_dict(d), 0, output_root=tmp_path)
+        assert validate_dataset(out) == [], ds
+        assert load_manifest(out)["config"] == d

@@ -502,6 +502,22 @@ unaffected).
 - Operator instruction: resume at 2026-10-21 08:04 UTC for a 3-hour window
   (scheduled), wrap-up reminder at 10:49 UTC.
 
+## End of the 2026-10-21 autonomous window (20:30 UTC)
+
+- Capsule campaign on `capsule_proc_v1` finished R0, R0b, R1, R2, R3 (+ probes); summaries and
+  the campaign verdict are in `docs/results/013-capsule/README.md`. Not run: the β 0.1 VAE
+  follow-up (`configs/capsule_proc_v1/ae_vae_beta0.1.yaml`, indicated by R2's healthy KL) and the
+  independent realism datasets `capsule_proc_v2a`–`v2d` (generate with
+  `configs/capsule_proc_v2x/generate.yaml`, split with seed 0, then baselines / AE / probe as for
+  v1; v2a needs `scripts/intersection_check.py` first). Extend `data/capsule_queue.sh` with these
+  steps (it is git-ignored under `data/`; it does not exist in a fresh container) or run them by
+  hand; keep a tracked keep-alive task running while they train.
+- Operator decisions still open: confirm the variant promotion rule (R1's probe gain suggests
+  adding a probe-based criterion); the winners' dataset; sign-off on 007–014; the capsule
+  license reading (skeleton derived from the committed fixture labels).
+- SMPL: `domattioli/smpl-assets` was still empty at 20:18 UTC; F1 and the SMPL campaign wait
+  for `SMPL_NEUTRAL.npz`.
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

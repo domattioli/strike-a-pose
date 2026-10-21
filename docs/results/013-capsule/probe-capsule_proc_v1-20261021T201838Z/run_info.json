@@ -1,0 +1,57 @@
+{
+  "argv": [
+    "strike-a-pose-eval",
+    "probe",
+    "--config",
+    "configs/capsule_proc_v1/probe.yaml",
+    "--checkpoint",
+    "runs/ae-reg-capsule_proc_v1-20261021T185824Z/best.pt"
+  ],
+  "cache": {
+    "hit": false,
+    "path": "runs/probe-cache/9607b092efa9-5ef1490918cc-f79f3b5f67d8.pt"
+  },
+  "checkpoint": {
+    "epoch": 58,
+    "path": "runs/ae-reg-capsule_proc_v1-20261021T185824Z/best.pt",
+    "sha256": "9607b092efa9edc3dcf26d8dd13707f9cae6719712bfd3bc0693a59f47b8056f",
+    "train_run_git": {
+      "commit": "6b02a4c51c86948a25696664f57eaf3d4f388268",
+      "dirty": false
+    }
+  },
+  "cwd": "/home/user/strike-a-pose",
+  "dataset": {
+    "checksums_sha256": "b2cc370b52429bf38efe946e509ddc69a1878a5af017ff9f34d4a89f21e39830",
+    "dir": "data/generated/capsule_proc_v1",
+    "manifest_content_sha256": "0325a5630709e1459e791aba2a54df0ebb5fcc51fc4997aa35ca7deb2a00535e",
+    "manifest_sha256": "5ef1490918cc7e46e9746c329f43480d2105ed404612a59c2462d8d071152041"
+  },
+  "encode_s": 62.5,
+  "env": {
+    "cpu_count": 4,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "numpy": "2.5.4",
+    "pillow": "13.0.0",
+    "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "torch": "2.14.1+cu130",
+    "torch_threads": 4
+  },
+  "figures": [
+    "skeleton_val.png",
+    "yaw_confusion_val.png"
+  ],
+  "finished_utc": "2026-10-21T20:25:28.254155+00:00",
+  "git": {
+    "commit": "0461d4bbf91f85a69ce9f69e08687bb6b1c8dc30",
+    "dirty": false
+  },
+  "seed": 0,
+  "split_file": {
+    "path": "splits/capsule_proc_v1.json",
+    "sha256": "f79f3b5f67d8a05693cefa61f9e77b80f299d130b339341841f1e9588d0b2422"
+  },
+  "started_utc": "2026-10-21T20:18:38.086617+00:00",
+  "wall_s": 410.2
+}

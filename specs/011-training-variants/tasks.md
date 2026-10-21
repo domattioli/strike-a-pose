@@ -67,10 +67,12 @@ configs/ae_fixture.yaml --run-root <tmp>/runs`, then `uv run --locked strike-a-p
 
 ## Stage 5 — configs and docs (`feat(011): experiment configs`, `docs(011)`)
 
-- [ ] T011 `configs/ae_mask.yaml`, `configs/ae_vae.yaml`, `configs/ae_reg.yaml` (copies of
+- [x] T011 `configs/ae_mask.yaml`, `configs/ae_vae.yaml`, `configs/ae_reg.yaml` (copies of
   `configs/ae.yaml`, `run_name` `ae-{mask,vae,reg}-smpl_proc_v1`); `configs/ae.yaml` gains the
   six keys at their defaults; test: each loads and differs from `ae.yaml` only in `run_name`
-  and its keys.
+  and its keys. Also: the legacy test strips `model_hparams.variational`; the `objective.py`
+  docstring names the VAE noise. Checks: ruff and format clean; pytest 374 passed in 37.57 s;
+  CI smoke train + probe OK.
 - [ ] T012 Docs: 004 `spec.md` dated notes; README (status row, Usage: variants and configs,
   Results: numbers come with the runs); roadmap (#16 (ii)–(iv) implemented, 011 row, status
   line, changelog 2026-10-21); HANDOFF (state; experiment procedure R0 → R1 → R2 → R3 with

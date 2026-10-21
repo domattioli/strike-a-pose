@@ -1,0 +1,30 @@
+# Regularization bundle, experiment R3 (spec 011; one combined run, surrogate ruling Q1):
+# configs/ae.yaml with AdamW weight decay 0.05, per-sample shifts up to 4 px and latent
+# dropout 0.1. Control: the configs/ae.yaml re-baseline run R0; single-knob runs only if
+# this one beats R0 on best val loss. Run: strike-a-pose-train --config configs/ae_reg.yaml
+# (CPU, ~1.5 h on 4 vCPU; detached, resumable).
+run_name: ae-reg-smpl_proc_v1
+run_root: runs                         # git-ignored
+seed: 0
+dataset_dir: data/generated/smpl_proc_v1
+split_file: splits/smpl_proc_v1.json
+latent_dim: 64                         # predecessor latent size
+channels: [16, 32, 64, 128, 256, 256]  # 6 stride-2 blocks: 256x192 -> 4x3 (research R2)
+epochs: 60                             # a priori, fits the ~3 h CPU budget (research R2)
+batch_size: 64
+lr: 0.001
+lr_schedule: cosine                    # per-step decay to 0
+eval_splits: [val, test]
+select_weights: best_val               # scored: best_val (best.pt) | final (last epoch)
+context_pca_k: 64                      # baseline column / metrics (= 003 headline PCA)
+iou_threshold: 0.075                   # 003 default
+figure_split: val
+figure_samples: 6                      # same samples as the 003 figure
+# Training variants (spec 011): the defaults below are this plain AE, the control R0 of
+# configs/ae_mask.yaml (R1), ae_vae.yaml (R2) and ae_reg.yaml (R3).
+mask_weight: 0.0                       # alpha of the mask-weighted MSE (0: plain MSE)
+variational: false                     # VAE: logvar head + KL term (needs beta > 0)
+beta: 0.0                              # KL weight on KL / (H*W); > 0 iff variational
+weight_decay: 0.05                     # AdamW decoupled weight decay (every parameter)
+shift_px: 4                            # per-sample integer shifts of the train images
+dropout: 0.1                           # dropout on the latent (training only)

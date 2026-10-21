@@ -252,6 +252,7 @@ def test_run_dir_from_before_011_resumes(tmp_path):
     ck["config"] = {k: v for k, v in ck["config"].items() if k not in NEW_KEYS}
     old = ("train_recon", "train_kl")
     ck["history"] = [{k: v for k, v in r.items() if k not in old} for r in ck["history"]]
+    del ck["model_hparams"]["variational"]
     for g in ck["optimizer"]["param_groups"]:
         g["decoupled_weight_decay"] = False  # as torch.optim.Adam saved it before 011
     torch.save(ck, d / "checkpoint.pt")
@@ -375,3 +376,18 @@ def test_vae_run_repeats_records_and_probes(tmp_path):
     (run,) = (tmp_path / "p").iterdir()
     encoder = json.loads((run / "metrics.json").read_text())["encoder"]
     assert encoder["variational"] is True and encoder["latent_dim"] == 8
+
+
+# ------------------------------------------------------------------ experiment configs (FR-013)
+
+
+@pytest.mark.parametrize("name, knobs", [("mask", MASK), ("vae", VAE), ("reg", REG)])
+def test_experiment_configs_differ_from_the_control_only_in_their_knobs(name, knobs):
+    raw = yaml.safe_load((ROOT / "configs" / "ae.yaml").read_text())
+    assert {k: raw[k] for k in NEW_KEYS} == NEW_KEYS  # the control lists the defaults
+    base = load_config(ROOT / "configs" / "ae.yaml").to_dict()
+    cfg = load_config(ROOT / "configs" / f"ae_{name}.yaml").to_dict()
+    assert {k: v for k, v in cfg.items() if v != base[k]} == {
+        "run_name": f"ae-{name}-smpl_proc_v1",
+        **knobs,
+    }

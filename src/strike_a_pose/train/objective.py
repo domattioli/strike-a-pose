@@ -3,7 +3,8 @@ specs/004-autoencoder-mvp/contracts/train-run.md, "Training objective").
 
 Every knob defaults to the plain autoencoder's computation and, while off, draws from no
 RNG, so a default run is bitwise the pre-011 one. The draws of a knob that is on (shift
-offsets, dropout masks) come from the global torch RNG, which the trainer saves per epoch.
+offsets, the VAE's noise, dropout masks) come from the global torch RNG, which the trainer
+saves per epoch.
 """
 
 from dataclasses import dataclass

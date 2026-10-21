@@ -20,3 +20,11 @@ context_pca_k: 64                      # baseline column / metrics (= 003 headli
 iou_threshold: 0.075                   # 003 default
 figure_split: val
 figure_samples: 6                      # same samples as the 003 figure
+# Training variants (spec 011): the defaults below are this plain AE, the control R0 of
+# configs/ae_mask.yaml (R1), ae_vae.yaml (R2) and ae_reg.yaml (R3).
+mask_weight: 0.0                       # alpha of the mask-weighted MSE (0: plain MSE)
+variational: false                     # VAE: logvar head + KL term (needs beta > 0)
+beta: 0.0                              # KL weight on KL / (H*W); > 0 iff variational
+weight_decay: 0.0                      # AdamW decoupled weight decay (every parameter)
+shift_px: 0                            # per-sample integer shifts of the train images
+dropout: 0.0                           # dropout on the latent (training only)

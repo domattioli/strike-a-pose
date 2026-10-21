@@ -262,6 +262,9 @@ published 003 metrics.
   whose process is alive refuses the start: `ConfigError`, exit 2, naming the pid and the file.
   Alive = same boot (`/proc/sys/kernel/random/boot_id`, when readable) and a running process
   with that pid whose command line contains `strike-a-pose-train` (without `/proc`: signal 0).
+  *(Amended 2026-10-21 by slice 014, found in live use: a trainer launched as `python -m
+  strike_a_pose.train.cli` has no `strike-a-pose-train` in its command line and was taken for
+  dead; the check accepts `strike-a-pose-train` or `strike_a_pose.train`.)*
   Otherwise the lock is stale and replaced.
 - **FR-008** (legacy run dirs): a run dir without the 012 keys in `config.yaml`, `checkpoint.pt`
   and `best.pt` resumes with the guards off and finishes byte-identical to an uninterrupted run.

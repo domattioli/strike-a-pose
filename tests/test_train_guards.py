@@ -472,6 +472,20 @@ def test_lock_liveness_rejects_reused_pids_and_other_boots(helper):
         assert not lock_alive({"pid": helper.pid, "boot_id": "another-boot"})
 
 
+def test_lock_liveness_accepts_python_m_launches():
+    """A trainer started as `python -m strike_a_pose.train.cli ...` is alive (its /proc cmdline
+    lacks the console-script name); found in live use 2026-10-21."""
+    p = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(120)", "-m", "strike_a_pose.train.cli"]
+    )
+    try:
+        assert lock_alive({"pid": p.pid, "boot_id": boot_id()})
+    finally:
+        p.kill()
+        p.wait()
+    assert not lock_alive({"pid": p.pid, "boot_id": boot_id()})
+
+
 def test_lock_is_released_after_an_error(tmp_path):
     d = run_training(_cfg(tmp_path, "r", epochs=3), stop_after_epoch=1)
     c = yaml.safe_load((d / "config.yaml").read_text())

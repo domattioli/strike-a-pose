@@ -20,6 +20,8 @@ GRACE_EPOCHS = 3  # the train-loss ratio test starts after these epochs
 NONFINITE_VAL_EPOCHS = 3  # consecutive non-finite val losses that abort a run
 ABORTED, LOCK = "aborted.json", "lock"
 TRAIN_MARKER = "strike-a-pose-train"  # in the command line of a live lock owner
+# either form names a trainer: the console script, or `python -m strike_a_pose.train.cli`
+TRAIN_MARKERS = (TRAIN_MARKER, "strike_a_pose.train")
 BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 
 
@@ -146,8 +148,9 @@ def read_aborted(path: str | Path) -> dict | None:
 
 
 def lock_alive(info: Any) -> bool:
-    """Whether the process a lock names is a live ``strike-a-pose-train`` of this boot (with
-    ``/proc``; elsewhere: whether the pid exists). Dead, reused or other-boot pids are stale."""
+    """Whether the process a lock names is a live trainer of this boot (``strike-a-pose-train``
+    or ``python -m strike_a_pose.train.cli``) with ``/proc``; elsewhere: whether the pid
+    exists. Dead, reused or other-boot pids are stale."""
     pid = info.get("pid") if isinstance(info, dict) else None
     if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         return False
@@ -159,7 +162,7 @@ def lock_alive(info: Any) -> bool:
             argv = Path(f"/proc/{pid}/cmdline").read_bytes()
         except OSError:
             return False
-        return TRAIN_MARKER.encode() in argv
+        return any(m.encode() in argv for m in TRAIN_MARKERS)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

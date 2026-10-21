@@ -123,7 +123,8 @@ checkpoint, or checkpoint/config mismatch; exit 1: dataset manifest or split has
 differs from `run_info.json`; exit 5: the run was aborted by the divergence guard
 (`aborted.json`, slice 012; never resumable: start a new run). Both a new run and `--resume`
 hold `run_dir/lock` while they run (slice 012) and exit 2 when it names a live
-`strike-a-pose-train` process of this boot; a lock left by a killed process is stale and
+trainer process of this boot (command line containing `strike-a-pose-train` or
+`strike_a_pose.train`, the `python -m` form: amended 2026-10-21 by slice 014); a lock left by a killed process is stale and
 replaced. The manifest check uses the raw manifest hash
 (`dataset.manifest_sha256`, SHA-256 of the `manifest.json` bytes, which include the
 generating `code` commit), not the content hash the 002 split file uses: a dataset

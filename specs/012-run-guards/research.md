@@ -27,7 +27,8 @@ objective adds `β·KL/(H·W)` (≈ 1e-4 at β 0.1, KL 50 nats): far below the t
 The container can be reclaimed and restarted; PIDs restart small and get reused. A lock is
 alive only if (1) its `boot_id` equals `/proc/sys/kernel/random/boot_id` when both are known,
 and (2) `/proc/<pid>/cmdline` exists and contains `strike-a-pose-train` (a zombie's command
-line is empty: not alive). Without `/proc` (not Linux) the check falls back to `os.kill(pid, 0)`.
+line is empty: not alive). *(Amended 2026-10-21 by slice 014: or `strike_a_pose.train`, so a
+`python -m strike_a_pose.train.cli` launch counts as alive.)* Without `/proc` (not Linux) the check falls back to `os.kill(pid, 0)`.
 The lock is written to a temp file and moved in place, then re-read: of two launches in the
 same instant the later writer wins and the other refuses; the remaining window (check, then
 replace) is milliseconds wide, acceptable for "never a second resume while a run is alive"

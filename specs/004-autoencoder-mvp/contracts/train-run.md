@@ -6,7 +6,9 @@ Breaking changes bump `train_version` in `metrics.json`. v2 (slice 008
 (default: the epoch with the lowest val loss, `best.pt`) and named in `metrics.json`
 `selection`; v1 runs always scored the final weights. Slice 011 `training-variants`
 (2026-10-21) adds optional training variants (config keys below; their defaults are the plain
-AE, bit for bit) with additive records; `train_version` stays 2.
+AE, bit for bit) with additive records; `train_version` stays 2. Slice 012 `run-guards`
+(2026-10-21) adds opt-in run guards (early stop, divergence abort), a run-dir lock and two
+`run_info.json` provenance fields; additive, `train_version` stays 2.
 
 ## Model (`strike_a_pose.models.ConvAutoencoder`)
 
@@ -63,13 +65,37 @@ Flat mapping; unknown keys are an error.
 | `weight_decay` | float ≥ 0 | `0.0` | slice 011: AdamW decoupled weight decay (every parameter, one group) |
 | `shift_px` | int in [0, 32] | `0` | slice 011: each train image shifted by its own integer offset in `[-k, k]²`, zero fill |
 | `dropout` | float in [0, 1) | `0.0` | slice 011: dropout on the latent in training (after sampling) |
+| `early_stop` | null \| `{patience: int ≥ 1, min_epochs: int ≥ 0 (0), min_delta: float ≥ 0 (0.0)}` | null | slice 012: stop on a val plateau (below) |
+| `abort_on_divergence` | bool | `false` | slice 012: abort a diverging run (below; exit 5) |
+| `divergence_ratio` | float > 1 | `10.0` | slice 012: train-loss ratio to epoch 1 that counts as divergence; another value needs `abort_on_divergence: true` |
 
 The per-epoch val loss is computed when `val` has samples, whether or not `val`
 is in `eval_splits`; it never changes training (epochs, lr, optimizer) and, under
 `best_val`, selects the scored weights.
 
 The slice 011 keys default to the pre-011 computation and carry that value in
-`train.config.LEGACY_VALUES`, so run directories started before them resume.
+`train.config.LEGACY_VALUES`, so run directories started before them resume; so do the slice
+012 keys (guards off).
+
+### Run guards (slice 012)
+
+Both read only the per-epoch history (full precision, as checkpointed), after the epoch's
+history row, `checkpoint.pt`, `best.pt` and log line, and on `--resume` from the checkpointed
+history before training, so a resumed run decides as an uninterrupted one. Neither touches
+the optimizer, the lr schedule (cosine over the configured `epochs`) or any RNG.
+
+- **Early stop** (`early_stop`): an epoch with a finite val loss improves iff there is no anchor
+  yet or its val loss is below the anchor by more than `min_delta` (the anchor moves to it).
+  After an epoch e with a finite val loss the run stops iff `e ≥ min_epochs` and `e − anchor
+  epoch ≥ patience`; NaN epochs count as epochs without improvement; an empty val never stops
+  (log `early stop inactive: val is empty`). The run is then scored as usual: the selection
+  (`select_weights`) and the evaluation are unchanged, and a stopped run is a prefix of the full
+  run. Log `early stop after epoch e/E: <reason>`.
+- **Divergence** (`abort_on_divergence`), first match at the last epoch e: its train loss is not
+  finite; `e > 3` and its train loss `> divergence_ratio ×` epoch 1's; the val losses of
+  epochs `e − 2 … e` are all non-finite (an empty val never counts). Checked before the early
+  stop. The run writes `aborted.json`, no `metrics.json` or figure, logs `aborted after epoch e:
+  <reason>` and exits 5.
 
 ### Training objective (slice 011)
 
@@ -94,7 +120,11 @@ strike-a-pose-train --resume RUN_DIR
 own `config.yaml` (no overrides); the finished run equals an uninterrupted one on
 the same machine/thread count. Exit 2: finished run (`metrics.json` exists), no
 checkpoint, or checkpoint/config mismatch; exit 1: dataset manifest or split hash
-differs from `run_info.json`. The manifest check uses the raw manifest hash
+differs from `run_info.json`; exit 5: the run was aborted by the divergence guard
+(`aborted.json`, slice 012; never resumable: start a new run). Both a new run and `--resume`
+hold `run_dir/lock` while they run (slice 012) and exit 2 when it names a live
+`strike-a-pose-train` process of this boot; a lock left by a killed process is stale and
+replaced. The manifest check uses the raw manifest hash
 (`dataset.manifest_sha256`, SHA-256 of the `manifest.json` bytes, which include the
 generating `code` commit), not the content hash the 002 split file uses: a dataset
 regenerated at another commit does not resume, by design, because the manifest does
@@ -114,8 +144,9 @@ Exit codes: 0 OK (prints run dir, per-epoch losses, the selection line — e.g. 
 best_val weights: epoch 34, val 0.00217 (val loss; best.pt); final epoch 60 val
 0.00221` — and headline metrics); 1 dataset or split invalid; 2 config error (incl.
 image size not divisible by `2^len(channels)`, a `best.pt` that does not hold the
-selected epoch); 4 run dir exists. Inputs and config are checked before the run dir is
-created.
+selected epoch, a run dir locked by a live process); 4 run dir exists; 5 aborted by the
+divergence guard, or `--resume` of such a run (slice 012). Inputs and config are checked before
+the run dir is created.
 
 ## Run directory `<run_root>/<run_name>-<YYYYmmddTHHMMSSZ>/`
 
@@ -127,6 +158,8 @@ created.
 | `checkpoint.pt` | `{"model": state_dict, "model_hparams": {image_size, latent_dim, channels, variational}, "optimizer": state_dict, "scheduler": state_dict \| null, "rng": {"shuffle", "torch", "numpy", "python"}, "history": [row, …], "elapsed_s": float, "train_wall_s": float, "epoch": int, "config": dict, "train_version": 2}`; resume state of the last finished epoch, written atomically after every epoch, before that epoch's `best.pt`; the scored file only when the final weights are scored (`selection.checkpoint`); never committed |
 | `best.pt` | `{"model", "model_hparams", "epoch", "val_loss", "config", "train_version": 2}` of the earliest epoch with the lowest finite val loss so far (NaN never counts), written atomically after that epoch's `checkpoint.pt` whenever val has samples (also under `select_weights: final`, where it is informational); absent when val is empty or never finite; loads with `load_checkpoint`; the scored file under `best_val` (slice 008; additive since surrogate ruling 2026-10-20 #3); never committed. On resume the best is recomputed from the checkpointed full-precision history and the file reconciled (CLI). |
 | `metrics.json` | below |
+| `aborted.json` | slice 012, instead of `metrics.json` when the divergence guard ends the run: `{"epoch", "reason", "divergence_ratio", "first_train_loss", "last_losses": [{"epoch", "train_loss", "val_loss"}, … up to 3]}`; non-finite losses as the strings `"nan"`, `"inf"`, `"-inf"` |
+| `lock` | slice 012, transient: `{"pid", "boot_id", "argv", "started_utc"}` of the process running on the run dir; removed on exit, left stale by a kill |
 | `recon_<figure_split>.png` | 003 grid: columns `true`, `ae` (the scored weights), `mean_image`, `pca k=K` |
 
 ### `metrics.json` (`train_version` 2; image metrics as 003 `metrics_version` 1)
@@ -189,6 +222,12 @@ known on val only, the split that selected them (`selection.val_loss` vs
 `training.final_val_loss`): compare best-val numbers with final-weight numbers (e.g. the
 published 004 run, `train_version` 1) with that caveat. A `train_version` 1 file has no
 `selection` and scored the final weights.
+
+`training.stopped_early` (slice 012) is present iff `early_stop` is configured: null (the run
+trained all its epochs) or `{"epoch", "reason"}`; `training.epochs` / `steps` stay the configured
+values, `final_*` are the last trained epoch's. `run_info.json` gains `env.cpu_model` and
+`dataset.checksums_sha256` (SHA-256 of the dataset's `checksums.json`, i.e. the pixels; slice
+012).
 
 `training` also holds `best_val_epoch` / `best_val_loss` (the same finite-minimum rule;
 null without a finite val loss; additive, surrogate ruling 2026-10-20 #3; `run_info.json`

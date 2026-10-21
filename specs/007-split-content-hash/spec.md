@@ -312,33 +312,39 @@ in place (never committed), at any commit that contains 007:
 ```bash
 uv sync --locked            # the locked environment (uv.lock unchanged since 406b68f)
 
-# the SMPL file must be the one the 2026-10-20 datasets were generated from
-# (recorded in the committed fixture manifest: inputs.smpl_model.sha256 = f408141b…)
+# the SMPL file the 2026-10-20 datasets were generated from (fixture manifest:
+# inputs.smpl_model.sha256 = f408141b…); a mismatch is reported, generation continues
 uv run --locked python - <<'EOF'
 import hashlib, json
 want = json.load(open("tests/fixtures/smpl_fixture/manifest.json"))["inputs"]["smpl_model"]["sha256"]
 got = hashlib.sha256(open("assets/smpl/SMPL_NEUTRAL.npz", "rb").read()).hexdigest()
-assert got == want, f"SMPL file {got[:12]}… is not the recorded {want[:12]}…: stop here"
-print("SMPL file matches", want[:12])
+print("SMPL file matches" if got == want else f"SMPL FILE DIFFERS: {got[:12]}… is not {want[:12]}…")
 EOF
 
 uv run --locked strike-a-pose-data generate --config configs/default.yaml --seed 0  # ≈ 5 min, 351 MB
 
-# provenance check: same content as the dataset behind the published 003/004/006 runs?
+# manifest diagnostics (config, inputs, sample list, labels): same content as the dataset behind
+# the published 003/004/006 runs? check 1 as generated; check 2 with the recorded SMPL file hash
 uv run --locked python - <<'EOF'
 import hashlib
 from strike_a_pose.datagen.io import dumps, load_manifest
 m = load_manifest("data/generated/smpl_proc_v1")
-for dirty in (False, True):
-    m["code"] = {"commit": "406b68f990c403dd34747dfc41914407d9ec2ea9", "dirty": dirty}
-    print(dirty, hashlib.sha256(dumps(m)).hexdigest())
+recorded = "f408141b4cd5b6ca6466e4e218aeb88a11c60f598114951b1d6d1f8078c1da16"
+for check, smpl in ((1, m["inputs"]["smpl_model"]["sha256"]), (2, recorded)):
+    m["inputs"]["smpl_model"]["sha256"] = smpl
+    for dirty in (False, True):
+        m["code"] = {"commit": "406b68f990c403dd34747dfc41914407d9ec2ea9", "dirty": dirty}
+        print(check, dirty, hashlib.sha256(dumps(m)).hexdigest())
 EOF
-# identical content iff one line prints 9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588
+# 9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588 on a check-1 line: identical
+# manifest content; only on a check-2 line: identical except the SMPL file's bytes (a
+# re-converted file with the same arrays; note it in one line); on neither: labels differ
 
 uv run --locked strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
     --out splits/smpl_proc_v1.json --overwrite        # default fractions 0.8 0.1 0.1
 
-# the pose assignment must not change (same seed, fractions, algorithm and pose set)
+# the same seed, fractions and algorithm give the same pose lists (this proves the split
+# procedure, not the dataset's identity)
 uv run --locked python - <<'EOF'
 import json, subprocess
 old = json.loads(subprocess.check_output(["git", "show", "HEAD:splits/smpl_proc_v1.json"]))
@@ -348,16 +354,43 @@ assert [k for k in keys if old[k] != new[k]] == [], "pose assignment changed: do
 assert (old["split_version"], new["split_version"]) == (1, 2)
 print("pose assignment unchanged; split_version 1 -> 2")
 EOF
+
+# pixel diagnostic: the 003 baselines (deterministic, ≈ 3 min; also R0's baselines) against
+# every number of the published run (relative difference <= 1e-5; strings and newer keys skipped)
+uv run --locked strike-a-pose-eval baseline --config configs/baselines.yaml
+uv run --locked python - <<'EOF'
+import json, pathlib
+old = json.load(open("docs/results/003-baselines-smpl_proc_v1/metrics.json"))
+run = sorted(pathlib.Path("runs").glob("baselines-smpl_proc_v1-2*"))[-1]
+new = json.load(open(run / "metrics.json"))
+bad = []
+def walk(a, b, path):
+    if isinstance(a, dict):
+        for k in a:
+            walk(a[k], b.get(k) if isinstance(b, dict) else None, f"{path}.{k}")
+    elif isinstance(a, int | float) and not isinstance(a, bool):
+        if not isinstance(b, int | float) or abs(b - a) > 1e-5 * abs(a):
+            bad.append((path, a, b))
+walk(old, new, "")
+print(run, "pixels reproduced" if not bad else f"{len(bad)} NUMBERS DIFFER, e.g. {bad[:3]}")
+EOF
 ```
 
-Then commit only `splits/smpl_proc_v1.json`; update README (drop the "still v1" note),
-`docs/HANDOFF.md` and the roadmap changelog (record the provenance-check outcome); tick
-F1 in 007 `tasks.md`. If the provenance check fails although the SMPL file and the
-environment match, still rewrite the split as v2 after the pose-list check, and record a
-reproducibility caveat in the roadmap changelog, the README "Results" section and
-`docs/HANDOFF.md`: the published 003 / 004 / 006 numbers come from the `406b68f` content
-(raw manifest `9000c915…`), which the regenerated dataset does not reproduce; the
-operator rules on it (clarification 11).
+Reproduced = manifest check 1 (or check 2, with a one-line note) and "pixels reproduced": commit
+only `splits/smpl_proc_v1.json` (and the baselines run's records, campaign procedure); update
+README (drop the "still v1" note), `docs/HANDOFF.md` and the roadmap changelog (record the
+outcome); tick F1 in 007 `tasks.md`. Otherwise (operator decision 2026-10-21): keep the
+rewritten split, run the campaign, and record in README "Results", the roadmap changelog and
+`docs/HANDOFF.md` that the published 003 / 004 / 006 numbers come from the `406b68f` dataset
+(raw manifest `9000c915…`), which no longer reproduces, naming the part that differs: the SMPL
+file (step 1), the labels or config (neither manifest check), the pixels (the baselines);
+report it first and prominently in the next operator message.
+
+*(Amended 2026-10-21 by slice [012](../012-run-guards/spec.md): the SMPL-file step reports
+instead of stopping, a second manifest check substitutes the recorded SMPL hash, the 003
+baselines rerun is the pixel diagnostic, and a failure continues with a caveat (operator
+decision 2026-10-21, replacing the rule above of clarification 11). The block is identical
+in 007 `tasks.md` and `docs/HANDOFF.md`.)*
 
 ## Clarifications
 

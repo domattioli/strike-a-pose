@@ -15,9 +15,12 @@ operator-approved roadmap question #14, slice 008 (best-val weight selection) th
 operator's choice B for question #13 (both 2026-10-20), and slice 009 (per-region image
 metrics, 2026-10-21) the operator's choice (i) for question #16, and slice 010 (dataset
 realism options, 2026-10-21) the operator's decision on question #15, and slice 011
-(training variants, 2026-10-21) the operator's options (ii)–(iv) for question #16 (all five
-approved at surrogate scope, operator sign-off pending); the remaining open questions are
-listed in the roadmap.
+(training variants, 2026-10-21) the operator's options (ii)–(iv) for question #16, and slice 012
+(run guards and the campaign procedure, 2026-10-21) the operator's 2026-10-21 decision to run
+the ≈ 20 h campaign with checks (all six approved at surrogate scope, operator sign-off
+pending); the remaining open questions are listed in the roadmap. Slices 007–012 are verified
+on the committed fixture and the synthetic body model only: no full-dataset run exists for any
+of them yet (the published numbers below predate them; the campaign brings the first).
 
 | Slice | What | State |
 |---|---|---|
@@ -32,6 +35,7 @@ listed in the roadmap.
 | 009 `region-metrics` | Every image model also reports its MSE in hands / feet / head regions around the true 2D keypoints (`region_mask`, `masked_mse`) | implemented (roadmap #16, operator choice (i)) |
 | 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs for the chain `smpl_proc_v2` → `v5` | implemented (roadmap #15); datasets and runs wait for SMPL |
 | 011 `training-variants` | Config-selectable training variants, the plain AE as default and control: weight decay (AdamW), pixel shifts, latent dropout, mask-weighted MSE, a VAE (`variational`, `beta`); configs `ae_mask` / `ae_vae` / `ae_reg` | implemented (roadmap #16, options (ii)–(iv)); runs wait for SMPL |
+| 012 `run-guards` | Opt-in trainer guards (early stop on a val plateau, divergence abort with exit 5), a run-dir lock, a batched mean image, CPU model + pixel checksums hash in `run_info.json`, `scripts/run_status.py`, the campaign configs and procedure | implemented (operator decision 2026-10-21); the campaign waits for SMPL |
 
 ## Install
 
@@ -60,7 +64,8 @@ uv run strike-a-pose-data validate tests/fixtures/smpl_fixture   # committed 16-
 ```
 
 Realism options (slice [010](specs/010-dataset-realism/spec.md); each off by default and then
-left out of the manifest, so `smpl_proc_v1` regenerates byte for byte):
+left out of the manifest, so `smpl_proc_v1` is expected to regenerate byte for byte, verified by
+F1):
 `ranges_version: predecessor-v2-armsdown` lowers the arms (∓65° at the shoulders after
 sparsification; every other angle drawn as with the default table), `body_shape: {std, clip}`
 gives each pose random SMPL betas N(0, std²) clipped at ±clip (shared by its 8 views), and
@@ -178,7 +183,32 @@ setsid nohup uv run --locked strike-a-pose-train --resume runs/<run-dir> \
     > runs/ae-resume.log 2>&1 < /dev/null &  # after a kill (no metrics.json yet)
 ```
 
-Never run two `--resume` processes on one run dir (there is no lock).
+Each process holds `RUN_DIR/lock` while it runs (slice 012): a second `--resume` (or a
+start) on a run dir whose process is alive exits 2; a lock left by a killed process is
+replaced.
+
+Run guards (slice [012](specs/012-run-guards/spec.md); off by default, so every existing
+config trains as before): `early_stop: {patience, min_epochs, min_delta}` ends a run after
+`patience` epochs without a val loss below the last improvement by more than `min_delta`
+(from epoch `min_epochs` on); the lr schedule stays planned for all `epochs` and the scored
+weights stay the best-val epoch's, so a stopped run is a prefix of the full one
+(`metrics.json` `training.stopped_early`). `abort_on_divergence: true` ends a run whose train
+loss is non-finite or, after epoch 3, above `divergence_ratio` (10) × epoch 1's, or whose val
+loss is non-finite 3 epochs in a row: it writes `aborted.json` instead of `metrics.json` and
+exits 5, and `--resume` refuses it (exit 5). The campaign configs (`configs/ae.yaml`,
+`ae_mask`, `ae_vae`, `ae_reg`, `ae_seed1`, `ae_vae_beta0.1`, `ae_vae_beta0.001`) set
+`patience: 10, min_epochs: 20` and the divergence guard; the fixture config sets neither.
+Check a run (read-only; also for the campaign's check-ins):
+
+```bash
+uv run --locked python scripts/run_status.py runs/<run-dir>          # add --json for scripts
+```
+
+It prints epochs done / planned, epoch times, minutes since the last write, best and current val
+loss, the guards' state, `train_kl` for a VAE, the lock, and a state (`running`, `stalled`,
+`looks dead`, `not running`, `finished`, `stopped early`, `aborted`). The campaign (F1 → R0 →
+R0b → realism datasets v2a–v2d → R1–R3, with decision rules and a re-armable check-in) is the
+"Campaign procedure" in [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 Runs that have a non-empty val split keep `best.pt` (weights at the lowest val loss,
 epoch logged as `best_val_epoch`) next to `checkpoint.pt` (the resume state of the last
@@ -199,13 +229,15 @@ run directories started before slice 011 resume with the defaults.
 
 ```bash
 uv run strike-a-pose-train --config configs/ae_mask.yaml   # R1: mask_weight 4
-uv run strike-a-pose-train --config configs/ae_vae.yaml    # R2: VAE, beta 0.1
+uv run strike-a-pose-train --config configs/ae_vae.yaml    # R2: VAE, beta 0.01 (012)
 uv run strike-a-pose-train --config configs/ae_reg.yaml    # R3: weight decay + shifts + dropout
 ```
 
-Each takes ~1.5 h on 4 vCPU (run it detached and resumable as above). The experiment
-procedure (control R0 = the `configs/ae.yaml` re-baseline run; then R1 → R2 → R3, each with
-its probe) is in [`specs/011-training-variants/spec.md`](specs/011-training-variants/spec.md).
+Each takes ~1.5 h on 4 vCPU (run it detached and resumable as above). The runs, their order,
+the VAE follow-ups (`ae_vae_beta0.001.yaml` after a KL collapse, `ae_vae_beta0.1.yaml` after a
+healthy run) and the promotion rules are in the campaign procedure
+([`docs/HANDOFF.md`](docs/HANDOFF.md)); 011's own procedure is in
+[`specs/011-training-variants/spec.md`](specs/011-training-variants/spec.md).
 
 Probe what the frozen encoder of a trained AE knows (spec 006): every image is encoded
 once (latents cached under `runs/probe-cache/`, keyed by checkpoint, manifest and split
@@ -265,7 +297,10 @@ parameters) trained 60 epochs on train with config
 `configs/ae.yaml` has since gained `select_weights`); final-epoch weights scored on val
 and test, with the mean image and PCA k=64 refit on train in the same run (identical to
 the 003 numbers above). Source: run `runs/ae-smpl_proc_v1-20261020T030038Z` at commit
-`f9619c6` (clean; resumed across two container restarts with unchanged code); copies of
+`f9619c6`; per its `run_info.json` the run had five sessions: started at `f9619c6` (clean),
+resumed twice at epoch 3, 19 s apart, at `570f1df` with a dirty tree, then at epochs 10 and 11
+at `693b385` (clean). The training code did not change between those commits (docs-only
+diffs), but two sessions ran with uncommitted changes whose content is not recorded; copies of
 [`metrics.json`](docs/results/004-ae-smpl_proc_v1/metrics.json),
 [`run_info.json`](docs/results/004-ae-smpl_proc_v1/run_info.json),
 [`history.csv`](docs/results/004-ae-smpl_proc_v1/history.csv) and the figures in

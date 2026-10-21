@@ -103,6 +103,17 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Follow-up R — run procedure (needs SMPL; not part of "done")
 
+*(Note 2026-10-21, slice [012](../012-run-guards/spec.md); operator decisions 2026-10-21: the
+datasets become independent single-change datasets v2a (arms-down, table renamed
+`armsdown-v1`, with an automatic limb–torso intersection count), v2b (shape), v2c (jitter), v2d
+(4,000 poses), each compared with v1; this procedure and the configs are amended by a separate
+lead, and the runs follow the 012 campaign procedure in `docs/HANDOFF.md`. F1 now has two
+manifest checks and a pixel diagnostic (the 003 baselines rerun); "fails" below means all of
+them, and a failure continues with a caveat. Corrected memory for the 4,000-pose dataset: the
+pre-012 mean image allocated a float64 copy of the train matrix (≈ 16.7 GB peak in the AE run,
+≈ 15.1 GB in the baselines: an OOM on 15 GB); with 012's batched mean ≈ 3 GB (AE,
+`context_pca_k: null`) and ≈ 6 GB (baselines, `image_pca_ks: []`); 012 research R4.)*
+
 Order: F1 (`docs/HANDOFF.md`) → `smpl_proc_v1` re-baseline with the same code (003 baselines,
 `configs/ae.yaml`, probe) → `smpl_proc_v2` → `v3` → `v4` → `v5`. If F1's provenance check fails
 after 010 landed, regenerate at a pre-010 commit (e.g. `702d2f5`) first: same failure →

@@ -291,8 +291,8 @@ published 003 metrics.
   guard keys until that amendment.
 - **FR-013** (status script): `scripts/run_status.py RUN_DIR [--json] [--now ISO8601]
   [--min-stale-min 10]` (argparse; stdlib + the package's pure guard and lock functions;
-  read-only) MUST print: state (`running`, `stalled`, `looks dead`, `finished`,
-  `stopped early`, `aborted`, `no epoch yet`), epochs done / planned, last and median epoch
+  read-only) MUST print: state (`running`, `stalled`, `looks dead`, `not running`,
+  `finished`, `stopped early`, `aborted`; "no epoch yet" annotates a run without rows), epochs done / planned, last and median epoch
   time, minutes since the last activity (newest mtime of `history.csv`, `checkpoint.pt`,
   `best.pt`, `run_info.json`, `lock`, the figure), best val epoch and loss, current val vs best,
   the guards (early stop: epochs since the anchor / patience and the earliest stop epoch;
@@ -300,7 +300,8 @@ published 003 metrics.
   epoch when present, the lock (pid, alive / stale / none) and, for a finished run, the val
   `image_mse` and the mean of the val region MSEs. **Looks dead** iff no `metrics.json` /
   `aborted.json`, no live lock owner, and the minutes since the last activity exceed
-  `max(2 × median epoch time, --min-stale-min)` (no epoch yet: since the last session start).
+  `max(2 × median epoch time, --min-stale-min)` (a resumed session rewrites `run_info.json`
+  at its start, so the clock restarts there); `not running` = no live owner, not yet stale.
   **Stalled** = live owner but no activity for 3× that threshold. Exit 0, or 2 for a path that
   is not a train run dir. Values from `history.csv` (8 significant digits).
 - **FR-014** (campaign procedure): one "Campaign procedure" section in `docs/HANDOFF.md`
@@ -347,7 +348,8 @@ published 003 metrics.
   run dirs (finished, stopped early, aborted, killed mid-run with `--now` later, live lock, VAE
   `train_kl`, not a run dir → exit 2), and nothing written; (j) mean image: batched = one-shot
   bit for bit (uint8 and float rows, odd batch sizes); (k) provenance fields in 003 / 004 / 006
-  fixture `run_info.json`; (l) FR-015 pins; (m) the F1 comparison method on the fixture.
+  fixture `run_info.json`; (l) FR-015 pins; (m) the F1 comparison methods on the fixture (a
+  scripted check in `tasks.md` T019, as 007 did: the F1 snippets are documentation).
 - **FR-018** (documentation, same slice): see *Documentation scope*.
 - **FR-019** (constraints): no new dependency (`pyproject.toml`, `uv.lock` untouched); Python
   3.11-compatible; `uv run --locked` only; `docs/results/`, `splits/`, `.github/`,

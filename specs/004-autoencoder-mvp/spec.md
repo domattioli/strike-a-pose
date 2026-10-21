@@ -125,6 +125,10 @@ and val loss decrease; the figure shows recognizable held-out bodies.
   *(Amended 2026-10-20 by slice [008](../008-best-val-selection/spec.md): val still
   never changes training (epochs, lr, optimizer); it selects which epoch's weights are
   scored (`select_weights`, default `best_val`).)*
+  *(Amended 2026-10-21 by slice [012](../012-run-guards/spec.md): with the opt-in
+  `early_stop` guard, a val plateau may end training early (the lr schedule and the selection
+  are unchanged); with `abort_on_divergence`, non-finite or exploding losses end the run with
+  exit 5. Both are off by default.)*
 - **FR-004**: Each run MUST write `config.yaml`, `run_info.json` (003 fields +
   model parameter count, epochs, wall time), `history.csv` (per epoch: train loss,
   val loss, learning rate, epoch seconds), `checkpoint.pt` (model + optimizer state,

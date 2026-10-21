@@ -57,12 +57,12 @@ changes also the fixture train + probe smoke commands. Commits name explicit pat
 
 ## Stage 4 — docs (`docs(012)`)
 
-- [ ] T014 Contracts: 004 `train-run.md`, 003 `eval-run.md`, 006 `probe-run.md`, 001
+- [x] T014 Contracts: 004 `train-run.md`, 003 `eval-run.md`, 006 `probe-run.md`, 001
   `dataset-layout.md`.
-- [ ] T015 Dated notes: 004, 008, 011 specs; 007 spec + tasks F1 block; 010 tasks note.
-- [ ] T016 README; T017 roadmap; T018 HANDOFF (state, sign-off list, next work, campaign
+- [x] T015 Dated notes: 004, 008, 011 specs; 007 spec + tasks F1 block; 010 tasks note.
+- [x] T016 README; T017 roadmap; T018 HANDOFF (state, sign-off list, next work, campaign
   procedure + log, F1 block).
-- [ ] T019 Verification record: checks, SC-002, SC-004 (procedure and F1 copies identical,
+- [x] T019 Verification record: checks, SC-002, SC-004 (procedure and F1 copies identical,
   `bash -n`), the F1 manifest and pixel methods tried on the fixture.
 
 ## Campaign procedure
@@ -231,3 +231,23 @@ any failure, abort or stop first, then step, state, action, next check-in.
   run to 0.01 → test expectation updated with the config (T012).
 - Risk: the status script imports the package (torch import ≈ 1–2 s); acceptable for a check
   every 50 min (SC-003: < 5 s).
+
+## Verification record (2026-10-21)
+
+- Commits: `41a921a` spec, `862f03b` plan, `a50cdca` run guards, `86c3285` status script +
+  configs, docs = the commit holding this record.
+- Checks at the docs commit: ruff check and ruff format --check clean; pytest 446 passed in
+  48.4 s (374 at `e98134e`); CI smoke commands (validate, fixture baselines, train, probe) exit 0.
+- SC-002 (same machine, `e98134e` outputs recorded before any change): 003 and 004
+  `metrics.json` and every figure byte-identical, AE weights equal, `history.csv` equal except
+  `epoch_s`, probe `metrics.json` equal except `encoder.checkpoint_sha256`, `config.yaml` + the
+  three guard keys, `run_info.json` + `env.cpu_model`, `dataset.checksums_sha256`.
+- SC-003: status script 1.7 s on a run dir.
+- SC-004: the campaign procedure in HANDOFF and here identical (script); the three F1 copies
+  identical (script); every shell block of HANDOFF passes `bash -n`.
+- F1 methods on the fixture (FR-017 (m)): manifest check 2 (SMPL hash altered, then the
+  recorded hash substituted) reproduces the fixture's raw manifest hash; the pixel comparison
+  passes the published 003 `metrics.json` against itself with changed hashes and an added key,
+  and catches a 1e-4 relative change in one number.
+- Not done here (needs SMPL): every campaign step. Unchanged: `docs/results/`, `splits/`,
+  `pyproject.toml`, `uv.lock`, `.github/`, `configs/smpl_proc_v*`, the 010 spec.

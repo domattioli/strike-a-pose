@@ -313,6 +313,12 @@ cost and the report table.
 
 ## Experiment procedure (follow-up E; needs SMPL; not part of "done")
 
+*(Amended 2026-10-21 by slice [012](../012-run-guards/spec.md), operator decisions
+2026-10-21: the first VAE run R2 uses β = 0.01 (`configs/ae_vae.yaml`), a collapse retry
+β = 0.001 and a healthy follow-up β = 0.1; the runs follow the 012 campaign procedure
+(`docs/HANDOFF.md`), with per-variant promotion metrics and a seed-1 control R0b. The text
+below is the procedure as specified by 011.)*
+
 Prerequisites: F1 and the re-baseline run R0 (HANDOFF "Next work" item 4: `configs/ae.yaml`,
 `best_val`, plus its probe) on `smpl_proc_v1`, same machine type and locked environment.
 R0 is reused as the control, never rerun.

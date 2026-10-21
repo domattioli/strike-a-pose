@@ -1,4 +1,4 @@
-# Handoff — strike-a-pose (as of 2026-10-21, after slice 011)
+# Handoff — strike-a-pose (as of 2026-10-21, after slice 012)
 
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
@@ -6,8 +6,9 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
 ## State
 
 - MVP done and signed off: slices 001–005, plus post-MVP 006 (latent probe).
-  Operator "approve all" 2026-10-21 covers every autonomous clarification in
-  `specs/00*/spec.md` and the surrogate rulings 2026-10-20 (see `specs/roadmap.md`).
+  The operator's "approve all" (labelled 2026-10-21) covers slices 002–006, including their
+  autonomous clarifications, and the surrogate rulings of 2026-10-20 only; 007–012 await
+  operator sign-off (list below).
 - Results: `docs/results/{003-baselines,004-ae,006-probe}-smpl_proc_v1/`; summary in
   README "Results". AE test MSE 0.00219 / IoU 0.881 (PCA-64: 0.00452 / 0.646).
   Probe: camera yaw 96 % (MLP), 3D joints 172 mm MPJPE (mean pose 253 mm).
@@ -51,7 +52,7 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   0–5° down, kept only if every mesh vertex projects 2 px inside the image, else the ring
   camera; labels record `camera.jitter`). 003 accepts `image_pca_ks: []`. Configs for the
   chain `configs/smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) → `v5`
-  (+ 4,000 poses). No new dataset, split or run exists: run procedure below (item 5).
+  (+ 4,000 poses). No new dataset, split or run exists: the campaign procedure below (as v2a–v2d, operator decision 2026-10-21).
 - Slice 011 `training-variants` (roadmap #16, operator options (ii)–(iv), 2026-10-20)
   implemented 2026-10-21; approved at surrogate scope (rulings Q1–Q3 (a)), operator
   sign-off pending. Six train config keys, each off by default (a default run equals the
@@ -63,114 +64,250 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   probe stay the plain deterministic reconstruction; `history.csv` gains `train_recon`,
   `train_kl` (`docs/results/004-ae-smpl_proc_v1/history.csv` keeps its 5 columns);
   `metrics.json` gains `model.variational`, `training.objective`; the probe
-  `encoder.variational`. Configs `configs/ae_{mask,vae,reg}.yaml`; no run yet (item 6).
+  `encoder.variational`. Configs `configs/ae_{mask,vae,reg}.yaml`; no run yet (campaign procedure below).
+- Slice 012 `run-guards` (operator decision 2026-10-21: the ≈ 20 h campaign with checks)
+  implemented 2026-10-21; approved at surrogate scope, operator sign-off pending. Trainer
+  guards, off by default: `early_stop {patience, min_epochs, min_delta}` (stop on a val
+  plateau; schedule and 008 selection unchanged; `training.stopped_early`) and
+  `abort_on_divergence` + `divergence_ratio` (`aborted.json`, exit 5, not resumable); a run-dir
+  lock (`RUN_DIR/lock`, a live owner refuses a second start); the batched mean image (the
+  4,000-pose OOM); `env.cpu_model` and `dataset.checksums_sha256` in `run_info.json`;
+  `scripts/run_status.py`; campaign configs (guards in `configs/ae{,_mask,_vae,_reg}.yaml`,
+  `ae_vae.yaml` β 0.01, new `ae_seed1`, `ae_vae_beta0.1`, `ae_vae_beta0.001`). Slices 007–012
+  are verified on the fixture and the synthetic body only: no full-dataset run yet.
 
-## Next work (from roadmap open questions)
+## Pending operator sign-off
 
-1. **F1 (slice 007 follow-up; needs SMPL):** rewrite `splits/smpl_proc_v1.json` as
-   `split_version` 2. It is still v1 and only fits `smpl_proc_v1` generated at
-   `406b68f`. With `assets/smpl/SMPL_NEUTRAL.npz` in place (never committed), run the
-   commands under "F1 commands" below.
+Each slice is approved at surrogate scope; key surrogate rulings in one line:
 
-   Then commit only `splits/smpl_proc_v1.json`; update README (drop the "still v1"
-   note), this file and the roadmap changelog (record the provenance-check outcome);
-   tick F1 in `specs/007-split-content-hash/tasks.md`. If the provenance check fails
-   although the SMPL file and the environment match, still rewrite the split (after the
-   pose-list check) and record a reproducibility caveat in the roadmap changelog, the
-   README "Results" section and here: the published 003 / 004 / 006 numbers come from
-   the `406b68f` content (raw manifest `9000c915…`), which the regenerated dataset does
-   not reproduce; the operator rules on it.
-2. **#12 approved → do when possible:** switch torch to the CPU wheel index
-   (`specs/002-data-pipeline/research.md` R1). Re-tested from the agent session
-   2026-10-20: `download.pytorch.org` still refused (HTTP 403 at the proxy CONNECT,
-   3 attempts); torch stays on PyPI; the switch waits for a session whose egress policy
-   allows that host. Check with
-   `curl -sS -o /dev/null -w "%{http_code}" https://download.pytorch.org/whl/cpu/`.
-3. **#13 answered** (operator choice B, 2026-10-20) and implemented in slice 008;
-   **#16 option (i)** (per-region image metrics) implemented in slice 009 (2026-10-21).
-   Any new train config key must add its pre-key value to `train.config.LEGACY_VALUES`
-   (008 plan); new image predictors are scored through `score_images` with the split's
-   labels (009 plan); **#15** (dataset realism) implemented as generator options in slice
-   010 (2026-10-21), its datasets and runs are item 5; **#16 options (ii)–(iv)** (training
-   variants) implemented in slice 011 (2026-10-21), its runs are item 6. Not started: the
-   SMPL-asset access problem (`domattioli/smpl-assets` exists but is still empty, which
-   blocks F1 and every run) and #16 option (v) (capacity sweep, not chosen).
-4. **Re-baseline run** (after SMPL access → F1; 009 has landed): `strike-a-pose-train
-   --config configs/ae.yaml` (as committed: `select_weights: best_val`), launched
-   detached and resumable (see "Environment gotchas"); then set `checkpoint` in
-   `configs/probe.yaml` to that run's `best.pt` (its `metrics.json`
-   `selection.checkpoint`) and run the probe. README, roadmap and `docs/results/` then
-   report best-val weights, compared with the published final-weight 004 numbers with
-   the val-only caveat. Its `metrics.json` brings the first per-region numbers (`ae`,
-   `mean_image`, `pca_k64` on val and test); re-running the 003 baselines
-   (`configs/baselines.yaml`, ≈ 3 min) adds them for every PCA k (optional for the
-   re-baseline alone, required as the reference row of item 5).
-5. **Dataset realism runs (#15, slice 010; needs SMPL):** generation waits for F1 and a
-   same-code `smpl_proc_v1` re-baseline (item 4 plus the 003 baselines). Then, in order,
-   `smpl_proc_v2` → `v3` → `v4` → `v5`, each with `configs/<dataset>/{generate,baselines,
-   ae,probe}.yaml`: generate (seed 0), validate, split (`--seed 0`, default fractions;
-   commit `splits/<dataset>.json`), baselines, AE (detached, resumable), probe; before the
-   `smpl_proc_v2` split, the arms-down visual check with real SMPL (record it in 001
-   research R9). Commands, the jitter acceptance one-liner and what to commit: 010
-   `tasks.md`, "Follow-up R". Time on 4 vCPU: ≈ 100 min CPU per 2,000-pose dataset
-   (generate ≈ 5 min / 351 MB, baselines ≈ 3 min, AE ≈ 85 min, probe ≈ 8 min);
-   `smpl_proc_v5` ≈ 200 min (700 MB; baselines without image PCA, AE without the PCA
-   column: image PCA on 25,600 images needs ≈ 25–30 GB, a ≥ 32 GB machine); ≈ 8.5 h CPU in
-   all, about twice that in calendar time with container restarts. Comparisons:
-   `smpl_proc_v2` vs `smpl_proc_v1` is controlled (same draws except four arm angles);
-   `v3`+ are compared with their predecessor; 009 region numbers across datasets carry
-   the caveat of 010 clarification 21.
-6. **Training-variant runs (#16, slice 011; needs SMPL):** after F1 and the re-baseline
-   run R0 (item 4: `configs/ae.yaml` + its probe on `smpl_proc_v1`, reused as the control,
-   never rerun), same machine type and locked environment, each detached and resumable as
-   item 4, each followed by the probe on its `metrics.json` `selection.checkpoint`:
-   R1 `configs/ae_mask.yaml` (mask-weighted MSE, α = 4) → R2 `configs/ae_vae.yaml` (VAE,
-   β = 0.1; a second β only if R2 blurs badly or `train_kl` collapses) → R3
-   `configs/ae_reg.yaml` (weight decay 0.05 + shifts ≤ 4 px + latent dropout 0.1 in one
-   run; single-knob runs only if R3's best val loss is below R0's). Cost ≈ 85 min per run
-   (R1 ≈ 100 min: the mask-weighted loss measured +15 % per step) + ≈ 8 min per probe,
-   ≈ 5 h CPU for R1–R3. Report each next to R0 (README Results,
-   `docs/results/011-<run>/`): best-val epoch / loss, val / test `image_mse`, `psnr_db`,
-   `silhouette_iou`, region MSEs, probe MPJPE and yaw accuracy, R2's `train_kl`; one seed
-   each, no success bar (011 spec, "Experiment procedure"). With the 010 chain (item 5,
-   surrogate ruling Q2): its AE runs stay plain; each winning variant runs once on the
-   last 010 dataset, next to that dataset's plain run, from a copy of its `ae.yaml` plus
-   the variant's keys. Item 5 and item 6 both start after R0; their order is free.
+- 007 `split-content-hash`: split files pin the manifest content (`split_version` 2), warn on a
+  commit mismatch; F1 rewrites `splits/smpl_proc_v1.json` with SMPL.
+- 008 `best-val-selection`: batch Q1 (a): only the selected weights are scored (test once); the
+  gain over the final weights is known on val only.
+- 009 `region-metrics`: Q1–Q3 (a): hands / feet / head boxes of fixed size on the true 2D
+  keypoints, all pixels, MSE only.
+- 010 `dataset-realism`: Q1–Q4: cumulative chain (now replaced by the operator's independent
+  v2a–v2d, 2026-10-21), aim-and-tilt jitter, standard split for 4,000 poses, no image PCA there.
+- 011 `training-variants`: Q1–Q3 (a): one combined regularization run, variants on v1 against
+  R0, β 0.1 first (now 0.01 by operator decision 2026-10-21).
+- 012 `run-guards`: Q1 (a) with per-variant promotion metrics (**operator confirmation
+  requested**), Q2 (a) plus the pixel diagnostic, Q3 (a) unattended check-ins advance the
+  campaign and commit results.
+
+Open operator decisions: the promotion rule (above); the winners' dataset (the cumulative v5 no
+longer exists); the 010 amendment (v2a–v2d configs, `armsdown-v1`, intersection threshold;
+separate lead).
+
+## Next work
+
+1. **The campaign** (needs `assets/smpl/SMPL_NEUTRAL.npz`; `domattioli/smpl-assets` exists
+   but was still empty at the last check): "Campaign procedure" below, starting with F1
+   ("F1 commands"). The v2a–v2d datasets also need the 010 amendment (separate lead).
+2. **#12 approved, on hold**: switch torch to the CPU wheel index
+   (`specs/002-data-pipeline/research.md` R1) only after the campaign's runs are done:
+   changing `uv.lock` mid-campaign breaks "same locked environment". `download.pytorch.org`
+   was still refused from the agent session on 2026-10-20 (check with
+   `curl -sS -o /dev/null -w "%{http_code}" https://download.pytorch.org/whl/cpu/`).
+3. Rules for later slices: a new train config key adds its pre-key value to
+   `train.config.LEGACY_VALUES` (008); new image predictors are scored through `score_images`
+   with the split's labels (009); not started: #16 option (v) (capacity sweep, not chosen).
+
+## Campaign procedure
+
+Operator decision 2026-10-21: the campaign below may use ≈ 20 h of CPU, with guards that end a
+stalled or diverging run (slice 012) and check-ins that apply these rules. Prerequisite:
+`assets/smpl/SMPL_NEUTRAL.npz` in place (never committed). Run everything from the repository
+root, detached and resumable, and commit each finished run's records when it ends: nothing may
+depend on the container surviving.
+
+### Steps (in order; compute time on 4 vCPU)
+
+| Step | What | Configs | Time |
+|---|---|---|---|
+| F1 | regenerate `smpl_proc_v1`; SMPL-file, manifest and pixel diagnostics; split v2; the 003 baselines (also R0's) | "F1 commands" | 15 min |
+| R0 | re-baseline AE (the control) + probe | `configs/ae.yaml`, `configs/probe.yaml` | 95 min (≈ 70 if it stops near epoch 44) |
+| R0b | R0 with seed 1 + probe: the noise bar | `configs/ae_seed1.yaml`, `configs/probe.yaml` | 95 min |
+| v2a | arms-down dataset (`armsdown-v1`): generate, checks, split, baselines, AE, probe | 010 amendment | 100 min |
+| v2b | body-shape dataset, same steps | 010 amendment | 100 min |
+| v2c | camera-jitter dataset, same steps | 010 amendment | 100 min |
+| v2d | 4,000-pose dataset, same steps (baselines without image PCA, AE with `context_pca_k: null`) | 010 amendment | 200 min |
+| R1 | mask-weighted MSE (α 4) + probe | `configs/ae_mask.yaml` | 110 min |
+| R2 | VAE β 0.01 + probe, then once R2r (β 0.001) or R2b (β 0.1) | `configs/ae_vae.yaml`, `configs/ae_vae_beta0.001.yaml`, `configs/ae_vae_beta0.1.yaml` | 95 min each |
+| R3 | weight decay + shifts + latent dropout + probe | `configs/ae_reg.yaml` | 95 min |
+| W | winning variants on a realism dataset | operator decision pending | ≈ 3 h each |
+
+F1 → R3 ≈ 18 h, less when runs stop early. v2a–v2d are independent single-change datasets, each
+compared with v1 (R0); their order, the arms-down table and their configs follow the operator's
+2026-10-21 decision and the 010 amendment (pending, separate lead), whose AE configs carry this
+slice's guard keys. If those configs are not committed when R0b ends, run R1 → R3 first. v2d
+needs the batched mean image of slice 012: peak ≈ 3 GB for its AE run and ≈ 6 GB for its
+baselines (≈ 16.7 / 15.1 GB before, an OOM on 15 GB; 012 research R4).
+
+### Commands
+
+```bash
+uv sync --locked && mkdir -p runs
+launch() { n=$1; shift; setsid nohup "$@" >> "runs/$n.log" 2>&1 < /dev/null & }   # detached
+newest() { ls -td runs/"$1"-2*/ | head -1; }   # newest run dir of a run name
+scored() { uv run --locked python -c 'import json, sys; print(json.load(open(sys.argv[1] + "/metrics.json"))["selection"]["checkpoint"])' "$1"; }
+keep() {  # keep RUN_DIR STEP KIND: the run's records, never weights
+  d=docs/results/campaign/$2/$3; mkdir -p "$d"
+  for f in config.yaml run_info.json metrics.json history.csv aborted.json; do
+    if [ -f "$1/$f" ]; then cp "$1/$f" "$d/"; fi
+  done
+  cp "$1"/*.png "$d/" 2>/dev/null || true
+}
+
+# training step, R0 shown (R0b: ae_seed1.yaml / ae-seed1-smpl_proc_v1; R1: ae_mask.yaml /
+# ae-mask-smpl_proc_v1; R2: ae_vae.yaml / ae-vae-smpl_proc_v1; R3: ae_reg.yaml / ae-reg-…)
+launch r0 uv run --locked strike-a-pose-train --config configs/ae.yaml
+RUN=$(newest ae-smpl_proc_v1)
+uv run --locked python scripts/run_status.py "$RUN"            # every check-in
+launch r0 uv run --locked strike-a-pose-train --resume "$RUN"    # only when it "looks dead"
+launch r0-probe uv run --locked strike-a-pose-eval probe --config configs/probe.yaml \
+    --checkpoint "$RUN/$(scored "$RUN")"                      # once metrics.json exists
+keep "$RUN" r0 ae && keep "$(newest probe-smpl_proc_v1)" r0 probe
+git add docs/results/campaign/r0 docs/HANDOFF.md   # commit "docs(campaign): R0 results"
+
+# dataset step (DS = the v2a … v2d dataset name of the 010 amendment)
+launch "$DS" bash -c "uv run --locked strike-a-pose-data generate --config configs/$DS/generate.yaml --seed 0 && uv run --locked strike-a-pose-data validate data/generated/$DS"
+# v2a: the automatic intersection count (threshold per the 010 amendment) plus the visual
+# check; v2c: the jitter fallback count (010 tasks.md, Follow-up R); then
+uv run --locked strike-a-pose-data split data/generated/$DS --seed 0 --out splits/$DS.json
+launch "$DS" bash -c "uv run --locked strike-a-pose-eval baseline --config configs/$DS/baselines.yaml && uv run --locked strike-a-pose-train --config configs/$DS/ae.yaml"
+# then its probe, keep (STEP v2a … v2d; KIND baselines, ae, probe), commit with splits/$DS.json
+```
+
+### Decision rules
+
+At every check-in, for the current step (the campaign log names it and its run dir):
+
+1. **Dead**: `run_status.py` says `looks dead` (no live lock owner, no `metrics.json` or
+   `aborted.json`, nothing written for more than max(2 × median epoch, 10 min)) → resume it
+   detached. If the previous check-in already resumed it and no history row was added since →
+   stop that step and report (no blind retries).
+2. **Stalled** (live lock owner, nothing written for 3× that threshold) → report; do not kill or
+   resume.
+3. **Aborted** (exit 5, `aborted.json`) → keep and commit its records; never resume it or rerun
+   the same config; the step rule says what follows.
+4. **Stopped early or finished** → run its probe, keep and commit the records, apply the step
+   rule; an early stop is a normal finish (log its stop and best epochs).
+5. A non-training command (generate, validate, split, baselines, probe) died without its output
+   → rerun it once from scratch (`generate --overwrite`; a new run dir); died again → stop that
+   step and report.
+6. Every result commit carries its campaign-log line; README and roadmap prose wait for an
+   attended wrap-up. After a stop outcome nothing new starts; the next message reports it first.
+
+Step rules:
+
+- **F1**: as "F1 commands" says: reproduced (manifest check 1, or check 2 with a one-line note,
+  plus the pixel diagnostic) → note it; otherwise continue with the caveat (operator decision
+  2026-10-21) and report it prominently. Commit `splits/smpl_proc_v1.json` and keep the
+  baselines run as `f1 baselines` (R0's baselines).
+- **R0**: accepted if the epoch-1 val loss is within 0.010030 ± 2 % and `final_val_loss` within
+  0.0022078 ± 3 % (the published curve stays within −1.8 … +0.1 % of it from epoch 30 on, so an
+  early stop stays in the band); otherwise stop the campaign and investigate (environment,
+  dataset, code). Aborted → stop the campaign (no control).
+- **R0b**: the noise bar = |R0 − R0b| on the whole-image val MSE, the mean val region MSE and
+  the probe's val world-frame MLP MPJPE, stated next to every later comparison. Aborted →
+  recorded; comparisons then say "no noise bar".
+- **v2a … v2d**: each starts after the previous step finished. Its AE run's best val loss
+  (`selection.val_loss`) above 2 × R0's, or an aborted AE run → stop the dataset series and
+  check that dataset (intersection count, jitter fallback rate, the visual check); the variants
+  still run. v2d starts only if the v2c AE run's `run_info.json` `train_wall_s` ≤ 7,650 s
+  (1.5 × 85 min).
+- **R1, R3**: the promotion rule below; aborted → dropped.
+- **R2**: at the first check-in with ≥ 10 epochs, an epoch-10 `train_kl` below 1 nat/image →
+  stop the run (`kill` the lock's pid), record "abandoned: KL collapse", keep its records,
+  start R2r (`configs/ae_vae_beta0.001.yaml`); R2 aborted → R2r. R2r collapsed or aborted → the
+  VAE is dropped. R2 healthy at its end (last `train_kl` ≥ 1, whole-image val MSE ≤ 1.05 × R0's)
+  → R2b (`configs/ae_vae_beta0.1.yaml`) once. The VAE candidate is the largest β among the VAE
+  runs that meets the promotion rule.
+- **Promotion** (surrogate ruling 2026-10-21, operator confirmation requested): every number on
+  val; every "beats" by more than the R0 vs R0b gap on that metric. R1 wins if its mean val
+  region MSE beats R0's while its whole-image val MSE ≤ 1.05 × R0's. A VAE run wins if its
+  whole-image val MSE ≤ 1.05 × R0's, its last `train_kl` ≥ 1 nat/image and its probe's val
+  world-frame MLP MPJPE ≤ R0's + the gap. R3 wins if its whole-image val MSE beats R0's.
+  Dropped: whole-image val MSE > 1.05 × R0's (R1, R3), or collapsed / aborted after the retry
+  (VAE). Otherwise reported, not carried (one seed cannot resolve 0–5 %).
+- **W**: stop and ask the operator which dataset (the cumulative v5 no longer exists).
+
+Where the numbers are: whole-image val MSE `metrics.json` `splits.val.image.ae.image_mse`;
+region MSE the mean of `splits.val.image.ae.regions.{hands,feet,head}.image_mse`; best val
+loss `selection.val_loss`; `train_kl` in `history.csv`; probe MPJPE
+`splits.val.targets.joints_world.mlp.mpjpe_mm` of the probe's `metrics.json`. The status
+script prints the first three and `train_kl`.
+
+Pending operator decisions: the promotion rule (surrogate ruling); the winners' dataset; the 010
+amendment (v2a–v2d configs, `armsdown-v1`, the intersection threshold).
+
+### Check-in
+
+The orchestrator arms it with `send_later` (≈ 50 min); every check-in re-arms it with this text,
+verbatim:
+
+```text
+Campaign check-in (strike-a-pose, slice 012). In /home/user/strike-a-pose on branch
+claude/charming-wozniak-5ouldf, follow docs/HANDOFF.md "Campaign procedure" exactly: read the
+"Campaign log" (current step, run dir); run `uv run --locked python scripts/run_status.py
+<run dir>` (non-training steps: their log under runs/ and their output); apply the decision
+rules; act: resume a dead run once, stop a collapsed VAE, keep and commit each finished run's
+records with its log line (explicit paths, never git add -A), start the next step only when
+its rule passes, start nothing after a stop outcome. Re-arm this check-in with send_later in
+about 50 minutes, verbatim, unless the campaign stopped or finished. Reply in at most 5 lines:
+any failure, abort or stop first, then step, state, action, next check-in.
+```
+
+## Campaign log
+
+One row per step, updated by the check-in that changes it (committed with the step's
+results); the last row is the current step.
+
+| Step | Run dir(s) | Started → ended (UTC) | Outcome | Rule → next |
+|---|---|---|---|---|
+| F1 | — | not started (needs SMPL) | — | — |
 
 ## F1 commands
 
-Verbatim from `specs/007-split-content-hash/spec.md` ("Follow-up F1"):
+Verbatim from `specs/007-split-content-hash/spec.md` ("Follow-up F1", amended 2026-10-21 by
+slice 012):
 
 ```bash
 uv sync --locked            # the locked environment (uv.lock unchanged since 406b68f)
 
-# the SMPL file must be the one the 2026-10-20 datasets were generated from
-# (recorded in the committed fixture manifest: inputs.smpl_model.sha256 = f408141b…)
+# the SMPL file the 2026-10-20 datasets were generated from (fixture manifest:
+# inputs.smpl_model.sha256 = f408141b…); a mismatch is reported, generation continues
 uv run --locked python - <<'EOF'
 import hashlib, json
 want = json.load(open("tests/fixtures/smpl_fixture/manifest.json"))["inputs"]["smpl_model"]["sha256"]
 got = hashlib.sha256(open("assets/smpl/SMPL_NEUTRAL.npz", "rb").read()).hexdigest()
-assert got == want, f"SMPL file {got[:12]}… is not the recorded {want[:12]}…: stop here"
-print("SMPL file matches", want[:12])
+print("SMPL file matches" if got == want else f"SMPL FILE DIFFERS: {got[:12]}… is not {want[:12]}…")
 EOF
 
 uv run --locked strike-a-pose-data generate --config configs/default.yaml --seed 0  # ≈ 5 min, 351 MB
 
-# provenance check: same content as the dataset behind the published 003/004/006 runs?
+# manifest diagnostics (config, inputs, sample list, labels): same content as the dataset behind
+# the published 003/004/006 runs? check 1 as generated; check 2 with the recorded SMPL file hash
 uv run --locked python - <<'EOF'
 import hashlib
 from strike_a_pose.datagen.io import dumps, load_manifest
 m = load_manifest("data/generated/smpl_proc_v1")
-for dirty in (False, True):
-    m["code"] = {"commit": "406b68f990c403dd34747dfc41914407d9ec2ea9", "dirty": dirty}
-    print(dirty, hashlib.sha256(dumps(m)).hexdigest())
+recorded = "f408141b4cd5b6ca6466e4e218aeb88a11c60f598114951b1d6d1f8078c1da16"
+for check, smpl in ((1, m["inputs"]["smpl_model"]["sha256"]), (2, recorded)):
+    m["inputs"]["smpl_model"]["sha256"] = smpl
+    for dirty in (False, True):
+        m["code"] = {"commit": "406b68f990c403dd34747dfc41914407d9ec2ea9", "dirty": dirty}
+        print(check, dirty, hashlib.sha256(dumps(m)).hexdigest())
 EOF
-# identical content iff one line prints 9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588
+# 9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588 on a check-1 line: identical
+# manifest content; only on a check-2 line: identical except the SMPL file's bytes (a
+# re-converted file with the same arrays; note it in one line); on neither: labels differ
 
 uv run --locked strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
     --out splits/smpl_proc_v1.json --overwrite        # default fractions 0.8 0.1 0.1
 
-# the pose assignment must not change (same seed, fractions, algorithm and pose set)
+# the same seed, fractions and algorithm give the same pose lists (this proves the split
+# procedure, not the dataset's identity)
 uv run --locked python - <<'EOF'
 import json, subprocess
 old = json.loads(subprocess.check_output(["git", "show", "HEAD:splits/smpl_proc_v1.json"]))
@@ -180,7 +317,37 @@ assert [k for k in keys if old[k] != new[k]] == [], "pose assignment changed: do
 assert (old["split_version"], new["split_version"]) == (1, 2)
 print("pose assignment unchanged; split_version 1 -> 2")
 EOF
+
+# pixel diagnostic: the 003 baselines (deterministic, ≈ 3 min; also R0's baselines) against
+# every number of the published run (relative difference <= 1e-5; strings and newer keys skipped)
+uv run --locked strike-a-pose-eval baseline --config configs/baselines.yaml
+uv run --locked python - <<'EOF'
+import json, pathlib
+old = json.load(open("docs/results/003-baselines-smpl_proc_v1/metrics.json"))
+run = sorted(pathlib.Path("runs").glob("baselines-smpl_proc_v1-2*"))[-1]
+new = json.load(open(run / "metrics.json"))
+bad = []
+def walk(a, b, path):
+    if isinstance(a, dict):
+        for k in a:
+            walk(a[k], b.get(k) if isinstance(b, dict) else None, f"{path}.{k}")
+    elif isinstance(a, int | float) and not isinstance(a, bool):
+        if not isinstance(b, int | float) or abs(b - a) > 1e-5 * abs(a):
+            bad.append((path, a, b))
+walk(old, new, "")
+print(run, "pixels reproduced" if not bad else f"{len(bad)} NUMBERS DIFFER, e.g. {bad[:3]}")
+EOF
 ```
+
+Reproduced = manifest check 1 (or check 2, with a one-line note) and "pixels reproduced": commit
+only `splits/smpl_proc_v1.json` (and the baselines run's records, campaign procedure); update
+README (drop the "still v1" note), `docs/HANDOFF.md` and the roadmap changelog (record the
+outcome); tick F1 in 007 `tasks.md`. Otherwise (operator decision 2026-10-21): keep the
+rewritten split, run the campaign, and record in README "Results", the roadmap changelog and
+`docs/HANDOFF.md` that the published 003 / 004 / 006 numbers come from the `406b68f` dataset
+(raw manifest `9000c915…`), which no longer reproduces, naming the part that differs: the SMPL
+file (step 1), the labels or config (neither manifest check), the pixels (the baselines);
+report it first and prominently in the next operator message.
 
 ## Operator decisions requested (2026-10-20 closing message)
 
@@ -213,7 +380,7 @@ unaffected).
   recommendation: B, landed before the one re-baseline run that F1 forces anyway.
 - **#15 dataset realism**: *answered 2026-10-20 (all four, in order (a)–(d), each
   its own dataset version and experiment), implemented in slice 010; runs: Next
-  work item 5.* Options as put (then: predecessor range table, arms near the SMPL
+  work, campaign procedure.* Options as put (then: predecessor range table, arms near the SMPL
   rest pose, mean shape, 8-camera level ring at 3.5 m; none of the options is
   config-selectable yet, each needs code + tests + 001 FR-002/FR-003 and layout
   contract amendments + operator sign-off, and its own dataset version
@@ -240,7 +407,7 @@ unaffected).
   AE control run on that dataset. Lead recommendation: (i) first, then (iii) or
   (iv) by goal (detail vs generation). Answered: (i) (2026-10-20, slice 009) and
   (ii)–(iv) (2026-10-20: each config-selectable, defaults = today's run, plain AE as
-  control; slice 011, runs in "Next work" item 6); (v) not chosen.
+  control; slice 011, runs in the campaign procedure); (v) not chosen.
 
 ## Session pause (2026-10-20 23:30 UTC)
 
@@ -283,5 +450,7 @@ unaffected).
   ~84 min CPU) before re-running the probe.
 - **Container is reclaimed when the session idles**, killing background jobs. Run
   long jobs detached (`setsid nohup … &`), resumable (`strike-a-pose-train --resume
-  RUN_DIR`), and keep a scheduled heartbeat check-in that resumes them.
+  RUN_DIR`), and keep the campaign check-in armed (`send_later`, text in "Campaign
+  procedure"); `scripts/run_status.py` says when a run looks dead, and the run-dir lock
+  refuses a resume while its process is alive.
 - `.venv` is ~5.5 GB (PyPI torch with CUDA wheels) until #12 lands.

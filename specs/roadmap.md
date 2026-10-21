@@ -1,7 +1,9 @@
 # strike-a-pose Roadmap (spec of specs)
 
 Status: **Slice list + order APPROVED (operator, 2026-10-17).** MVP done (2026-10-20).
-Q2 confirmed by surrogate ruling 2026-10-20; all surrogate rulings and autonomous clarifications approved by the operator 2026-10-21.
+Q2 confirmed by surrogate ruling 2026-10-20. The operator's "approve all" (labelled 2026-10-21) covers slices 002–006
+(incl. their autonomous clarifications) and the surrogate rulings of 2026-10-20 only; slices 007–012 are approved at
+surrogate scope and await operator sign-off (list in `docs/HANDOFF.md`).
 Post-MVP: exactly one slice, 006 `latent-probe` (surrogate ruling 2026-10-20); stop after it.
 Then 007 `split-content-hash`, which implements the operator-approved open question #14
 (2026-10-20; approved at surrogate scope, operator sign-off pending), 008
@@ -14,7 +16,10 @@ question #15 (chosen 2026-10-20, implemented 2026-10-21; approved at surrogate s
 operator sign-off pending; datasets and runs wait for SMPL), and 011
 `training-variants`, which implements the operator's options (ii)–(iv) for open question #16
 (chosen 2026-10-20, implemented 2026-10-21; approved at surrogate scope, operator sign-off
-pending; runs wait for SMPL).
+pending; runs wait for SMPL), and 012 `run-guards`, which implements the operator's 2026-10-21
+decision to run the ≈ 20 h campaign with checks for early termination and iteration
+(implemented 2026-10-21; approved at surrogate scope, operator sign-off pending; the campaign
+waits for SMPL).
 
 Each slice → `specs/<NNN-slug>/{spec,plan,tasks}.md` via a speckit pipeline
 run. Each slice's `spec.md` needs operator sign-off before plan/implement
@@ -61,6 +66,7 @@ options (ii)–(iv) for #16):
 | 009 | `region-metrics` | Every image model (003 mean image / PCA k; 004 `ae`, `mean_image`, `pca_k<K>`) also reports its MSE in `hands` / `feet` / `head` regions (squares on the true 2D keypoints of joints 22 / 23, 7 / 8 / 10 / 11, 15; `region_mask`, `masked_mse`, labels passed to `score_images`); additive `metrics.json` keys, `metrics_version` 1 / `train_version` 2 unchanged; no training or config change (open question #16, option (i)) | 003, 004 | Fixture runs report the regions (003 and 004 identical for the baselines), every existing number unchanged; CI green; first real numbers with the re-baseline run |
 | 010 | `dataset-realism` | Opt-in generator options with omit-when-default manifest serialization: `ranges_version: predecessor-v2-armsdown` (arms lowered ∓65° after sparsification, shoulder z `[-20, 20)`, collar z `[-10, 10)`), `body_shape` (per-pose betas N(0, 1) clipped at ±2, own random stream), `camera_jitter` (camera moved in height / distance, aimed at the ring's look-at point, tilted down; projected-vertex in-frame check, recorded ring-camera fallback); configs for the chain `smpl_proc_v2` → `v5`; 003 `image_pca_ks: []` (open question #15) | 001, 003 | Every option tested on the synthetic body model; today's datasets byte-identical (fixture pins, before/after synthetic comparison); CI green; datasets and runs after SMPL access and F1 (run procedure) |
 | 011 | `training-variants` | Config-selectable training variants of the 004 trainer / model, defaults bitwise today's run: `weight_decay` (AdamW), `shift_px` (per-sample integer shifts), `dropout` (latent), `mask_weight` (α, `w = 1 + α·[x > 0]`), `variational` + `beta` (VAE: `logvar` head, `beta·KL/(H·W)`, `encode` = μ); `history.csv` + `train_recon`, `train_kl`; `metrics.json` `model.variational`, `training.objective`; configs `ae_{mask,vae,reg}.yaml` (open question #16, options (ii)–(iv)) | 004, 006, 008, 009 | Defaults bit-equal to the pre-011 loop and in a same-machine before/after fixture run; every knob, resume and legacy resume tested; a VAE checkpoint probed; CI green; runs R1–R3 after SMPL and the re-baseline (experiment procedure) |
+| 012 | `run-guards` | Opt-in trainer guards, defaults bitwise today's run: `early_stop {patience, min_epochs, min_delta}` (stop on a val plateau; schedule and selection unchanged; `training.stopped_early`), `abort_on_divergence` + `divergence_ratio` (`aborted.json`, exit 5, not resumable); a run-dir lock; batched mean image (the 4,000-pose OOM); `env.cpu_model`, `dataset.checksums_sha256`; `scripts/run_status.py`; campaign configs and the campaign procedure (operator decision 2026-10-21) | 004, 008, 011 | Guards, lock and status script tested on the fixture (scripted losses); fixture 003 / 004 outputs byte-identical; CI green; the campaign after SMPL access |
 
 ## Open questions (batched; answer all at once)
 
@@ -89,6 +95,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
     epoch 34 of 60; ruling #3 only adds an informational `best.pt`.)~~ Operator choice
     B, 2026-10-20 (report `best.pt`, the lowest val loss, as the evaluated model; 60
     epochs and the cosine schedule unchanged), implemented in 008 `best-val-selection`.
+    Operator decision 2026-10-21: the ≈ 20 h campaign may run "so long as we have checks to
+    ensure early termination and iteration if the run looks to be spinning its wheels": early
+    stopping as an opt-in guard (patience 10 from epoch 20 in the campaign configs), not as the
+    reported-model rule (B stands); implemented in 012 `run-guards`.
 14. ~~Split-hash contract change. Proposal: hash the manifest *without*
     `code.commit` / `code.dirty`, store the commit informationally, and warn
     instead of refusing on a commit mismatch (today a regenerated-but-identical
@@ -105,6 +115,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
     chain `smpl_proc_v2` (arms-down) → `v3` (+ shape) → `v4` (+ jitter) → `v5` (+ 4,000
     poses); the 001 answer "keep arms-out limitation" holds for the default table only.
     Datasets, splits and runs: 010 run procedure (needs SMPL; after F1).
+    Operator decisions 2026-10-21 (012 campaign procedure): independent single-change datasets
+    v2a (arms-down, table renamed `armsdown-v1` with an automatic intersection count), v2b
+    (shape), v2c (jitter), v2d (4,000 poses), each compared with v1, instead of the cumulative
+    chain; configs and 010 documents amended by a separate lead.
 16. Training improvements / VAE (blur, lost extremities, mild overfitting in 004)?
     Operator choice (i), 2026-10-20: per-region MSE metrics first (hands / feet / head
     box; metrics only, before the re-baseline run), implemented in 009 `region-metrics`
@@ -113,7 +127,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
     deferred) and a VAE (small beta), each config-selectable with defaults reproducing
     today's run bit for bit and the plain AE as control; implemented in 011
     `training-variants` (2026-10-21); runs: its experiment procedure (needs SMPL). Option (v)
-    (capacity sweep) still open.
+    (capacity sweep) still open. Operator decisions 2026-10-21 (slice 012): the runs follow the
+    012 campaign procedure with checks; a seed-1 control R0b as the noise bar; the first VAE
+    run at β = 0.01 (collapse retry 0.001, healthy follow-up 0.1). Promotion metrics per
+    variant: surrogate ruling 2026-10-21, operator confirmation requested.
 
 ## Changelog
 
@@ -371,3 +388,35 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   variant runs once on the last 010 dataset next to its plain run; β = 0.1 first. Configs
   `configs/ae_{mask,vae,reg}.yaml`; no run exists yet (experiment procedure in 011
   `spec.md`; ≈ 5 h CPU after R0).
+- 2026-10-21: slice 012 `run-guards` (operator present; orchestrator as the operator's
+  surrogate; spec approved at surrogate scope 2026-10-21, operator sign-off pending; approval
+  basis: the operator's decision 2026-10-21 to run the ≈ 20 h campaign "so long as we have
+  checks to ensure early termination and iteration if the run looks to be spinning its
+  wheels"). Trainer guards, off by default and in `LEGACY_VALUES`: `early_stop {patience,
+  min_epochs, min_delta}` (Keras semantics; decided after each epoch and on resume from the
+  checkpointed history; the cosine schedule stays planned for all epochs and the 008 selection
+  is unchanged, so a stopped run is a prefix of the full run; `training.stopped_early` only when
+  configured) and `abort_on_divergence` + `divergence_ratio` (non-finite train loss, train loss
+  above 10× epoch 1's after epoch 3, three non-finite val losses: `aborted.json`, no
+  `metrics.json`, exit 5, `--resume` refuses). Red-team additions: a run-dir lock (a live
+  owner refuses a second start, exit 2; dead, reused or other-boot pids are stale: the
+  published 004 run had two resumes 19 s apart); a batched float64 mean image (the old one
+  allocated a float64 copy of the train matrix: ≈ 16.7 GB peak for the 4,000-pose AE run, an
+  OOM on 15 GB; now ≈ 3 GB, bit-identical); `env.cpu_model` and `dataset.checksums_sha256` in
+  003 / 004 / 006 `run_info.json`; documentation honesty fixes (approval scope, 007–012
+  verified on the fixture only, the 004 run's exact sessions). `scripts/run_status.py`
+  (read-only status for check-ins). Campaign configs: guards in `configs/ae{,_mask,_vae,_reg}.yaml`,
+  new `ae_seed1.yaml`, `ae_vae_beta0.1.yaml`, `ae_vae_beta0.001.yaml`; `ae_vae.yaml` β 0.01.
+  Hygiene: the generator's omitted defaults frozen for layout v1 (contract + literal pin); F1
+  reports a SMPL-file mismatch instead of stopping, adds a manifest check with the recorded
+  SMPL hash substituted and a pixel diagnostic (the 003 baselines rerun against the published
+  numbers, ≤ 1e-5). Surrogate rulings (batch Q1–Q3): (a) with per-variant promotion metrics
+  (operator confirmation requested); (a) plus the pixel diagnostic; (a) unattended check-ins
+  advance the campaign and commit results. Operator decisions 2026-10-21: F1 failure →
+  continue with a caveat naming the part that differs (SMPL file, labels, pixels); independent
+  realism datasets v2a–v2d (010 amendment by a separate lead); `armsdown-v1` with an automatic
+  intersection count; a seed-1 control R0b; the first VAE β 0.01. Campaign procedure (F1 → R0
+  → R0b → v2a–v2d → R1 → R2 → R3 → winners, ≈ 18 h before the winners) with decision rules,
+  R0 acceptance tolerances and the verbatim check-in text: `docs/HANDOFF.md` and 012 `tasks.md`.
+  pytest 446 passed (48.8 s; 374 before); fixture 003 / 004 `metrics.json` and figures
+  byte-identical to `e98134e`'s. #12 (torch CPU index) on hold until the campaign's runs are done.

@@ -45,6 +45,12 @@ datasets are byte-identical; `cameras` is always the ring; `inputs.pose_source.r
 carries `offset_deg` for tables with offsets. All additions are optional keys:
 `schema_version` stays 1.
 
+Frozen defaults (slice 012, 2026-10-21): a manifest `config` without one of those fields means
+the value in `datagen.config.ADDED_FIELD_DEFAULTS` (`ranges_version: predecessor-v1-nohands`,
+`body_shape: null`, `camera_jitter: null`). These values are frozen for layout v1: changing one
+would silently change the meaning of every existing v1 manifest, so it requires a new
+`schema_version` (pinned literally by `tests/test_realism.py`).
+
 ## CLI (`strike-a-pose-data`)
 
 ```text

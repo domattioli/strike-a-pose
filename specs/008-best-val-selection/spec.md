@@ -458,6 +458,9 @@ overturnable by the operator.
     `best.pt` and no longer exists). *(lead default; orchestrator brief)*
 14. Q: Out of scope? → A: early stopping (option C) and an epoch change (option D); a full
     run or re-baseline; CI changes; probe code changes. *(lead default)*
+    *(Amended 2026-10-21 by slice [012](../012-run-guards/spec.md), operator decision
+    2026-10-21: early stopping is now an opt-in guard (`early_stop`), not the rule that picks
+    the reported weights; the selection of this slice is unchanged.)*
 15. Q: Dates? → A: the session clock, 2026-10-20; the roadmap changelog entry is appended
     at the end (insertion order). *(lead default)*
 

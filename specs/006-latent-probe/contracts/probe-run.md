@@ -60,7 +60,7 @@ and the encoder set match; otherwise recomputed and overwritten. Never committed
 | File | Content |
 |---|---|
 | `config.yaml` | resolved config (overrides applied) |
-| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset` (incl. `manifest_content_sha256`, slice 007), `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `checkpoint` (`path`, `sha256`, `epoch`, `train_run_git` from the checkpoint's run dir if present), `cache` (`path`, `hit`), `encode_s`, `figures` |
+| `run_info.json` | 003 fields (`argv`, `cwd`, `seed`, `git`, `env`, `dataset` (incl. `manifest_content_sha256`, slice 007; `checksums_sha256`, slice 012), `env.cpu_model` (slice 012), `split_file`, `started_utc`, `finished_utc`, `wall_s`) + `checkpoint` (`path`, `sha256`, `epoch`, `train_run_git` from the checkpoint's run dir if present), `cache` (`path`, `hit`), `encode_s`, `figures` |
 | `metrics.json` | below |
 | `skeleton_<figure_split>.png` | rows = evenly spaced samples; columns: true, ridge, mlp (trained encoder, `joints_world`) drawn on the input image (true skeleton blue, prediction orange) |
 | `yaw_confusion_<figure_split>.png` | 8×8 count grids (rows true, columns predicted) for the trained-encoder ridge and MLP yaw probes |

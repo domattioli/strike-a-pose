@@ -85,7 +85,7 @@ Inputs are checked before the run dir is created (no dir on exit 1/2).
 | File | Content |
 |---|---|
 | `config.yaml` | resolved config (all keys, overrides applied) |
-| `run_info.json` | `argv`, `cwd`, `seed`, `git` (`commit`, `dirty`), `env` (python, platform, numpy, torch, pillow, cpu_count, torch_threads), `dataset` (`dir`, `manifest_sha256` = SHA-256 of the raw `manifest.json` bytes, `manifest_content_sha256` = manifest content hash of the 002 split-file contract; the latter added by slice 007, 2026-10-20), `split_file` (`path`, `sha256`), `started_utc`, `finished_utc`, `wall_s` |
+| `run_info.json` | `argv`, `cwd`, `seed`, `git` (`commit`, `dirty`), `env` (python, platform, numpy, torch, pillow, cpu_count, `cpu_model` (slice 012), torch_threads), `dataset` (`dir`, `manifest_sha256` = SHA-256 of the raw `manifest.json` bytes, `manifest_content_sha256` = manifest content hash of the 002 split-file contract, added by slice 007, 2026-10-20; `checksums_sha256` = SHA-256 of the dataset's `checksums.json`, i.e. its pixels, null if absent, added by slice 012, 2026-10-21), `split_file` (`path`, `sha256`), `started_utc`, `finished_utc`, `wall_s` |
 | `metrics.json` | below; deterministic bytes for the same inputs + code |
 | `recon_<figure_split>.png` | grid: header row of labels, then one row per sample: true, mean image, PCA k for each k |
 

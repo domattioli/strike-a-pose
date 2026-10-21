@@ -45,14 +45,16 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Stage 4 — random body shape (`feat(010): random body shape`)
 
-- [ ] T009 Tests (red first): `body_shape` validation (`std`/`clip` > 0, unknown keys, `{}` →
+- [x] T009 Tests (red first): `body_shape` validation (`std`/`clip` > 0, unknown keys, `{}` →
   defaults, `null` ≡ absent, needs `num_betas` ≥ 1), serialization; betas in `[-clip, clip]`,
   equal across a pose's views, different across poses, deterministic; poses identical with /
   without; zero-`shapedirs` model → images and joints equal the mean-shape generation;
   `shapedirs`-bearing synthetic variant → bone lengths change; `num_betas` above the model's
   components → `ConfigError` before anything is written.
-- [ ] T010 `datagen/shape.py` (`sample_betas`), `SMPLModel.num_shape_components`, `config.py`
-  block, `generate.py` (check after loading the model; per-pose betas).
+- [x] T010 `datagen/shape.py` (`sample_betas`), `SMPLModel.num_shape_components`, `config.py`
+  block, `generate.py` (check after loading the model; per-pose betas). Red run: collection
+  error (no `datagen.shape`); one test expectation fixed (clip rate at clip 0.5 is 0.62, not
+  < 0.5). Stage checks: ruff and format clean; pytest 323 passed in 33.6 s.
 
 ## Stage 5 — camera ring jitter (`feat(010): camera ring jitter`)
 

@@ -17,7 +17,9 @@ from strike_a_pose.datagen.procedural import (
     ranges_table,
     sample_procedural_poses,
 )
+from strike_a_pose.datagen.shape import sample_betas
 
+from .conftest import TPOSE
 from .test_procedural import _aa_to_matrix
 
 ROOT = Path(__file__).parents[1]
@@ -171,3 +173,80 @@ def test_explicit_defaults_generate_identical_dataset(synthetic_smpl_npz, tmp_pa
     b = generate_dataset(config_from_dict(explicit), 0, output_root=tmp_path / "b")
     assert (a / "manifest.json").read_bytes() == (b / "manifest.json").read_bytes()
     assert (a / "checksums.json").read_bytes() == (b / "checksums.json").read_bytes()
+
+
+# --- FR-004: random body shape -----------------------------------------------------------
+
+
+def test_body_shape_config():
+    base = {"dataset_name": "x"}
+    assert config_from_dict(base).body_shape is None
+    off = config_from_dict({**base, "body_shape": None})
+    assert off.to_dict() == config_from_dict(base).to_dict()
+    on = config_from_dict({**base, "body_shape": {}})
+    assert on.to_dict()["body_shape"] == {"std": 1.0, "clip": 2.0}
+    ints = config_from_dict({**base, "body_shape": {"std": 1, "clip": 3}}).to_dict()["body_shape"]
+    assert ints == {"std": 1.0, "clip": 3.0} and all(isinstance(v, float) for v in ints.values())
+    for bad in ({"std": 0}, {"clip": -1.0}, {"std": True}, {"std": "1"}, {"bogus": 1},
+                {"std": float("nan")}, [1.0]):  # fmt: skip
+        with pytest.raises(ConfigError):
+            config_from_dict({**base, "body_shape": bad})
+    with pytest.raises(ConfigError):
+        config_from_dict({**base, "num_betas": 0, "body_shape": {}})
+
+
+def test_sample_betas_stream():
+    a = sample_betas(10, 1.0, 2.0, seed=0, pose_index=4)
+    assert a.shape == (10,) and np.abs(a).max() <= 2.0
+    assert np.array_equal(a, sample_betas(10, 1.0, 2.0, seed=0, pose_index=4))
+    assert not np.array_equal(a, sample_betas(10, 1.0, 2.0, seed=0, pose_index=5))
+    assert not np.array_equal(a, sample_betas(10, 1.0, 2.0, seed=1, pose_index=4))
+    assert np.array_equal(sample_betas(4, 1.0, 2.0, 0, 4), a[:4])  # sequential per pose
+    many = np.concatenate([sample_betas(10, 1.0, 0.5, 0, i) for i in range(50)])
+    assert np.abs(many).max() == 0.5 and 0.5 < np.mean(np.abs(many) == 0.5) < 0.75  # P = 0.62
+
+
+def _labels(out: Path) -> dict:
+    return {s["id"]: load_sample(out, s["id"])["labels"] for s in load_manifest(out)["samples"]}
+
+
+def test_body_shape_dataset_zero_shapedirs(synthetic_smpl_npz, tmp_path):
+    """The zero-shapedirs model ignores betas: only the label `betas` and the config differ."""
+    cfg = _synth_cfg(synthetic_smpl_npz, tmp_path)
+    plain = generate_dataset(config_from_dict(cfg), 0, output_root=tmp_path / "a")
+    shaped = generate_dataset(config_from_dict({**cfg, "body_shape": {"std": 1.0, "clip": 2.0}}),
+                              0, output_root=tmp_path / "b")  # fmt: skip
+    assert validate_dataset(shaped) == []
+    assert load_manifest(shaped)["config"]["body_shape"] == {"std": 1.0, "clip": 2.0}
+    assert (plain / "checksums.json").read_bytes() == (shaped / "checksums.json").read_bytes()
+    la, lb = _labels(plain), _labels(shaped)
+    by_pose: dict[int, list] = {}
+    for sid, lab in lb.items():
+        assert {k: v for k, v in lab.items() if k != "betas"} == {
+            k: v for k, v in la[sid].items() if k != "betas"
+        }
+        assert len(lab["betas"]) == 10 and max(abs(b) for b in lab["betas"]) <= 2.0
+        by_pose.setdefault(lab["pose_index"], []).append(lab["betas"])
+    for views in by_pose.values():
+        assert all(v == views[0] for v in views)  # shared by the pose's 8 views
+    assert by_pose[0] != by_pose[1]
+
+
+def test_body_shape_changes_bone_lengths(shaped_smpl_npz, tmp_path):
+    out = generate_dataset(config_from_dict(_synth_cfg(shaped_smpl_npz, tmp_path,
+                                                       body_shape={})), seed=0)  # fmt: skip
+    for lab in _labels(out).values():
+        j = np.array(lab["joints_3d_world"])
+        scale = 1.0 + 0.1 * lab["betas"][0]  # shape component 0 scales the synthetic body
+        for child, parent in ((18, 16), (4, 1), (12, 9)):  # upper arm, thigh, neck
+            rest = np.linalg.norm(TPOSE[child] - TPOSE[parent])
+            assert np.isclose(np.linalg.norm(j[child] - j[parent]), rest * scale, atol=2e-6)
+
+
+def test_num_betas_beyond_model_refused_before_writing(synthetic_smpl_npz, tmp_path):
+    cfg = config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path, num_betas=11, body_shape={}))
+    with pytest.raises(ConfigError, match="shape components"):
+        generate_dataset(cfg, seed=0)
+    assert not (tmp_path / "out").exists()
+    plain = config_from_dict(_synth_cfg(synthetic_smpl_npz, tmp_path, num_betas=11))
+    assert validate_dataset(generate_dataset(plain, seed=0)) == []  # zeros: no check, as today

@@ -1,5 +1,6 @@
 """Generation config (YAML) — see specs/001-dataset-generation/data-model.md."""
 
+import math
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -14,6 +15,7 @@ POSE_SOURCES = ("procedural", "amass")
 # datasets. to_dict() omits a field while it holds this value (spec 010 FR-002).
 ADDED_FIELD_DEFAULTS: dict[str, Any] = {
     "ranges_version": RANGES_VERSION,
+    "body_shape": None,
 }
 
 
@@ -36,6 +38,14 @@ class CameraRingConfig:
 
 
 @dataclass(frozen=True)
+class BodyShapeConfig:
+    """Per-pose random betas, N(0, std^2) clipped to [-clip, clip] (spec 010 FR-004)."""
+
+    std: float = 1.0
+    clip: float = 2.0
+
+
+@dataclass(frozen=True)
 class GenerationConfig:
     dataset_name: str
     pose_source: str = "procedural"  # "procedural" (default) | "amass"
@@ -50,6 +60,7 @@ class GenerationConfig:
     camera_ring: CameraRingConfig = field(default_factory=CameraRingConfig)
     # spec 010 (left out of to_dict() while at their defaults, see ADDED_FIELD_DEFAULTS)
     ranges_version: str = RANGES_VERSION  # procedural table version
+    body_shape: BodyShapeConfig | None = None  # None: mean shape (betas = 0)
 
     def to_dict(self) -> dict[str, Any]:
         """Resolved config for the manifest; fields added after layout v1 are left out while
@@ -87,11 +98,27 @@ def config_from_dict(data: dict[str, Any]) -> GenerationConfig:
             raise ConfigError("amass_subsets: must be a list of strings")
         if source == "amass" and not subsets:
             raise ConfigError("amass_subsets: required non-empty list when pose_source is amass")
+        if data.get("body_shape") is not None:
+            data["body_shape"] = _body_shape(data["body_shape"])
         cfg = GenerationConfig(amass_subsets=tuple(subsets), image=image, camera_ring=ring, **data)
     except TypeError as e:
         raise ConfigError(str(e)) from e
     _check(cfg)
     return cfg
+
+
+def _number(v: Any, where: str, positive: bool = False) -> float:
+    if not isinstance(v, int | float) or isinstance(v, bool) or not math.isfinite(v):
+        raise ConfigError(f"{where} must be a finite number")
+    if positive and v <= 0:
+        raise ConfigError(f"{where} must be > 0")
+    return float(v)
+
+
+def _body_shape(data: Any) -> BodyShapeConfig:
+    d = _build(BodyShapeConfig, data, "body_shape")
+    vals = {k: _number(v, f"body_shape.{k}", positive=True) for k, v in d.items()}
+    return BodyShapeConfig(**vals)
 
 
 def _check(cfg: GenerationConfig) -> None:
@@ -121,6 +148,8 @@ def _check(cfg: GenerationConfig) -> None:
         raise ConfigError(f"ranges_version must be one of {list(RANGES_TABLES)}")
     if cfg.pose_source != "procedural" and cfg.ranges_version != RANGES_VERSION:
         raise ConfigError("ranges_version applies to pose_source: procedural only")
+    if cfg.body_shape is not None and cfg.num_betas < 1:
+        raise ConfigError("body_shape needs num_betas >= 1")
 
 
 def load_config(path: Path | str) -> GenerationConfig:

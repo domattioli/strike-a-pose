@@ -24,7 +24,8 @@ _CUBE_F = np.array([
 ])  # fmt: skip
 
 
-def make_synthetic_smpl(path: Path, half: float = 0.03) -> Path:
+def make_synthetic_smpl(path: Path, half: float = 0.03, shape_scale: float = 0.0) -> Path:
+    """Cube per joint. ``shape_scale`` s != 0: beta 0 scales the body by (1 + s * beta_0)."""
     v, f, w = [], [], np.zeros((24 * 8, 24))
     for j in range(24):
         v.append(TPOSE[j] + half * _CUBE_V)
@@ -34,8 +35,11 @@ def make_synthetic_smpl(path: Path, half: float = 0.03) -> Path:
     jreg = w.T / 8.0
     kt = np.stack([np.array(SMPL24_PARENTS, dtype=np.int64), np.arange(24)])
     kt[0, 0] = 2**32 - 1
+    shapedirs = np.zeros((len(v), 3, 10))
+    if shape_scale:
+        shapedirs[:, :, 0] = shape_scale * v
     np.savez(
-        path, v_template=v, shapedirs=np.zeros((len(v), 3, 10)),
+        path, v_template=v, shapedirs=shapedirs,
         posedirs=np.zeros((len(v), 3, 207)), J_regressor=jreg, weights=w,
         kintree_table=kt, f=np.concatenate(f),
     )  # fmt: skip
@@ -56,6 +60,12 @@ def make_synthetic_amass(root: Path) -> Path:
 @pytest.fixture
 def synthetic_smpl_npz(tmp_path: Path) -> Path:
     return make_synthetic_smpl(tmp_path / "SMPL_SYNTH.npz")
+
+
+@pytest.fixture
+def shaped_smpl_npz(tmp_path: Path) -> Path:
+    """Synthetic model whose first shape component scales the body (spec 010 tests)."""
+    return make_synthetic_smpl(tmp_path / "SMPL_SHAPED.npz", shape_scale=0.1)
 
 
 @pytest.fixture

@@ -56,6 +56,11 @@ class SMPLModel:
         if self.J_regressor.shape[0] != NUM_JOINTS or len(parents) != NUM_JOINTS:
             raise ValueError(f"expected a {NUM_JOINTS}-joint SMPL model")
 
+    @property
+    def num_shape_components(self) -> int:
+        """Betas beyond this count are ignored by ``forward``."""
+        return int(self.shapedirs.shape[-1])
+
     @classmethod
     def load(cls, path: Path | str) -> "SMPLModel":
         path = require_file(Path(path), "SMPL model file")

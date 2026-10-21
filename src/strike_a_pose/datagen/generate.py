@@ -17,10 +17,11 @@ from PIL import Image
 from .amass import sample_poses
 from .assets import require_dir, require_file, sha256_file
 from .cameras import camera_ring, project, visibility
-from .config import GenerationConfig
+from .config import ConfigError, GenerationConfig
 from .io import SCHEMA_VERSION, write_json
 from .procedural import SPARSIFY_MIN_KEEP, ranges_table, sample_procedural_poses
 from .render import render
+from .shape import sample_betas
 from .skeleton import SKELETON_NAME, SMPL24_JOINT_NAMES, SMPL24_PARENTS
 from .smpl import SMPLModel
 
@@ -70,6 +71,11 @@ def generate_dataset(
         amass_root = require_dir(Path(cfg.amass_root), "AMASS root directory")
     if body_model is None:
         body_model = SMPLModel.load(smpl_path)
+    n_shape = getattr(body_model, "num_shape_components", None)
+    if cfg.body_shape is not None and n_shape is not None and cfg.num_betas > n_shape:
+        raise ConfigError(
+            f"num_betas {cfg.num_betas} exceeds the body model's {n_shape} shape components"
+        )
     if cfg.pose_source == "amass":
         poses = sample_poses(amass_root, cfg.amass_subsets, cfg.frame_stride, cfg.num_poses, seed)
         used = sorted({p.source_file for p in poses})
@@ -128,9 +134,15 @@ def generate_dataset(
     (out / "samples").mkdir(parents=True)
     write_json(out / "manifest.json", manifest)
 
-    betas = np.zeros(cfg.num_betas)
+    zero_betas = np.zeros(cfg.num_betas)
+    shape = cfg.body_shape
     samples, checksums = [], {}
     for rec in poses:
+        betas = (
+            zero_betas
+            if shape is None
+            else sample_betas(cfg.num_betas, shape.std, shape.clip, seed, rec.index)
+        )
         verts, joints = body_model.forward(np.array(rec.pose), betas)
         for cam in cams:
             sid = f"{rec.index:05d}_{cam.name}"

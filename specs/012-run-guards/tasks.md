@@ -32,20 +32,28 @@ changes also the fixture train + probe smoke commands. Commits name explicit pat
 
 ## Stage 3 — status script, configs, memory, provenance (`feat(012): campaign status script + configs`)
 
-- [ ] T008 Tests (red first): `tests/test_run_status.py` (finished, stopped early, aborted,
+- [x] T008 Tests (red first): `tests/test_run_status.py` (finished, stopped early, aborted,
   killed mid-run with `--now`, live lock, VAE `train_kl`, not a run dir → 2, nothing written);
   `tests/test_run_records.py` (`image_mean` = one-shot float64 mean bit for bit on uint8 and
   float rows with odd batch sizes; `env.cpu_model`; `dataset.checksums_sha256` in the 003 / 004
   / 006 fixture `run_info.json`); configs (guards in the four campaign configs, not in the
   fixture config; each new config differs from its parent only in its knob and run name);
-  FR-015 pins in `tests/test_realism.py`.
-- [ ] T009 `eval/baselines.py` `image_mean`, used by `fit_baselines` and the trainer (float32
+  FR-015 pins in `tests/test_realism.py`. Red run: collection errors (no `image_mean`, no
+  `scripts/run_status.py`) and `test_runlog` (no `cpu_model`); the config files were written with
+  their tests (data, no red run; 010 precedent).
+- [x] T009 `eval/baselines.py` `image_mean`, used by `fit_baselines` and the trainer (float32
   train matrix only for the PCA column).
-- [ ] T010 `runlog.py` `cpu_model`, `checksums_sha256`; 003 / 004 / 006 `run_info.json`.
-- [ ] T011 `scripts/run_status.py`.
-- [ ] T012 Configs (FR-012); `tests/test_train_variants.py` (β 0.01), `tests/test_realism.py`
+- [x] T010 `runlog.py` `cpu_model`, `checksums_sha256`; 003 / 004 / 006 `run_info.json`.
+- [x] T011 `scripts/run_status.py`.
+- [x] T012 Configs (FR-012); `tests/test_train_variants.py` (β 0.01), `tests/test_realism.py`
   (guard keys exempt until the 010 amendment).
-- [ ] T013 Checks; smoke; SC-002 same-machine comparison against the `e98134e` fixture outputs.
+- [x] T013 Checks; smoke; SC-002 same-machine comparison against the `e98134e` fixture outputs.
+  ruff check / format clean; pytest 446 passed in 48.8 s (idle machine; a run concurrent with
+  another session's pytest on the same 4 vCPU crawled through thread oversubscription and was
+  rerun); CI smoke commands exit 0 (10 s); status script 1.7 s. SC-002: 003 and 004
+  `metrics.json` and every figure byte-identical, AE weights equal, history equal except
+  `epoch_s`, probe `metrics.json` equal except `encoder.checkpoint_sha256`, `run_info.json` adds
+  exactly `env.cpu_model` and `dataset.checksums_sha256`.
 
 ## Stage 4 — docs (`docs(012)`)
 

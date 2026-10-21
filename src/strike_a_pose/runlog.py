@@ -3,6 +3,7 @@
 Seeding, environment summary, git commit, run-dir creation, stable JSON/YAML writers.
 """
 
+import hashlib
 import json
 import math
 import os
@@ -37,6 +38,18 @@ def git_info() -> dict:
     return git_commit()
 
 
+def cpu_model() -> str | None:
+    """The CPU model (first ``model name`` of /proc/cpuinfo, else ``platform.processor()``), so
+    "same machine type" is checkable across runs (spec 012); None if unknown."""
+    try:
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name") and ":" in line:
+                return line.split(":", 1)[1].strip() or None
+    except OSError:
+        pass
+    return platform.processor() or None
+
+
 def environment_summary() -> dict:
     return {
         "python": sys.version,
@@ -45,8 +58,16 @@ def environment_summary() -> dict:
         "torch": torch.__version__,
         "pillow": PIL.__version__,
         "cpu_count": os.cpu_count(),
+        "cpu_model": cpu_model(),  # spec 012
         "torch_threads": torch.get_num_threads(),
     }
+
+
+def checksums_sha256(dataset_dir: str | Path) -> str | None:
+    """SHA-256 of a dataset's ``checksums.json`` (the per-image hashes, i.e. the pixels the
+    manifest hashes do not cover; spec 012), or None if the file is missing."""
+    p = Path(dataset_dir) / "checksums.json"
+    return hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
 
 
 def utc_now() -> datetime:

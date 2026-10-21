@@ -27,6 +27,7 @@ from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.datagen.skeleton import SMPL24_PARENTS
 from strike_a_pose.models import ConvAutoencoder, load_checkpoint
 from strike_a_pose.runlog import (
+    checksums_sha256,
     environment_summary,
     git_info,
     make_run_dir,
@@ -545,6 +546,7 @@ def run_probe(
             "dir": cfg.dataset_dir,
             "manifest_sha256": hashes["manifest_sha256"],  # cache key (raw, spec 007)
             "manifest_content_sha256": train_ds.manifest_content_sha256,
+            "checksums_sha256": checksums_sha256(cfg.dataset_dir),  # pixels (spec 012)
         },
         "split_file": {"path": cfg.split_file, "sha256": hashes["split_sha256"]},
         "checkpoint": _checkpoint_info(ck_path, ckpt, hashes["checkpoint_sha256"]),

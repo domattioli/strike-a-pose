@@ -36,7 +36,8 @@ def test_seed_everything_repeats_draws():
 
 def test_environment_and_git():
     env = environment_summary()
-    keys = {"python", "platform", "numpy", "torch", "pillow", "cpu_count", "torch_threads"}
+    keys = {"python", "platform", "numpy", "torch", "pillow", "cpu_count", "torch_threads",
+            "cpu_model"}  # fmt: skip
     assert set(env) == keys
     g = git_info()
     assert set(g) == {"commit", "dirty"}

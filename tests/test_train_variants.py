@@ -37,7 +37,8 @@ NEW_KEYS = {"mask_weight": 0.0, "variational": False, "beta": 0.0, "weight_decay
             "shift_px": 0, "dropout": 0.0}  # fmt: skip
 REG = {"weight_decay": 0.05, "shift_px": 4, "dropout": 0.1}  # configs/ae_reg.yaml
 MASK = {"mask_weight": 4.0}  # configs/ae_mask.yaml
-VAE = {"variational": True, "beta": 0.1}  # configs/ae_vae.yaml
+VAE = {"variational": True, "beta": 0.1}  # fixture VAE runs
+VAE_CONFIG = {"variational": True, "beta": 0.01}  # configs/ae_vae.yaml (spec 012: first beta)
 ALL_KNOBS = {**REG, **MASK, **VAE}  # every knob on (resume test)
 HIST_KEYS = ("train_loss", "val_loss", "lr", "train_recon", "train_kl")
 
@@ -381,7 +382,7 @@ def test_vae_run_repeats_records_and_probes(tmp_path):
 # ------------------------------------------------------------------ experiment configs (FR-013)
 
 
-@pytest.mark.parametrize("name, knobs", [("mask", MASK), ("vae", VAE), ("reg", REG)])
+@pytest.mark.parametrize("name, knobs", [("mask", MASK), ("vae", VAE_CONFIG), ("reg", REG)])
 def test_experiment_configs_differ_from_the_control_only_in_their_knobs(name, knobs):
     raw = yaml.safe_load((ROOT / "configs" / "ae.yaml").read_text())
     assert {k: raw[k] for k in NEW_KEYS} == NEW_KEYS  # the control lists the defaults

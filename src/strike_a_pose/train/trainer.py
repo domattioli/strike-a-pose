@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader
 
 from strike_a_pose.data import DatasetError, PoseImageDataset, parse_sample_id
 from strike_a_pose.datagen.assets import sha256_file
-from strike_a_pose.eval.baselines import UNITS
+from strike_a_pose.eval.baselines import UNITS, image_mean
 from strike_a_pose.eval.config import ConfigError
 from strike_a_pose.eval.pca import fit_pca
 from strike_a_pose.eval.report import (
@@ -35,6 +35,7 @@ from strike_a_pose.eval.report import (
 )
 from strike_a_pose.models import ConvAutoencoder
 from strike_a_pose.runlog import (
+    checksums_sha256,
     environment_summary,
     git_info,
     make_run_dir,
@@ -455,6 +456,7 @@ def _start(
             "dir": cfg.dataset_dir,
             "manifest_sha256": s["train_ds"].manifest_sha256,  # resume check (raw, spec 007)
             "manifest_content_sha256": s["train_ds"].manifest_content_sha256,
+            "checksums_sha256": checksums_sha256(cfg.dataset_dir),  # pixels (spec 012)
         },
         "split_file": {"path": cfg.split_file, "sha256": s["split_sha"]},
         "model_parameters": s["model"].parameter_count(),
@@ -631,11 +633,15 @@ def _train_and_evaluate(
     say(_selection_line(selection, rows[-1]))
     model.eval()
 
-    # Context baselines, fit on train only (003 code path: exact PCA, clamp to [0, 1]).
-    x_train = to_float(train["image"]).reshape(train["n"], -1)
-    mean_image = (x_train.sum(dim=0, dtype=torch.float64) / train["n"]).to(torch.float32)
-    pca = fit_pca(x_train, cfg.context_pca_k) if cfg.context_pca_k else None
-    del x_train, train
+    # Context baselines, fit on train only (003 code path: exact PCA, clamp to [0, 1]); the mean
+    # image from the uint8 rows in float64 batches, the float32 matrix only for the PCA (spec 012).
+    mean_image = image_mean(train["image"].reshape(train["n"], -1))
+    pca = None
+    if cfg.context_pca_k:
+        x_train = to_float(train["image"]).reshape(train["n"], -1)
+        pca = fit_pca(x_train, cfg.context_pca_k)
+        del x_train
+    del train
     preds = {
         "ae": lambda x: predict_rows(model, x),
         "mean_image": lambda x: mean_image.expand(x.shape[0], -1),

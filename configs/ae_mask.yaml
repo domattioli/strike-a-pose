@@ -28,3 +28,9 @@ beta: 0.0                              # KL weight on KL / (H*W); > 0 iff variat
 weight_decay: 0.0                      # AdamW decoupled weight decay (every parameter)
 shift_px: 0                            # per-sample integer shifts of the train images
 dropout: 0.0                           # dropout on the latent (training only)
+# Run guards (spec 012; campaign procedure: docs/HANDOFF.md): stop after 10 epochs without a
+# new val minimum, from epoch 20 on (the cosine schedule stays planned for all epochs; the
+# scored weights stay the best-val epoch's), and abort a diverging run (exit 5, aborted.json).
+early_stop: {patience: 10, min_epochs: 20, min_delta: 0.0}
+abort_on_divergence: true              # non-finite losses, or train loss > ratio x epoch 1's
+divergence_ratio: 10.0                 # (the latter from epoch 4 on)

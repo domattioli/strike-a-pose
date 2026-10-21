@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from strike_a_pose.data import PoseImageDataset, parse_sample_id
 from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.runlog import (
+    checksums_sha256,
     environment_summary,
     git_info,
     make_run_dir,
@@ -89,9 +90,28 @@ def _rel_flat(joints: torch.Tensor) -> torch.Tensor:
     return rel.reshape(rel.shape[0], -1)
 
 
+MEAN_BATCH = 1024  # rows per float64 partial sum (spec 012)
+
+
+def image_mean(rows: torch.Tensor, batch_size: int = MEAN_BATCH) -> torch.Tensor:
+    """Per-pixel mean of image rows ``[n, P]`` (uint8, scaled ``/255`` per batch like the 004
+    trainer's ``to_float``, or float32) as float32, accumulated in float64 batch by batch: no
+    float64 copy of the whole matrix (spec 012: 10 GB for 25,600 images). Bit-identical to
+    ``rows.sum(0, dtype=float64) / n``: the values are multiples of 2^-31 in [0, 1], so every
+    float64 partial sum of fewer than 2^22 rows is exact (012 research R4)."""
+    n = rows.shape[0]
+    acc = torch.zeros(rows.shape[1], dtype=torch.float64)
+    for i in range(0, n, batch_size):
+        b = rows[i : i + batch_size]
+        if b.dtype == torch.uint8:
+            b = b.to(torch.float32) / 255.0
+        acc += b.to(torch.float64).sum(dim=0)
+    return (acc / n).to(torch.float32)
+
+
 def fit_baselines(train: dict, cfg: BaselineConfig) -> Baselines:
     x = train["image"]
-    mean_image = (x.sum(dim=0, dtype=torch.float64) / x.shape[0]).to(torch.float32)
+    mean_image = image_mean(x)
     image_pca = fit_pca(x, max(cfg.image_pca_ks)) if cfg.image_pca_ks else None
     rel = _rel_flat(train["joints"])
     return Baselines(mean_image, image_pca, rel.mean(dim=0), fit_pca(rel, max(cfg.pose_pca_ks)))
@@ -184,6 +204,7 @@ def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
             "dir": cfg.dataset_dir,
             "manifest_sha256": train_ds.manifest_sha256,
             "manifest_content_sha256": train_ds.manifest_content_sha256,
+            "checksums_sha256": checksums_sha256(cfg.dataset_dir),  # pixels (spec 012)
         },
         "split_file": {"path": cfg.split_file, "sha256": split_sha},
         "started_utc": started.isoformat(),

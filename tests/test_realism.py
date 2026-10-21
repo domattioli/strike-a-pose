@@ -8,6 +8,7 @@ import pytest
 
 from strike_a_pose.datagen.cameras import camera_ring, in_frame, jittered_camera, project
 from strike_a_pose.datagen.config import (
+    ADDED_FIELD_DEFAULTS,
     BodyShapeConfig,
     CameraJitterConfig,
     CameraRingConfig,
@@ -452,6 +453,8 @@ def test_series_run_configs_match_v1():
                                                                 else set())  # fmt: skip
             if ds == "smpl_proc_v5":
                 want |= {"baselines": {"image_pca_ks"}, "ae": {"context_pca_k"}}.get(kind, set())
+            if kind == "ae":  # spec 012 guards: the 010 amendment adds them to these configs
+                want |= {"early_stop", "abort_on_divergence"}
             assert {k for k in v1 if v1[k] != cur[k]} == want and set(cur) == set(v1)
             assert cur["run_name"] == f"{kind}-{ds}"
             assert cur["dataset_dir"] == f"data/generated/{ds}"
@@ -470,3 +473,14 @@ def test_series_configs_generate_on_synthetic_model(synthetic_smpl_npz, tmp_path
         out = generate_dataset(config_from_dict(d), 0, output_root=tmp_path)
         assert validate_dataset(out) == [], ds
         assert load_manifest(out)["config"] == d
+
+
+def test_added_field_defaults_are_frozen_for_layout_v1():
+    """Layout v1 (001 dataset-layout contract, spec 012 FR-015): a manifest config without one of
+    these keys means exactly this value, so changing a default would silently change the meaning
+    of every existing v1 manifest (and break its byte-for-byte regeneration); a change needs a new
+    schema_version. Pinned literally on purpose, not through the constants they come from."""
+    assert set(ADDED_FIELD_DEFAULTS) == {"ranges_version", "body_shape", "camera_jitter"}
+    assert ADDED_FIELD_DEFAULTS["ranges_version"] == "predecessor-v1-nohands"
+    assert ADDED_FIELD_DEFAULTS["body_shape"] is None
+    assert ADDED_FIELD_DEFAULTS["camera_jitter"] is None

@@ -1,6 +1,8 @@
-# VAE, experiment R2 (spec 011): configs/ae.yaml with variational: true and beta 0.1 on
+# VAE, experiment R2 (spec 011): configs/ae.yaml with variational: true and beta 0.01 on
 # KL / (H*W) (loss = (SSE + beta*KL) / (H*W) per image; beta = 2*sigma^2 of a Gaussian
-# decoder, so 0.1 pulls the latent toward N(0, I) for later sampling / interpolation).
+# decoder, pulling the latent toward N(0, I) for later sampling / interpolation). First beta
+# 0.01, operator decision 2026-10-21 (spec 012; 011 had 0.1): collapse -> ae_vae_beta0.001.yaml,
+# healthy -> ae_vae_beta0.1.yaml (campaign procedure).
 # Control: the configs/ae.yaml re-baseline run R0. Run: strike-a-pose-train --config
 # configs/ae_vae.yaml   (CPU, ~1.5 h on 4 vCPU; detached, resumable). Evaluation and the
 # probe use the mean (no sampling); watch train_kl in history.csv for collapse.
@@ -25,7 +27,13 @@ figure_samples: 6                      # same samples as the 003 figure
 # configs/ae_mask.yaml (R1), ae_vae.yaml (R2) and ae_reg.yaml (R3).
 mask_weight: 0.0                       # alpha of the mask-weighted MSE (0: plain MSE)
 variational: true                      # VAE: logvar head + KL term (needs beta > 0)
-beta: 0.1                              # KL weight on KL / (H*W); > 0 iff variational
+beta: 0.01                             # KL weight on KL / (H*W); > 0 iff variational
 weight_decay: 0.0                      # AdamW decoupled weight decay (every parameter)
 shift_px: 0                            # per-sample integer shifts of the train images
 dropout: 0.0                           # dropout on the latent (training only)
+# Run guards (spec 012; campaign procedure: docs/HANDOFF.md): stop after 10 epochs without a
+# new val minimum, from epoch 20 on (the cosine schedule stays planned for all epochs; the
+# scored weights stay the best-val epoch's), and abort a diverging run (exit 5, aborted.json).
+early_stop: {patience: 10, min_epochs: 20, min_delta: 0.0}
+abort_on_divergence: true              # non-finite losses, or train loss > ratio x epoch 1's
+divergence_ratio: 10.0                 # (the latter from epoch 4 on)

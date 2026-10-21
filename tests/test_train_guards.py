@@ -507,3 +507,45 @@ def test_default_run_writes_no_guard_records(tmp_path):
     assert not (d / ABORTED).exists() and not (d / LOCK).exists()
     assert yaml.safe_load((d / "config.yaml").read_text())["early_stop"] is None
     assert all(math.isfinite(float(r["train_loss"])) for r in _history(d))
+
+
+# ------------------------------------------------------------------ campaign configs (FR-012)
+
+CAMPAIGN = ("ae", "ae_mask", "ae_vae", "ae_reg", "ae_seed1", "ae_vae_beta0.1", "ae_vae_beta0.001")
+GUARDS_ON = {
+    "early_stop": {"patience": 10, "min_epochs": 20, "min_delta": 0.0},
+    "abort_on_divergence": True,
+    "divergence_ratio": 10.0,
+}
+
+
+@pytest.mark.parametrize("name", CAMPAIGN)
+def test_campaign_configs_list_the_guards(name):
+    raw = yaml.safe_load((ROOT / "configs" / f"{name}.yaml").read_text())
+    assert {k: raw[k] for k in GUARDS_ON} == GUARDS_ON
+    cfg = load_config(ROOT / "configs" / f"{name}.yaml")
+    assert cfg.early_stop == EarlyStop(10, 20, 0.0) and cfg.abort_on_divergence
+
+
+def test_fixture_config_has_no_guards():
+    assert not set(GUARDS_ON) & set(yaml.safe_load(CFG.read_text()))
+    cfg = load_config(CFG)
+    assert cfg.early_stop is None and not cfg.abort_on_divergence
+
+
+@pytest.mark.parametrize(
+    "name, parent, diff",
+    [
+        ("ae_seed1", "ae", {"seed": 1, "run_name": "ae-seed1-smpl_proc_v1"}),
+        ("ae_vae_beta0.1", "ae_vae", {"beta": 0.1, "run_name": "ae-vae-beta0.1-smpl_proc_v1"}),
+        (
+            "ae_vae_beta0.001",
+            "ae_vae",
+            {"beta": 0.001, "run_name": "ae-vae-beta0.001-smpl_proc_v1"},
+        ),
+    ],
+)
+def test_new_campaign_configs_differ_from_their_parent_only_in_their_knob(name, parent, diff):
+    cfg = load_config(ROOT / "configs" / f"{name}.yaml").to_dict()
+    base = load_config(ROOT / "configs" / f"{parent}.yaml").to_dict()
+    assert {k: v for k, v in cfg.items() if v != base[k]} == diff

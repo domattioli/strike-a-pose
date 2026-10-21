@@ -23,10 +23,29 @@ code; each stage ends green (`uv run --locked ruff check .`, `uv run --locked ru
 
 ## Stage 3 — intersection check (`feat(014): intersection check`)
 
-- [ ] T004 Tests (red first), `tests/test_intersection.py` (spec FR-010 (c)–(e)).
-- [ ] T005 `datagen/intersection.py`; `scripts/intersection_check.py`.
-- [ ] T006 Rates on the synthetic body for `configs/default.yaml` vs
-  `configs/smpl_proc_v2a/generate.yaml` (and the widened torso), recorded below.
+- [x] T004 Tests (red first), `tests/test_intersection.py` (spec FR-010 (c)–(e)).
+- [x] T005 `datagen/intersection.py`; `scripts/intersection_check.py`.
+- [x] T006 Rates on the synthetic body for `configs/default.yaml` vs
+  `configs/smpl_proc_v2a/generate.yaml` (and the widened torso), recorded below. Red run:
+  collection error (no `datagen.intersection`); then 5 failures that were test design, not
+  code: the constructed pose (left shoulder z −135°) misses the plain synthetic body's 6-cm torso
+  cubes by 1 mm after the 1 cm margin, so the constructed-pose tests use the widened-torso body
+  (torso cubes scaled 5 / 2.2 / 3 in x / y / z: 0.30 × 0.13 × 0.18 m per segment) and the
+  script test no longer assumes a PASS at 5 %. 12 tests.
+
+  Rates (`scripts/intersection_check.py --seed 0`, all 2,000 poses, margin 0.01 m):
+
+  | Body | `configs/default.yaml` (v1 table) | `configs/smpl_proc_v2a/generate.yaml` (`armsdown-v1`) |
+  |---|---|---|
+  | synthetic (6-cm cube per joint) | 0 / 2000 = 0.00 %: PASS | 1 / 2000 = 0.05 %: PASS |
+  | synthetic, widened torso | 13 / 2000 = 0.65 %: PASS | 154 / 2000 = 7.70 %: FAIL |
+
+  Caveat: the synthetic arms are 6-cm cubes at the joints only (no limb surface between
+  joints) and its torso is either far too thin (plain) or an arbitrary box (widened); the
+  numbers show that the count works and that the arms-down table raises it ≈ 12× on a
+  torso-sized body, not what real SMPL will give. The 010 joint-level proxy (clarification 6)
+  predicted ≈ 1–2 % per arm; the v2a step measures it with SMPL.
+  Stage checks: ruff and format clean; pytest 460 passed in 1035 s (shared machine).
 
 ## Stage 4 — docs (`docs(014)`)
 

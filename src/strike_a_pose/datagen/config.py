@@ -8,6 +8,9 @@ from typing import Any
 import yaml
 
 POSE_SOURCES = ("procedural", "amass")
+# Generator fields added after dataset layout v1 -> the value that reproduces earlier
+# datasets. to_dict() omits a field while it holds this value (spec 010 FR-002).
+ADDED_FIELD_DEFAULTS: dict[str, Any] = {}
 
 
 class ConfigError(ValueError):
@@ -43,8 +46,13 @@ class GenerationConfig:
     camera_ring: CameraRingConfig = field(default_factory=CameraRingConfig)
 
     def to_dict(self) -> dict[str, Any]:
+        """Resolved config for the manifest; fields added after layout v1 are left out while
+        they hold their default, so earlier configs serialize unchanged (spec 010 FR-002)."""
         d = asdict(self)
         d["amass_subsets"] = list(self.amass_subsets)
+        for key, default in ADDED_FIELD_DEFAULTS.items():
+            if getattr(self, key) == default:
+                del d[key]
         return d
 
 

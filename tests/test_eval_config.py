@@ -27,6 +27,14 @@ def test_committed_configs_load():
     assert fx.dataset_dir == "tests/fixtures/smpl_fixture" and fx.figure_split == "test"
 
 
+def test_empty_image_pca_ks_allowed():  # spec 010 FR-014: no image PCA
+    c = config_from_dict({**BASE, "image_pca_ks": []})
+    assert c.image_pca_ks == () and c.to_dict()["image_pca_ks"] == []
+    assert config_from_dict(c.to_dict()) == c
+    with pytest.raises(ConfigError):
+        config_from_dict({**BASE, "pose_pca_ks": []})  # pose PCA stays required
+
+
 def test_overrides_are_validated():
     c = config_from_dict(BASE).with_overrides(seed=5, run_root=None)
     assert c.seed == 5 and c.run_root == "runs"
@@ -38,7 +46,6 @@ def test_overrides_are_validated():
     "bad",
     [
         {"bogus": 1},
-        {"image_pca_ks": []},
         {"image_pca_ks": [0, 4]},
         {"pose_pca_ks": [2, 2]},
         {"pose_pca_ks": [1.5]},

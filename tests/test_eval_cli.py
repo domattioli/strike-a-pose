@@ -91,6 +91,21 @@ def test_fixture_run_directory(tmp_path, capsys):
     )
 
 
+def test_fixture_run_without_image_pca(tmp_path):  # spec 010 FR-014
+    cfg = yaml.safe_load(CFG.read_text()) | {"image_pca_ks": [], "run_root": str(tmp_path / "r")}
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.safe_dump(cfg))
+    assert main(["baseline", "--config", str(p)]) == 0
+    (d,) = sorted((tmp_path / "r").iterdir())
+    m = json.loads((d / "metrics.json").read_text())
+    assert m["fit"]["image_pca"] is None and m["fit"]["pose_pca"]["n_components"] == 0
+    t = m["splits"]["test"]
+    assert set(t["image"]) == {"mean_image"} and set(t["pose"]) == {"mean_pose", "pca_k2"}
+    assert set(t["image"]["mean_image"]["regions"]) == {"hands", "feet", "head"}
+    fig = Image.open(d / "recon_test.png")
+    assert fig.size[0] == 2 * 192 + 3 * FIG_PAD  # true + mean
+
+
 def test_metrics_bytes_repeat(tmp_path):
     a = _run(tmp_path / "a")[1][0] / "metrics.json"
     b = _run(tmp_path / "b")[1][0] / "metrics.json"

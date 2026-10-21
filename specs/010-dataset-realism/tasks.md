@@ -14,18 +14,22 @@ committed with explicit paths. Commands: `uv run --locked ruff check .`,
 
 ## Stage 2 — config surface (`feat(010): config surface`)
 
-- [ ] T003 "Before" reference: generate synthetic datasets with today's code (procedural
+- [x] T003 "Before" reference: generate synthetic datasets with today's code (procedural
   `proc_cfg`-style, seed 0; AMASS `small_cfg`-style, seed 3) into the session scratchpad;
-  keep them for T020.
-- [ ] T004 Tests (red first): FR-009 pins — `load_config("configs/fixture.yaml").to_dict()` ==
+  keep them for T019. Done at `8d930ba` (datagen code as at `702d2f5`): `proc_small` (3 poses,
+  64 × 48, seed 0), `proc_full` (fixture config with the synthetic model, seed 3),
+  `amass_small` (seed 3).
+- [x] T004 Tests (red first): FR-009 pins — `load_config("configs/fixture.yaml").to_dict()` ==
   fixture manifest `config`; `sample_procedural_poses(2, 3)` == fixture `euler_deg` and, at 6
   decimals, `pose`; rebuilt `inputs.pose_source` and `cameras` == the fixture's.
-- [ ] T005 `GenerationConfig.to_dict()` omit-when-default machinery (`ADDED_FIELD_DEFAULTS`,
+- [x] T005 `GenerationConfig.to_dict()` omit-when-default machinery (`ADDED_FIELD_DEFAULTS`,
   empty until stage 3) — no behaviour change for today's fields.
-- [ ] T006 FR-014: `image_pca_ks: []` valid in `eval/config.py`; `eval/baselines.py` skips the
+- [x] T006 FR-014: `image_pca_ks: []` valid in `eval/config.py`; `eval/baselines.py` skips the
   image PCA (`Baselines.image_pca` None, `fit.image_pca` null); tests (config accepted, fixture
   baseline run with `[]`: mean image + pose baselines, no `pca_k*`, figure with 2 columns);
-  drop `{"image_pca_ks": []}` from the invalid-config list.
+  drop `{"image_pca_ks": []}` from the invalid-config list. Red run: the two FR-014 tests
+  failed ("must be a non-empty list"); the pins passed (they pin today's behaviour). Stage
+  checks: ruff and format clean; pytest 312 passed in 34.9 s (307 before).
 
 ## Stage 3 — arms-down table (`feat(010): arms-down table`)
 

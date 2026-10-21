@@ -69,8 +69,15 @@ def config_from_dict(data: Any) -> BaselineConfig:
     for key in _INT_LISTS:
         if key in d:
             v = d[key]
-            if not isinstance(v, list | tuple) or not v or not all(_is_int(k) for k in v):
-                raise ConfigError(f"{key}: must be a non-empty list of integers")
+            # image_pca_ks may be empty: no image PCA (spec 010 FR-014, large datasets)
+            empty_ok = key == "image_pca_ks"
+            if (
+                not isinstance(v, list | tuple)
+                or (not v and not empty_ok)
+                or not all(_is_int(k) for k in v)
+            ):
+                kind = "a list" if empty_ok else "a non-empty list"
+                raise ConfigError(f"{key}: must be {kind} of integers")
             if any(k < 1 for k in v) or len(set(v)) != len(v):
                 raise ConfigError(f"{key}: values must be unique and >= 1")
             d[key] = tuple(v)

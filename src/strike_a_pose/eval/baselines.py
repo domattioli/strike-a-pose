@@ -49,7 +49,7 @@ UNITS = {
 @dataclass(frozen=True)
 class Baselines:
     mean_image: torch.Tensor  # [H*W] float32
-    image_pca: PCA
+    image_pca: PCA | None  # None when image_pca_ks is empty (spec 010 FR-014)
     mean_pose: torch.Tensor  # [J*3] float64, root-relative
     pose_pca: PCA
 
@@ -92,7 +92,7 @@ def _rel_flat(joints: torch.Tensor) -> torch.Tensor:
 def fit_baselines(train: dict, cfg: BaselineConfig) -> Baselines:
     x = train["image"]
     mean_image = (x.sum(dim=0, dtype=torch.float64) / x.shape[0]).to(torch.float32)
-    image_pca = fit_pca(x, max(cfg.image_pca_ks))
+    image_pca = fit_pca(x, max(cfg.image_pca_ks)) if cfg.image_pca_ks else None
     rel = _rel_flat(train["joints"])
     return Baselines(mean_image, image_pca, rel.mean(dim=0), fit_pca(rel, max(cfg.pose_pca_ks)))
 
@@ -199,7 +199,9 @@ def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
         "split": "train",
         "samples": len(train_ds),
         "poses": len({parse_sample_id(s)[0] for s in train_ds.sample_ids}),
-        "image_pca": {
+        "image_pca": None
+        if b.image_pca is None
+        else {
             "numerical_rank": b.image_pca.numerical_rank,
             "n_components": b.image_pca.n_components,
             "explained_variance_ratio": {

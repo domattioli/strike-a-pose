@@ -26,8 +26,25 @@ LEGACY_VALUES: dict[str, Any] = {
     "weight_decay": 0.0,
     "shift_px": 0,
     "dropout": 0.0,
+    # spec 012 run guards: runs before them had none
+    "early_stop": None,
+    "abort_on_divergence": False,
+    "divergence_ratio": 10.0,
 }
 MAX_SHIFT_PX = 32  # spec 011: "small" pixel shifts
+DIVERGENCE_RATIO = 10.0  # spec 012 default; another value needs abort_on_divergence: true
+EARLY_STOP_KEYS = ("patience", "min_epochs", "min_delta")
+
+
+@dataclass(frozen=True)
+class EarlyStop:
+    """Early stop on a val plateau (spec 012): after an epoch with a finite val loss, from epoch
+    ``min_epochs`` on, stop once ``patience`` epochs passed since the last epoch whose val loss
+    was below the previous anchor by more than ``min_delta`` (train.guards.early_stop_state)."""
+
+    patience: int
+    min_epochs: int = 0
+    min_delta: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -56,6 +73,10 @@ class TrainConfig:
     weight_decay: float = 0.0
     shift_px: int = 0
     dropout: float = 0.0
+    # spec 012 run guards (off by default)
+    early_stop: EarlyStop | None = None
+    abort_on_divergence: bool = False
+    divergence_ratio: float = DIVERGENCE_RATIO
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -113,7 +134,8 @@ def config_from_dict(data: Any) -> TrainConfig:
         if not isinstance(v, list | tuple) or not v or not all(_is_int(c) and c >= 1 for c in v):
             raise ConfigError("channels: must be a non-empty list of integers >= 1")
         d["channels"] = tuple(v)
-    for key in ("lr", "iou_threshold", "mask_weight", "beta", "weight_decay", "dropout"):
+    numbers = ("lr", "iou_threshold", "mask_weight", "beta", "weight_decay", "dropout")
+    for key in (*numbers, "divergence_ratio"):
         if key in d:
             if not _is_num(d[key]) or not math.isfinite(d[key]):
                 raise ConfigError(f"{key}: must be a finite number")
@@ -122,6 +144,10 @@ def config_from_dict(data: Any) -> TrainConfig:
         raise ConfigError("shift_px: must be an integer")
     if "variational" in d and not isinstance(d["variational"], bool):
         raise ConfigError("variational: must be true or false")
+    if "abort_on_divergence" in d and not isinstance(d["abort_on_divergence"], bool):
+        raise ConfigError("abort_on_divergence: must be true or false")
+    if "early_stop" in d:
+        d["early_stop"] = _early_stop(d["early_stop"])
     if "eval_splits" in d:
         v = d["eval_splits"]
         if not isinstance(v, list | tuple) or not v or not all(isinstance(s, str) for s in v):
@@ -133,6 +159,27 @@ def config_from_dict(data: Any) -> TrainConfig:
     cfg = TrainConfig(**d)
     _check(cfg)
     return cfg
+
+
+def _early_stop(v: Any) -> EarlyStop | None:
+    """The ``early_stop`` block: null, or ``{patience, min_epochs, min_delta}`` (spec 012)."""
+    if v is None or isinstance(v, EarlyStop):
+        return v
+    if not isinstance(v, dict):
+        raise ConfigError("early_stop: must be a mapping {patience, min_epochs, min_delta} or null")
+    unknown = set(v) - set(EARLY_STOP_KEYS)
+    if unknown:
+        raise ConfigError(f"early_stop: unknown keys {sorted(unknown)}")
+    if "patience" not in v:
+        raise ConfigError("early_stop.patience: required")
+    patience, min_epochs, min_delta = v["patience"], v.get("min_epochs", 0), v.get("min_delta", 0.0)
+    if not _is_int(patience) or patience < 1:
+        raise ConfigError("early_stop.patience: must be an integer >= 1")
+    if not _is_int(min_epochs) or min_epochs < 0:
+        raise ConfigError("early_stop.min_epochs: must be an integer >= 0")
+    if not _is_num(min_delta) or not math.isfinite(min_delta) or min_delta < 0:
+        raise ConfigError("early_stop.min_delta: must be a finite number >= 0")
+    return EarlyStop(patience, min_epochs, float(min_delta))
 
 
 def _check(cfg: TrainConfig) -> None:
@@ -165,6 +212,10 @@ def _check(cfg: TrainConfig) -> None:
         raise ConfigError(f"shift_px: must be in [0, {MAX_SHIFT_PX}]")
     if not 0.0 <= cfg.dropout < 1.0:
         raise ConfigError("dropout: must be in [0, 1)")
+    if not cfg.divergence_ratio > 1.0:
+        raise ConfigError("divergence_ratio: must be > 1")
+    if not cfg.abort_on_divergence and cfg.divergence_ratio != DIVERGENCE_RATIO:
+        raise ConfigError("divergence_ratio: needs abort_on_divergence: true")
 
 
 def _read_yaml(path: str | Path) -> Any:

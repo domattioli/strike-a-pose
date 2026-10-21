@@ -10,8 +10,9 @@ from strike_a_pose.data import DatasetError
 from strike_a_pose.eval.config import ConfigError
 
 from .config import load_config
+from .guards import RunAborted
 
-EXIT_DATA, EXIT_CONFIG, EXIT_EXISTS = 1, 2, 4
+EXIT_DATA, EXIT_CONFIG, EXIT_EXISTS, EXIT_ABORTED = 1, 2, 4, 5
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     except FileExistsError as e:
         print(f"error: run directory exists: {e}", file=sys.stderr)
         return EXIT_EXISTS
+    except RunAborted as e:  # spec 012: the divergence guard (also --resume of such a run)
+        print(f"aborted: {e}", file=sys.stderr)
+        return EXIT_ABORTED
     print(f"wrote {run_dir}")
     return 0
 

@@ -45,6 +45,16 @@ from strike_a_pose.runlog import (
 )
 
 from .config import TrainConfig, load_run_config, with_legacy_values
+from .guards import (
+    ABORTED,
+    RunAborted,
+    abort_record,
+    acquire_lock,
+    divergence_reason,
+    early_stop_state,
+    read_aborted,
+    release_lock,
+)
 from .objective import Objective, gaussian_kl, recon_loss, reparameterize, shift_batch
 
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
@@ -414,6 +424,25 @@ def run_training(
     started = utc_now()
     s = _setup(cfg)
     run_dir = make_run_dir(cfg.run_root, cfg.run_name, started)
+    acquire_lock(run_dir, list(sys.argv if argv is None else argv))  # spec 012: one writer
+    try:
+        _start(cfg, run_dir, s, argv, started, t0, say, stop_after_epoch)
+    finally:
+        release_lock(run_dir)
+    return run_dir
+
+
+def _start(
+    cfg: TrainConfig,
+    run_dir: Path,
+    s: dict,
+    argv: list[str] | None,
+    started,
+    t0: float,
+    say: Callable[[str], None],
+    stop_after_epoch: int | None,
+) -> None:
+    """``run_training`` once the run dir exists and is locked."""
     say(f"run dir {run_dir} (resume: strike-a-pose-train --resume {run_dir})")
     write_yaml(run_dir / "config.yaml", cfg.to_dict())
     info = {
@@ -440,7 +469,6 @@ def run_training(
     }
     write_json_exact(run_dir / "run_info.json", info)
     _train_and_evaluate(cfg, run_dir, info, s, None, t0, say, stop_after_epoch)
-    return run_dir
 
 
 def resume_training(
@@ -455,16 +483,41 @@ def resume_training(
     the finished run equals an uninterrupted one (same machine / thread count). If
     training had finished but evaluation had not, only evaluation runs. Raises
     ``ConfigError`` when the run cannot be resumed (no checkpoint, already finished,
-    config changed) and ``DatasetError`` when the dataset or split file changed.
+    config changed, another live process holds the run dir), ``RunAborted`` for a run the
+    divergence guard ended (spec 012) and ``DatasetError`` when the dataset or split file
+    changed.
     """
     say = log or (lambda _msg: None)
     t0 = time.monotonic()
     run_dir = Path(run_dir)
     if (run_dir / "metrics.json").exists():
         raise ConfigError(f"cannot resume {run_dir}: run already finished (metrics.json)")
+    if (run_dir / ABORTED).exists():
+        rec = read_aborted(run_dir / ABORTED) or {}
+        raise RunAborted(
+            f"cannot resume {run_dir}: the run was aborted at epoch {rec.get('epoch', '?')} "
+            f"({rec.get('reason', 'unreadable aborted.json')}; {ABORTED}): start a new run"
+        )
     ck_path = run_dir / CHECKPOINT
     if not ck_path.is_file():
         raise ConfigError(f"cannot resume {run_dir}: no {CHECKPOINT} (start a new run)")
+    acquire_lock(run_dir, list(sys.argv if argv is None else argv))  # spec 012: one writer
+    try:
+        _resume(run_dir, ck_path, argv, t0, say, stop_after_epoch)
+    finally:
+        release_lock(run_dir)
+    return run_dir
+
+
+def _resume(
+    run_dir: Path,
+    ck_path: Path,
+    argv: list[str] | None,
+    t0: float,
+    say: Callable[[str], None],
+    stop_after_epoch: int | None,
+) -> None:
+    """``resume_training`` once the run dir is locked."""
     cfg = load_run_config(run_dir / "config.yaml")  # keys newer than the run: legacy values
     ckpt = torch.load(ck_path, map_location="cpu", weights_only=True)
     if with_legacy_values(ckpt.get("config")) != cfg.to_dict() or "rng" not in ckpt:
@@ -480,7 +533,6 @@ def resume_training(
     write_json_exact(run_dir / "run_info.json", info)
     say(f"resuming {run_dir} after epoch {ckpt['epoch']}/{cfg.epochs}")
     _train_and_evaluate(cfg, run_dir, info, s, ckpt, t0, say, stop_after_epoch)
-    return run_dir
 
 
 def _train_and_evaluate(
@@ -516,10 +568,18 @@ def _train_and_evaluate(
     hist_path = run_dir / "history.csv"
     _write_history(hist_path, rows)
     best = best_val(rows)  # recomputed from the checkpointed history on resume
+    stop = None  # spec 012: the early-stop record once the guard fires
+    if ckpt is not None:  # resume: the guards decide from the checkpointed history
+        _abort_if_diverged(cfg, run_dir, rows, say)
+        stop = _early_stop(rows, cfg)
+    if cfg.early_stop is not None and val["n"] == 0:
+        say("early stop inactive: val is empty")
     t_train = time.monotonic()
     with hist_path.open("a", newline="") as fh:
         wr = csv.writer(fh)
         for epoch in range(len(rows) + 1, cfg.epochs + 1):
+            if stop is not None:
+                break
             te = time.monotonic()
             st = train_epoch(model, opt, train["image"], cfg.batch_size, gen, sched, objective)
             tl, lr = st["train_loss"], st["lr"]
@@ -561,6 +621,10 @@ def _train_and_evaluate(
             if stop_after_epoch is not None and stop_after_epoch <= epoch < cfg.epochs:
                 say(f"stopped after epoch {epoch} (resume: --resume {run_dir})")
                 return
+            _abort_if_diverged(cfg, run_dir, rows, say)  # spec 012, before the early stop
+            stop = _early_stop(rows, cfg)
+            if stop is not None:
+                say(f"early stop after epoch {epoch}/{cfg.epochs}: {stop['reason']}")
     train_wall = train0 + time.monotonic() - t_train
     selection = weight_selection(rows, cfg.select_weights)
     load_selected_weights(model, run_dir, selection, cfg)  # the scored weights (spec 008)
@@ -634,6 +698,7 @@ def _train_and_evaluate(
             "best_val_epoch": best["epoch"] if best else None,
             "best_val_loss": best["val_loss"] if best else None,
             "objective": {"weight_decay": cfg.weight_decay, **asdict(objective)},  # spec 011
+            **({"stopped_early": stop} if cfg.early_stop is not None else {}),  # spec 012
         },
         "context": {
             "fit_split": "train",
@@ -655,6 +720,30 @@ def _train_and_evaluate(
         "train_wall_s": round(train_wall, 1),
     }
     write_json_exact(run_dir / "run_info.json", info)
+
+
+def _early_stop(rows: list[dict], cfg: TrainConfig) -> dict | None:
+    """The early-stop record once the guard fires on ``rows`` (spec 012), else None."""
+    st = early_stop_state(rows, cfg.early_stop)
+    return None if st is None else st["fired"]
+
+
+def _abort_if_diverged(
+    cfg: TrainConfig, run_dir: Path, rows: list[dict], say: Callable[[str], None]
+) -> None:
+    """Divergence guard (spec 012): write ``aborted.json`` and raise ``RunAborted`` when the
+    last epoch of ``rows`` diverged and ``abort_on_divergence`` is set."""
+    if not cfg.abort_on_divergence or not rows:
+        return
+    reason = divergence_reason(rows, cfg.divergence_ratio)
+    if reason is None:
+        return
+    path = run_dir / ABORTED
+    tmp = path.with_name(f"{ABORTED}.tmp")
+    write_json_exact(tmp, abort_record(rows, reason, cfg.divergence_ratio))
+    os.replace(tmp, path)
+    say(f"aborted after epoch {rows[-1]['epoch']}: {reason}")
+    raise RunAborted(f"{reason} ({path})")
 
 
 def _headline(out: dict) -> str:

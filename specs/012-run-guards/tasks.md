@@ -14,18 +14,21 @@ changes also the fixture train + probe smoke commands. Commits name explicit pat
 
 ## Stage 2 — run guards (`feat(012): run guards`)
 
-- [ ] T003 Tests (red first), `tests/test_train_guards.py`: config defaults, partial
+- [x] T003 Tests (red first), `tests/test_train_guards.py`: config defaults, partial
   `early_stop`, every rejection, `LEGACY_VALUES`, YAML round trip; `early_stop_state` and
   `divergence_reason` units; fixture runs with scripted val / train losses: stop epoch, record,
   log line, history prefix and lr, selection / `splits` / `best.pt` equal to the full run's,
   resume across both kill points, empty val; abort paths (a)–(c) through the CLI, `aborted.json`,
   resume refusal, kill before `aborted.json`; lock (live helper process refused, stale lock
   replaced, released after finish / abort / error, foreign pid stale); legacy resume; default run
-  unchanged.
-- [ ] T004 `train/config.py`: `EarlyStop`, three keys, validation, `LEGACY_VALUES`.
-- [ ] T005 `train/guards.py`: rules, `abort_record`, `RunAborted`, lock helpers.
-- [ ] T006 `train/trainer.py` (loop, resume refusals, lock, records), `train/cli.py` (exit 5).
-- [ ] T007 Checks; fixture train + probe smoke.
+  unchanged. Red run: collection error (no `EarlyStop`). 43 tests.
+- [x] T004 `train/config.py`: `EarlyStop`, three keys, validation, `LEGACY_VALUES`.
+- [x] T005 `train/guards.py`: rules, `abort_record`, `RunAborted`, lock helpers.
+- [x] T006 `train/trainer.py` (loop, resume refusals, lock, records), `train/cli.py` (exit 5).
+- [x] T007 Checks; fixture train + probe smoke. ruff check and ruff format --check clean;
+  pytest 417 passed in 45.2 s (374 before); validate, fixture train and probe exit 0 (8.6 s);
+  the fixture train's `metrics.json` and figure byte-identical to `e98134e`'s, history identical
+  except `epoch_s`, weights equal, `config.yaml` + the three keys.
 
 ## Stage 3 — status script, configs, memory, provenance (`feat(012): campaign status script + configs`)
 

@@ -73,6 +73,7 @@ Files: `src/strike_a_pose/eval/baselines.py`, `src/strike_a_pose/runlog.py`,
     via monkeypatching `baselines.TRAIN_IMAGE_DTYPE_NO_PCA` to `torch.float32`: the two
     `metrics.json` files are byte-identical after removing nothing (the metrics contain no
     timestamps; if they do, compare the `splits` and `fit` objects).
+  - Use two separate `run_root`s (tmp dirs) for the two baselines runs (A9).
   - `run_info.json` of a baselines fixture run, a train fixture run (existing
     `tests/test_train.py` fixture-run test) and a probe fixture run
     (`test_fixture_probe_run`) contains `peak_rss_mb` (float > 0). Add one assert to each
@@ -151,7 +152,8 @@ Files: `src/strike_a_pose/eval/promotion.py`, `scripts/promotion.py`, `tests/tes
   `--variant NAME RUN PROBE` (`action="append", nargs=3`). Reads the numbers at the paths named
   in 012 `tasks.md` ("Where the numbers are"): whole-image val MSE
   `splits.val.image.ae.image_mse`; probe `splits.val.targets.joints_world.mlp.mpjpe_mm`;
-  `train_kl` = last non-empty `train_kl` of the run's `history.csv` when the run's
+  `train_kl` = last non-empty `train_kl` of the run's `history.csv`, read with
+  `csv.DictReader` by column name (A8) when the run's
   `config.yaml` has `variational: true`. Prints a Markdown table: `| Variant | Val MSE vs R0 |
   Probe MPJPE val (mm) | Δ mm | Verdict (015) | Reason |` with ΔMSE as `+8.3 %`. Exit 2 on a
   missing file (message to stderr).
@@ -234,7 +236,8 @@ Files: `src/strike_a_pose/eval/sample_config.py`, `src/strike_a_pose/eval/sample
   `--checkpoint`, `--reference-checkpoint`; handler `_sample` like `_probe` (same exit codes);
   prints `wrote {run_dir}` and one line per set: `{name}: valid {f:.3f} nn_mse {m:.5f}`.
 - [ ] T044 Configs: `configs/sample_fixture.yaml` (fixture dataset/split, placeholder
-  checkpoints, `n_samples: 8`, `n_recon: 4`, `batch_size: 4`, `figure_samples: 4`);
+  checkpoints, `n_samples: 8`, `n_recon: 4`, `batch_size: 4`, `figure_samples: 4`; the default `figure_samples` is 32 = a 4 × 8 grid: 4 rows of 8
+  samples, each sample tile followed by its nearest train tile (A9));
   `configs/sample_vae_beta0.1.yaml` (v1, run_name `sample-vae-beta0.1-smpl_proc_v1`,
   placeholders `runs/ae-vae-beta0.1-smpl_proc_v1-YYYYmmddTHHMMSSZ/best.pt` and
   `runs/ae-smpl_proc_v1-YYYYmmddTHHMMSSZ/best.pt`), `configs/sample_vae.yaml` (v1, R2,
@@ -264,9 +267,18 @@ Files: `docs/campaign-scripts/smpl015_queue.sh`, `docs/campaign-scripts/watchdog
   sample-vae-beta0.1-smpl_proc_v1` and the same for R2 (`configs/sample_vae.yaml`); (3) v3:
   generate, split (seed 0), baselines → `mem_gate`; R0-v3 → `mem_gate`; R0b-v3; R2-v3; R1-v3
   (each with `configs/smpl_proc_v3/probe.yaml`); `sample_run configs/smpl_proc_v3/sample_vae.yaml
-  ae-vae-smpl_proc_v3 ae-smpl_proc_v3 sample-vae-smpl_proc_v3`. `pending` lists all eight
-  train prefixes and three sample outputs. `bash -n` and `sh -n` clean. Point `watchdog.sh` at
-  the new queue/lock via a variable `QUEUE=${QUEUE:-data/smpl015_queue.sh}` (keep its logic).
+  ae-vae-smpl_proc_v3 ae-smpl_proc_v3 sample-vae-smpl_proc_v3`. `pending` lists exactly the five train prefixes `ae-vae-beta0.1-smpl_proc_v1`,
+  `ae-smpl_proc_v3`, `ae-seed1-smpl_proc_v3`, `ae-vae-smpl_proc_v3`, `ae-mask-smpl_proc_v3`
+  and the three sample outputs `sample-vae-beta0.1-smpl_proc_v1`, `sample-vae-smpl_proc_v1`,
+  `sample-vae-smpl_proc_v3` (a run with `aborted.json` counts as done). `bash -n` and `sh -n` clean. Lock: the ONE per-machine lock `data/smpl_queue.lock` (analyze
+  finding 3). `watchdog.sh`: `LOCK=${LOCK:-data/smpl_queue.lock}`, `LOG=${LOG:-data/smpl015_queue.log}`,
+  `QUEUE=${QUEUE:-data/smpl015_queue.sh}` used everywhere; it exits on `QUEUE_DONE` or
+  `MEMORY_STOP` in `$LOG` (no relaunch); stall limit `max(3 × median epoch, 1800 s)`.
+  OOM guard (A2): a v3 train run dir without `metrics.json` whose `run_info.json` lacks
+  `peak_rss_mb` after its first resume attempt (marker file `resume_tried` written by the
+  queue before resuming), or a trainer exit status 137, → log `MEMORY_STOP <dir>` and exit 0
+  (terminal). The queue times `load_split` once on v3 (`python -c` timing
+  `train.trainer.load_split` of the train split) and logs `load_split v3 <s> s` (A4).
 - [ ] T051 Docs (lead): 012 `spec.md` + `tasks.md` "Promotion" paragraph: mark superseded
   ("superseded 2026-10-22 by spec 015 FR-006") and insert the 015 rule text verbatim; the
   identical procedure text in `docs/HANDOFF.md`; HANDOFF state section for the 015 campaign;
@@ -280,3 +292,19 @@ Files: `docs/campaign-scripts/smpl015_queue.sh`, `docs/campaign-scripts/watchdog
 B1, B2, B3, B4 independent (B4 imports `runlog.peak_rss_mb`: if B2 is not in the tree, B4
 adds exactly the T021 function to `runlog.py`, and the lead reconciles). B5 after all four.
 The campaign itself (≈ 22-25 h) runs after B5 and is recorded by the lead.
+
+## Analyze (independent analyst, verdict READY WITH FIXES; surrogate rulings 2026-10-22)
+
+- A1 (findings 1-2) watchdog paths: LOCK / LOG / QUEUE parametrized together; terminal
+  `MEMORY_STOP` treated like `QUEUE_DONE`. Folded into T050.
+- A2 (finding 3) one per-machine lock `data/smpl_queue.lock` kept; OOM detection (no
+  `peak_rss_mb` after the first resume, or exit 137) → `MEMORY_STOP`, no 5-pass OOM loop. T050.
+- A3 (finding 4) exact pending prefixes (five train, three sample). T050.
+- A4 (finding 5) stall floor max(3 × median epoch, 1800 s); `load_split` time on v3 logged. T050.
+- A6 T030 fixtures are rounded README numbers; the real verdicts come from
+  `scripts/promotion.py` on the run dirs in T051.
+- A7 README "≈ 5× the probe noise" for R1 → "4.4×" (T051).
+- A8 T032 reads `history.csv` with `csv.DictReader` by name, last non-empty `train_kl`.
+- A9 T020 baselines comparison uses two run_roots; sample figure 4 × 8 = 32 tiles
+  (`figure_samples` default 32).
+- A10 plan R4 NN cost at v3: 45-75 min; SC-002 statement written in T051.

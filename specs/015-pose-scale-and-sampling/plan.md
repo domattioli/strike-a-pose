@@ -63,7 +63,7 @@ a Markdown table that B5 pastes into the README.
 
 ## Risks
 
-- NN search cost: 1,024 × 51,200 × 49,152 MACs ≈ 2.6 TFLOP for v3, ≈ 10-20 min on 4 vCPU; v1
-  ≈ 4 min. Accepted (research R4).
+- NN search cost: 1,024 × 51,200 × 49,152 MACs ≈ 2.6 TFLOP for v3 per prior set (two sets +
+  recon): 45-75 min on 4 vCPU in total; v1 ≈ 4× less. Accepted (research R4).
 - Resume: `ru_maxrss` is the current process's peak; a resumed run reports the resumed
   process only (documented in `run_info.json` key name and README).

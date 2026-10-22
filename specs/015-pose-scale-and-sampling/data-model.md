@@ -15,7 +15,7 @@
 | n_recon | int | 1024 | ≥ 0, capped at the val size |
 | batch_size | int | 256 | > 0 |
 | iou_threshold | float | 0.075 | (0, 1) |
-| figure_samples | int | 16 | 1..64 |
+| figure_samples | int | 32 | 1..64 (default 32 = 4 × 8 grid) |
 
 Unknown keys → `ConfigError`. `with_overrides(seed, run_root, checkpoint)` like ProbeConfig.
 

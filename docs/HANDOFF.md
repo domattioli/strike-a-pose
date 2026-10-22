@@ -545,6 +545,17 @@ advanced for > max(3 × median epoch, 15 min) so the queue resumes it from its c
 previous hour (`data/heartbeat.log`), handles FAILED / ABORTED / SKIPPED / STALL lines, records
 finished runs under `docs/results/` and `docs/results/smpl-campaign/README.md`, and pushes.
 Committed copies: `docs/campaign-scripts/` (copy back to `data/` after a fresh clone).
+Incident 2026-10-22 01:23–02:00: the first watchdog never recognised the running queue
+(process-name check), relaunched it every 5 min, and the parallel queues started R0b, R1–R3
+and v2b–v2d at once (lock clashes, exit 2); it also killed R0 during the data loading after a
+resume (stall clock read only `history.csv`). Fixed: the queue holds an exclusive `flock` (a
+second instance exits), the watchdog reads that lock, the stall clock starts at the later of
+the last epoch and the lock file, and the queue loops (≤ 5 passes) until every run has
+`metrics.json` or `aborted.json`. Partial runs and datasets from the parallel queues were
+deleted; R0 (3 clean epochs) resumed. v2a intersection gate: diagnostic only — on real SMPL
+the 014 check flags 79 % of v1-table poses (and 100 % of `armsdown-v1`), so it is
+miscalibrated (arm vertices near the shoulder fall inside the fitted torso); v2a runs anyway;
+recalibrating the check is an open item.
 
 ## Process rules
 

@@ -13,6 +13,7 @@
 | seed | int | 0 | ≥ 0 |
 | n_samples | int | 1024 | > 0 |
 | n_recon | int | 1024 | ≥ 0, capped at the val size |
+| recon_split | str | `val` | `val` or `test` (the fixture has no val; implementation) |
 | batch_size | int | 256 | > 0 |
 | iou_threshold | float | 0.075 | (0, 1) |
 | figure_samples | int | 32 | 1..64 (default 32 = 4 × 8 grid) |

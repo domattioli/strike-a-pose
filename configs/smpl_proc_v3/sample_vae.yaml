@@ -1,0 +1,14 @@
+# VAE prior sampling evaluation (spec 015 FR-008): R2-v3 (VAE beta 0.01) on smpl_proc_v3; reference R0-v3.
+# Run: strike-a-pose-eval sample --config configs/smpl_proc_v3/sample_vae.yaml --checkpoint VAE/best.pt --reference-checkpoint AE/best.pt
+run_name: sample-vae-smpl_proc_v3
+run_root: runs                         # git-ignored
+seed: 0
+dataset_dir: data/generated/smpl_proc_v3
+split_file: splits/smpl_proc_v3.json
+checkpoint: runs/ae-vae-smpl_proc_v3-YYYYmmddTHHMMSSZ/best.pt
+reference_checkpoint: runs/ae-smpl_proc_v3-YYYYmmddTHHMMSSZ/best.pt
+n_samples: 1024
+n_recon: 1024
+batch_size: 256
+iou_threshold: 0.075                   # 003 default (half the render ambient floor)
+figure_samples: 32

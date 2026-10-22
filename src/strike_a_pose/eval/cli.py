@@ -24,10 +24,20 @@ def main(argv: list[str] | None = None) -> int:
     q.add_argument("--seed", type=int, default=None, help="override config seed")
     q.add_argument("--run-root", default=None, help="override config run_root")
     q.add_argument("--checkpoint", default=None, help="override config checkpoint")
+    m = sub.add_parser(
+        "sample", help="decode N(0, I) samples of a VAE checkpoint and score them (spec 015)"
+    )
+    m.add_argument("--config", required=True, help="sample config YAML")
+    m.add_argument("--seed", type=int, default=None, help="override config seed")
+    m.add_argument("--run-root", default=None, help="override config run_root")
+    m.add_argument("--checkpoint", default=None, help="override config checkpoint (the VAE)")
+    m.add_argument("--reference-checkpoint", default=None, help="override the plain-AE reference")
     a = p.parse_args(argv)
     full_argv = ["strike-a-pose-eval", *(sys.argv[1:] if argv is None else argv)]
     if a.cmd == "probe":
         return _probe(a, full_argv)
+    if a.cmd == "sample":
+        return _sample(a, full_argv)
 
     from .baselines import run_baselines  # heavy imports only for real runs
 
@@ -91,6 +101,33 @@ def _probe(a: argparse.Namespace, argv: list[str]) -> int:
             names = [n for n in ("ridge", "mlp", "mean_pose", "majority") if n in r]
             parts.append(f"{t} {key} " + " ".join(f"{n} {r[n][key]:.4g}" for n in names))
         print(f"  {split} ({m['samples']}): " + "; ".join(parts))
+    return 0
+
+
+def _sample(a: argparse.Namespace, argv: list[str]) -> int:
+    from .sample import run_sample  # heavy imports only for real runs
+    from .sample_config import load_config as load_sample_config
+
+    try:
+        cfg = load_sample_config(a.config).with_overrides(
+            seed=a.seed,
+            run_root=a.run_root,
+            checkpoint=a.checkpoint,
+            reference_checkpoint=a.reference_checkpoint,
+        )
+        run_dir = run_sample(cfg, argv=argv, log=lambda m: print(m, flush=True))
+    except ConfigError as e:
+        print(f"config error: {e}", file=sys.stderr)
+        return EXIT_CONFIG
+    except DatasetError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_DATA
+    except FileExistsError as e:
+        print(f"error: run directory exists: {e}", file=sys.stderr)
+        return EXIT_EXISTS
+    print(f"wrote {run_dir}")
+    for name, s in json.loads((run_dir / "samples.json").read_text())["sets"].items():
+        print(f"  {name}: valid {s['valid_fraction']:.3f} nn_mse {s['nn_mse_mean']}")
     return 0
 
 

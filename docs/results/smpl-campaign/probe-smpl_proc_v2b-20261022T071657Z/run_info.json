@@ -1,0 +1,57 @@
+{
+  "argv": [
+    "strike-a-pose-eval",
+    "probe",
+    "--config",
+    "configs/smpl_proc_v2b/probe.yaml",
+    "--checkpoint",
+    "runs/ae-smpl_proc_v2b-20261022T061420Z/best.pt"
+  ],
+  "cache": {
+    "hit": false,
+    "path": "runs/probe-cache/27e4a0de54c9-8c80635c4299-07ab4181fe16.pt"
+  },
+  "checkpoint": {
+    "epoch": 31,
+    "path": "runs/ae-smpl_proc_v2b-20261022T061420Z/best.pt",
+    "sha256": "27e4a0de54c963e89db741562ce94afb53f8b304ff5d944d826c0ad2e66aa97c",
+    "train_run_git": {
+      "commit": "f4d964ae3d6c4aa7b9ad73e819fd84dc6c025860",
+      "dirty": false
+    }
+  },
+  "cwd": "/home/user/strike-a-pose",
+  "dataset": {
+    "checksums_sha256": "208a83d36478aba0b1cb302fee56a0e3cb43cd20b65bd042f14fbf43ba26d8af",
+    "dir": "data/generated/smpl_proc_v2b",
+    "manifest_content_sha256": "4dec5cc8ae6e2a544040ade611fd20783f17b3f739f6a0a00f62608ca2211520",
+    "manifest_sha256": "8c80635c42992adce07a7692b801aa77c7e1c74126a013f29152c70fd6ede189"
+  },
+  "encode_s": 70.3,
+  "env": {
+    "cpu_count": 4,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "numpy": "2.5.4",
+    "pillow": "13.0.0",
+    "platform": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "torch": "2.14.1+cu130",
+    "torch_threads": 4
+  },
+  "figures": [
+    "skeleton_val.png",
+    "yaw_confusion_val.png"
+  ],
+  "finished_utc": "2026-10-22T07:24:50.695358+00:00",
+  "git": {
+    "commit": "fd4dc21c40a3e6297b7bad6cad05d2912d55cc3e",
+    "dirty": false
+  },
+  "seed": 0,
+  "split_file": {
+    "path": "splits/smpl_proc_v2b.json",
+    "sha256": "07ab4181fe165c79ce192d52fb6c9a22508862dacfa74c75330d353d6f1f1ec7"
+  },
+  "started_utc": "2026-10-22T07:16:57.271941+00:00",
+  "wall_s": 473.4
+}

@@ -2,6 +2,9 @@
 
 **Feature Branch**: `claude/charming-wozniak-5ouldf` (slice `012-run-guards`)
 **Created**: 2026-10-21
+**Amendment (2026-10-22)**: the variant promotion rule is superseded by spec 015 FR-006
+(pixel win or latent win; see `tasks.md` "Promotion").
+
 **Status**: Approved at surrogate scope 2026-10-21 (operator present; the orchestrator is the
 operator's surrogate): rulings Q1 (a) with per-variant promotion metrics, Q2 (a) with a pixel
 diagnostic, Q3 (a); the five lead deviations accepted; an independent red-team review's

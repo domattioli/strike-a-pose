@@ -195,7 +195,15 @@ Step rules:
   VAE is dropped. R2 healthy at its end (last `train_kl` ≥ 1, whole-image val MSE ≤ 1.05 × R0's)
   → R2b (`configs/ae_vae_beta0.1.yaml`) once. The VAE candidate is the largest β among the VAE
   runs that meets the promotion rule.
-- **Promotion** (surrogate ruling 2026-10-21, operator confirmation requested): every number on
+- **Promotion (spec 015 FR-006, operator decision 2026-10-22; supersedes the rule below for
+  this and later campaigns)**: on val, against the variant's own dataset's R0 and R0b, with
+  seed_gap = |MSE(R0b) − MSE(R0)| / MSE(R0) (whole-image MSE) and probe_gap = |MPJPE(R0b) −
+  MPJPE(R0)| (probe world-frame MLP): WIN (pixel) if ΔMSE < −seed_gap and ΔMPJPE ≤ +probe_gap;
+  WIN (latent) if ΔMSE ≤ +5 % and ΔMPJPE < −2 × probe_gap; DROPPED if ΔMSE > +5 % and not a
+  latent win; otherwise reported, not carried. A VAE also needs its last `train_kl` ≥ 1
+  nat/image. Implemented in `strike_a_pose.eval.promotion`; `scripts/promotion.py` prints the
+  verdicts from the run dirs.
+- **Promotion, superseded 2026-10-22 by spec 015 FR-006** (surrogate ruling 2026-10-21, operator confirmation requested): every number on
   val; every "beats" by more than the R0 vs R0b gap on that metric. R1 wins if its mean val
   region MSE beats R0's while its whole-image val MSE ≤ 1.05 × R0's. A VAE run wins if its
   whole-image val MSE ≤ 1.05 × R0's, its last `train_kl` ≥ 1 nat/image and its probe's val

@@ -274,7 +274,15 @@ Step rules:
   VAE is dropped. R2 healthy at its end (last `train_kl` ≥ 1, whole-image val MSE ≤ 1.05 × R0's)
   → R2b (`configs/ae_vae_beta0.1.yaml`) once. The VAE candidate is the largest β among the VAE
   runs that meets the promotion rule.
-- **Promotion** (surrogate ruling 2026-10-21, operator confirmation requested): every number on
+- **Promotion (spec 015 FR-006, operator decision 2026-10-22; supersedes the rule below for
+  this and later campaigns)**: on val, against the variant's own dataset's R0 and R0b, with
+  seed_gap = |MSE(R0b) − MSE(R0)| / MSE(R0) (whole-image MSE) and probe_gap = |MPJPE(R0b) −
+  MPJPE(R0)| (probe world-frame MLP): WIN (pixel) if ΔMSE < −seed_gap and ΔMPJPE ≤ +probe_gap;
+  WIN (latent) if ΔMSE ≤ +5 % and ΔMPJPE < −2 × probe_gap; DROPPED if ΔMSE > +5 % and not a
+  latent win; otherwise reported, not carried. A VAE also needs its last `train_kl` ≥ 1
+  nat/image. Implemented in `strike_a_pose.eval.promotion`; `scripts/promotion.py` prints the
+  verdicts from the run dirs.
+- **Promotion, superseded 2026-10-22 by spec 015 FR-006** (surrogate ruling 2026-10-21, operator confirmation requested): every number on
   val; every "beats" by more than the R0 vs R0b gap on that metric. R1 wins if its mean val
   region MSE beats R0's while its whole-image val MSE ≤ 1.05 × R0's. A VAE run wins if its
   whole-image val MSE ≤ 1.05 × R0's, its last `train_kl` ≥ 1 nat/image and its probe's val
@@ -565,6 +573,27 @@ mask-MSE is dropped on pixels but its latent is 12 mm better, twice reproduced);
 steps candidates: more poses (8,000 / AMASS), the VAE β 0.1 follow-up, R1 + VAE on v2d, a
 combined realistic dataset; (3) recalibrate the 014 intersection check; (4) sign-off on
 007-014 and the capsule license reading.
+
+## 015 campaign (ready 2026-10-22, not started)
+
+Slice 015 `pose-scale-and-sampling` (spec, plan, tasks under `specs/015-pose-scale-and-sampling/`):
+`smpl_proc_v3` (8,000 poses) configs, baselines with uint8 train images (no image PCA; v3 peak
+≈ 2.7 GB instead of ≈ 10 GB), `peak_rss_mb` in every `run_info.json`, the 015 promotion rule
+(`strike_a_pose.eval.promotion`, `scripts/promotion.py`; procedure text above), and
+`strike-a-pose-eval sample` (VAE prior samples: valid-silhouette fraction, NN-MSE to train,
+plain-AE and μ-reconstruction reference bars, `samples.png`). Queue
+`docs/campaign-scripts/smpl015_queue.sh` (order: R2b + probe → sampling R2b, R2 → v3 generate /
+split / `load_split` timing / baselines [memory gate 12 GB] → R0-v3 [gate] → R0b-v3 → R2-v3 →
+R1-v3 → sampling R2-v3; ≈ 22–25 h), same lock `data/smpl_queue.lock`, log
+`data/smpl015_queue.log`; terminal lines `QUEUE_DONE`, `QUEUE_INCOMPLETE`, `MEMORY_STOP`
+(peak > 12 GB, trainer exit 137, or a run still unfinished after one resume). Launch (watchdog
+as a harness-tracked background task, re-armed every ≤ 110 min):
+
+    cd /home/user/strike-a-pose && cp docs/campaign-scripts/smpl015_queue.sh docs/campaign-scripts/watchdog.sh data/ && data/watchdog.sh 6600 >> data/watchdog015.log 2>&1
+
+After the runs: verdicts with `scripts/promotion.py` (v3 variants against R0-v3 / R0b-v3),
+the v1 → v2d → v3 curve and the SC-002 statement (v3's gain over v2d > 3× the v3 seed gap, or
+saturated) in `docs/results/smpl-campaign/README.md`.
 
 ## Process rules
 

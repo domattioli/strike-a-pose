@@ -21,7 +21,7 @@ numbers to ≤ 1e-5; see "F1 outcome"). All AE runs: 60 planned epochs, cosine l
 | **v2d** 4,000 poses (2× train), AE | `ae-smpl_proc_v2d-20261022T090252Z` | early stop after epoch 53, best val epoch 43; val / test MSE 0.00178 / 0.00176 (**−18 % / −18 % vs R0**, 30× the seed noise), IoU 0.895 / 0.896 (R0 0.870); region MSE val hands 0.028, feet 0.026, head 0.014; mean-image baseline 0.01387 / 0.01388 (≈ v1, so the data is not easier). Train-loss / val-loss at the best epoch 0.00117 / 0.00178 (v1: 0.00143 / 0.00218). Caveat: v2d's val / test are a new pose permutation (≈ 20 test poses shared with v1). Image PCA not run (memory; `image_pca_ks: []`) |
 | probe on v2d `best.pt` | `probe-smpl_proc_v2d-*` | world-frame MPJPE MLP 150.2 / 148.1 mm vs mean pose 252.1 / 248.3 (**−40 %**; v1 −31 %); camera accuracy 0.972 / 0.972 (v1 0.956). **More distinct poses is the strongest lever found: the AE is data-limited at 1,600 train poses** |
 | **R1** mask-weighted MSE (α 4), v1 | `ae-mask-smpl_proc_v1-20261022T115810Z` | early stop after epoch 53, best val epoch 43; val / test MSE 0.00236 / 0.00235 (+8.4 % / +8.9 % vs R0), IoU 0.829 / 0.830 (R0 0.870); region mean MSE +7.7 % / +8.2 % vs R0. **Promotion rule: DROPPED (whole MSE > +5 %, region MSE worse)** |
-| probe on R1 `best.pt` | `probe-smpl_proc_v1-20261022T133914Z` | world-frame MPJPE MLP 162.4 / 162.1 mm (R0 174.8 / 175.3, R0b 172.0 / 173.9): **≈ 12 mm better, ≈ 5× the probe noise**; camera accuracy 0.973 / 0.973 (R0 0.956). Same pattern as the capsule campaign: weighting body pixels trades pixel fidelity and silhouette edges for a latent that holds more pose and view information. The pre-registered rule scores pixels only; a probe-based criterion would promote R1 (operator decision) |
+| probe on R1 `best.pt` | `probe-smpl_proc_v1-20261022T133914Z` | world-frame MPJPE MLP 162.4 / 162.1 mm (R0 174.8 / 175.3, R0b 172.0 / 173.9): **≈ 12 mm better, 4.4× the 2.8 mm probe gap**; camera accuracy 0.973 / 0.973 (R0 0.956). Same pattern as the capsule campaign: weighting body pixels trades pixel fidelity and silhouette edges for a latent that holds more pose and view information. The pre-registered rule scores pixels only; a probe-based criterion would promote R1 (operator decision) |
 | **R2** VAE (β 0.01), v1 | `ae-vae-smpl_proc_v1-20261022T134729Z` | early stop after epoch 46, best val epoch 36; val / test MSE 0.00218 / 0.00217 (+0.2 % / +0.6 % vs R0, inside seed noise), IoU 0.870 / 0.871; KL 242 → 274 nats/image (no collapse) |
 | probe on R2 `best.pt` (μ) | `probe-smpl_proc_v1-20261022T150051Z` | world-frame MPJPE MLP 174.4 / 173.4 mm (R0 174.8 / 175.3); camera accuracy 0.954 / 0.959. **Promotion rule: WINNER** (MSE within +5 %, KL ≥ 1 nat, probe not worse): a KL-regularized, sampleable latent at no measurable cost. Next VAE step per the procedure: β 0.1 (`configs/ae_vae_beta0.1.yaml`) |
 | **R3** regularization (AdamW wd 0.05, shift 4 px, latent dropout 0.1), v1 | `ae-reg-smpl_proc_v1-20261022T150900Z` | ran all 60 epochs (val still improving; best val epoch 58); val / test MSE 0.00221 / 0.00221 (+1.5 % / +2.3 % vs R0), IoU 0.839 / 0.840 (R0 0.870) |
@@ -29,17 +29,34 @@ numbers to ≤ 1e-5; see "F1 outcome"). All AE runs: 60 planned epochs, cosine l
 
 ## Summary (2026-10-22, all runs on the regenerated `smpl_proc_v1` family)
 
-| Run | Val MSE vs R0 | Probe MPJPE val (mm) | Reading |
-|---|---|---|---|
-| R0 / R0b (control, 2 seeds) | 0.00218 / −0.6 % | 174.8 / 172.0 | reproduces the published 004 run; noise ≈ 0.6 % MSE, 2–3 mm probe |
-| v2a arms-down | −15 % | 150.2 (mean pose 219) | an easier dataset (narrowed ranges), same relative gains |
-| v2b body shape | +10 % | 185.4 | harder; shape variation costs ≈ 10 mm of pose information |
-| v2c camera jitter | −1 % | 195.9 | same pixels, ≈ 20 mm less pose information (latent spends capacity on the view) |
-| **v2d 4,000 poses** | **−18 %** | **150.2** (mean pose 252) | **the strongest lever: the AE is data-limited at 1,600 train poses** |
-| R1 mask-weighted MSE | +8.4 % (dropped) | **162.4** | worse pixels, clearly better pose latent (also on the capsule body) |
-| **R2 VAE β 0.01** | +0.2 % | 174.4 | **winner**: sampleable latent at no cost; next step β 0.1 |
-| R3 regularization bundle | +1.5 % | 184.8 | no gain; slower convergence, worse latent |
+| Run | Val MSE vs R0 | Probe MPJPE val (mm) | Reading | 015 verdict |
+|---|---|---|---|---|
+| R0 / R0b (control, 2 seeds) | 0.00218 / −0.6 % | 174.8 / 172.0 | reproduces the published 004 run; noise ≈ 0.6 % MSE, 2–3 mm probe | control |
+| v2a arms-down | −15 % | 150.2 (mean pose 219) | an easier dataset (narrowed ranges), same relative gains | — (dataset) |
+| v2b body shape | +10 % | 185.4 | harder; shape variation costs ≈ 10 mm of pose information | — (dataset) |
+| v2c camera jitter | −1 % | 195.9 | same pixels, ≈ 20 mm less pose information (latent spends capacity on the view) | — (dataset) |
+| **v2d 4,000 poses** | **−18 %** | **150.2** (mean pose 252) | **the strongest lever: the AE is data-limited at 1,600 train poses** | — (dataset) |
+| R1 mask-weighted MSE | +8.4 % (dropped) | **162.4** | worse pixels, clearly better pose latent (also on the capsule body) | DROPPED (misses +5 % by 3.4 points; probe −12.4 mm = 4.4× the gap) |
+| **R2 VAE β 0.01** | +0.2 % | 174.4 | **winner** (012 rule): sampleable latent at no cost; next step β 0.1 | REPORTED (no pixel or latent win) |
+| R3 regularization bundle | +1.5 % | 184.8 | no gain; slower convergence, worse latent | REPORTED |
 
 Process: guards fired as intended (early stop on 9 of 10 AE runs, none on R3 whose val kept
 improving; no divergence aborts); one container restart (R0b resumed at epoch 12); one
 self-inflicted incident with the first watchdog (fixed, see HANDOFF).
+
+## 015 re-scoring (promotion rule of spec 015 FR-006, operator decision 2026-10-22)
+
+`scripts/promotion.py` on the run dirs (unrounded numbers; seed gap 0.6 %, probe gap 2.8 mm):
+
+| Variant | Val MSE vs R0 | Probe MPJPE val (mm) | Δ mm | Verdict (015) | Reason |
+|---|---|---|---|---|---|
+| R1 | +8.4 % | 162.4 | -12.4 | DROPPED | +8.4 % MSE (gap 0.6 %); -12.4 mm probe (gap 2.8); MSE > +5 % |
+| R2 | +0.2 % | 174.4 | -0.4 | REPORTED | +0.2 % MSE (gap 0.6 %); -0.4 mm probe (gap 2.8) |
+| R3 | +1.5 % | 184.8 | +10.0 | REPORTED | +1.5 % MSE (gap 0.6 %); +10.0 mm probe (gap 2.8) |
+
+R1 misses the +5 % bound of the latent win (surrogate ruling 2026-10-22: rule as worded) with
+a probe gain of 12.4 mm, 4.4× the gap: the case to revisit. R2 was the winner under the
+superseded 012 rule (whose VAE clause needed only "not worse"); under 015 it is reported, not
+carried; its β 0.1 follow-up (R2b) is an operator decision. The v2a–v2d datasets get no verdict
+(dataset changes, judged against their own baselines). The 015 campaign (`smpl_proc_v3`, R2b,
+sampling) is recorded in its own section when it runs.

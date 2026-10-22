@@ -411,7 +411,10 @@ most: val MSE −18 % and probe MPJPE 150 vs 175 mm, so the autoencoder is data-
 shape (+10 % MSE) and camera jitter (−20 mm probe) make the task harder; the arms-down dataset
 is easier. Of the training variants, a VAE with β 0.01 matches the plain AE (+0.2 % MSE, same
 probe) while giving a sampleable latent; mask-weighted MSE gives worse pixels (+8 %) but a
-clearly better pose latent (162 mm); the regularization bundle did not help.
+clearly better pose latent (162 mm); the regularization bundle did not help. Under the
+promotion rule of slice 015 (pixel or latent win; operator decision 2026-10-22) R1 is
+dropped (it misses the +5 % MSE bound of a latent win, probe gain 4.4× the noise), R2 and R3
+are reported, not carried. Slice 015 (8,000 poses, VAE β 0.1, prior sampling) is ready to run.
 
 ## Development checks
 

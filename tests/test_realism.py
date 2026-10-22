@@ -420,9 +420,11 @@ def test_all_options_prefix_property(synthetic_smpl_npz, tmp_path):
 
 
 # --- FR-010 as amended by slice 014: independent single-change datasets, each vs v1 -----
+# (smpl_proc_v3: spec 015 FR-001)
 
 SERIES = {"smpl_proc_v2a": "ranges_version", "smpl_proc_v2b": "body_shape",
-          "smpl_proc_v2c": "camera_jitter", "smpl_proc_v2d": "num_poses"}  # fmt: skip
+          "smpl_proc_v2c": "camera_jitter", "smpl_proc_v2d": "num_poses",
+          "smpl_proc_v3": "num_poses"}  # fmt: skip
 
 
 def test_series_directories_are_the_independent_datasets():
@@ -442,6 +444,7 @@ def test_series_generation_configs_differ_from_v1_in_one_key():
     assert cfg["smpl_proc_v2b"].body_shape == BodyShapeConfig()
     assert cfg["smpl_proc_v2c"].camera_jitter == CameraJitterConfig()
     assert cfg["smpl_proc_v2d"].num_poses == 4000
+    assert cfg["smpl_proc_v3"].num_poses == 8000
 
 
 def test_series_run_configs_match_v1():
@@ -457,7 +460,7 @@ def test_series_run_configs_match_v1():
             cur = load(ROOT / "configs" / ds / f"{kind}.yaml").to_dict()
             want = {"run_name", "dataset_dir", "split_file"} | ({"checkpoint"} if kind == "probe"
                                                                 else set())  # fmt: skip
-            if ds == "smpl_proc_v2d":
+            if ds in ("smpl_proc_v2d", "smpl_proc_v3"):
                 want |= {"baselines": {"image_pca_ks"}, "ae": {"context_pca_k"}}.get(kind, set())
             assert {k for k in v1 if v1[k] != cur[k]} == want and set(cur) == set(v1), (ds, kind)
             assert cur["run_name"] == f"{kind}-{ds}"
@@ -465,9 +468,29 @@ def test_series_run_configs_match_v1():
             assert cur["split_file"] == f"splits/{ds}.json"
         ae = train_config.load_config(ROOT / "configs" / ds / "ae.yaml")  # spec 012 guards
         assert ae.early_stop is not None and ae.abort_on_divergence
-    v2d = ROOT / "configs" / "smpl_proc_v2d"
-    assert baseline_config.load_config(v2d / "baselines.yaml").image_pca_ks == ()
-    assert train_config.load_config(v2d / "ae.yaml").context_pca_k is None
+    for ds in ("smpl_proc_v2d", "smpl_proc_v3"):
+        d = ROOT / "configs" / ds
+        assert baseline_config.load_config(d / "baselines.yaml").image_pca_ks == ()
+        assert train_config.load_config(d / "ae.yaml").context_pca_k is None
+
+
+def test_v3_variant_configs_match_v1_variants():
+    """Spec 015 FR-002: each v3 variant changes the same keys from v3's ae.yaml as on v1."""
+    from strike_a_pose.train import config as train_config
+
+    def load(path):
+        return train_config.load_config(path).to_dict()
+
+    v3, cf = ROOT / "configs" / "smpl_proc_v3", ROOT / "configs"
+    base, v1ae = load(v3 / "ae.yaml"), load(cf / "ae.yaml")
+    names = {"ae_seed1": "ae-seed1-smpl_proc_v3", "ae_vae": "ae-vae-smpl_proc_v3",
+             "ae_mask": "ae-mask-smpl_proc_v3"}  # fmt: skip
+    for name, run_name in names.items():
+        cur, v1 = load(v3 / f"{name}.yaml"), load(cf / f"{name}.yaml")
+        changed = {k for k in cur if cur[k] != base[k]}
+        assert changed == {k for k in v1 if v1[k] != v1ae[k]}, name
+        assert all(cur[k] == v1[k] for k in changed - {"run_name"}), name
+        assert cur["run_name"] == run_name
 
 
 def test_series_configs_generate_on_synthetic_model(synthetic_smpl_npz, tmp_path):

@@ -1,0 +1,178 @@
+{
+  "dataset": {
+    "manifest_sha256": "1f7138ffddb312d691e90ba7f2ee1077c827f628d619cb657e38fc6d06071d19",
+    "name": "smpl_proc_v2d",
+    "split_file_sha256": "d58a7d89a5d0ae8fdd9973551d45be88644150f3b263b4b0e0a1317dc84e542a"
+  },
+  "fit": {
+    "image_pca": null,
+    "pose_pca": {
+      "explained_variance_ratio": {
+        "16": 0.979162,
+        "32": 0.998173,
+        "4": 0.552926,
+        "8": 0.860308
+      },
+      "n_components": 32,
+      "numerical_rank": 60
+    },
+    "poses": 3200,
+    "samples": 25600,
+    "split": "train"
+  },
+  "metrics_version": 1,
+  "regions": {
+    "feet": {
+      "half_size_px": 8,
+      "joints": [
+        "left_ankle",
+        "right_ankle",
+        "left_foot",
+        "right_foot"
+      ]
+    },
+    "hands": {
+      "half_size_px": 10,
+      "joints": [
+        "left_hand",
+        "right_hand"
+      ]
+    },
+    "head": {
+      "half_size_px": 14,
+      "joints": [
+        "head"
+      ]
+    }
+  },
+  "splits": {
+    "test": {
+      "image": {
+        "mean_image": {
+          "image_mse": 0.0138819,
+          "psnr_db": 18.6994,
+          "regions": {
+            "feet": {
+              "image_mse": 0.113232,
+              "samples": 3200
+            },
+            "hands": {
+              "image_mse": 0.0803005,
+              "samples": 3200
+            },
+            "head": {
+              "image_mse": 0.116611,
+              "samples": 3200
+            }
+          },
+          "silhouette_iou": 0.418022
+        }
+      },
+      "pose": {
+        "mean_pose": {
+          "kp2d_px": 18.1165,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 248.266
+        },
+        "pca_k16": {
+          "k": 16,
+          "k_effective": 16,
+          "kp2d_px": 2.51965,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 34.482
+        },
+        "pca_k32": {
+          "k": 32,
+          "k_effective": 32,
+          "kp2d_px": 0.794612,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 10.8515
+        },
+        "pca_k4": {
+          "k": 4,
+          "k_effective": 4,
+          "kp2d_px": 12.848,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 165.895
+        },
+        "pca_k8": {
+          "k": 8,
+          "k_effective": 8,
+          "kp2d_px": 6.79805,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 94.2853
+        }
+      },
+      "poses": 400,
+      "samples": 3200
+    },
+    "val": {
+      "image": {
+        "mean_image": {
+          "image_mse": 0.0138672,
+          "psnr_db": 18.702,
+          "regions": {
+            "feet": {
+              "image_mse": 0.114432,
+              "samples": 3200
+            },
+            "hands": {
+              "image_mse": 0.0801124,
+              "samples": 3200
+            },
+            "head": {
+              "image_mse": 0.11604,
+              "samples": 3200
+            }
+          },
+          "silhouette_iou": 0.416776
+        }
+      },
+      "pose": {
+        "mean_pose": {
+          "kp2d_px": 18.2683,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 252.08
+        },
+        "pca_k16": {
+          "k": 16,
+          "k_effective": 16,
+          "kp2d_px": 2.48198,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 33.8571
+        },
+        "pca_k32": {
+          "k": 32,
+          "k_effective": 32,
+          "kp2d_px": 0.797372,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 10.8026
+        },
+        "pca_k4": {
+          "k": 4,
+          "k_effective": 4,
+          "kp2d_px": 13.0508,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 169.166
+        },
+        "pca_k8": {
+          "k": 8,
+          "k_effective": 8,
+          "kp2d_px": 6.64344,
+          "kp2d_samples": 3200,
+          "mpjpe_mm": 92.0831
+        }
+      },
+      "poses": 400,
+      "samples": 3200
+    }
+  },
+  "units": {
+    "image_mse": "per-pixel mean squared error, images in [0, 1] (PCA output clamped to [0, 1])",
+    "kp2d_px": "px, mean over visible joints; prediction + true root projected with true camera",
+    "mpjpe_mm": "mm, root-relative (pelvis) 3D joint error, world frame (= camera frame)",
+    "psnr_db": "dB, 10*log10(1/max(MSE, 1e-10)) per image, averaged over images",
+    "regions": "per-pixel mean squared error (images in [0, 1]) over every pixel of the region, body and background, per image; mean over the images whose region is non-empty (samples); a region (top-level regions) is the union of the squares of side 2*half_size_px+1 px centred on the pixels of its visible joints, clipped to the image",
+    "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean"
+  }
+}

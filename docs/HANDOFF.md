@@ -557,6 +557,15 @@ the 014 check flags 79 % of v1-table poses (and 100 % of `armsdown-v1`), so it i
 miscalibrated (arm vertices near the shoulder fall inside the fitted torso); v2a runs anyway;
 recalibrating the check is an open item.
 
+## SMPL campaign finished (2026-10-22 16:49 UTC)
+
+All queued runs done; summary in `docs/results/smpl-campaign/README.md` and README "Results".
+Open operator decisions: (1) promotion metric: pixels only (current) or add the probe (R1
+mask-MSE is dropped on pixels but its latent is 12 mm better, twice reproduced); (2) next
+steps candidates: more poses (8,000 / AMASS), the VAE β 0.1 follow-up, R1 + VAE on v2d, a
+combined realistic dataset; (3) recalibrate the 014 intersection check; (4) sign-off on
+007-014 and the capsule license reading.
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

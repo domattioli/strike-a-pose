@@ -404,6 +404,15 @@ mostly non-linear (ridge 214 mm). Caveat: the MLP weight-decay grid picked its l
 value (1e-3) for most targets, so slightly stronger regularization might help; the grid
 was fixed a priori and not widened after test was seen.
 
+**SMPL campaign (2026-10-22).** Full results: [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/README.md).
+The re-baseline (R0, best-val weights) reproduces the published 004 run (test MSE 0.00216 vs
+0.00219; IoU 0.871). Of the realism datasets, doubling the distinct poses (v2d, 4,000) helped
+most: val MSE −18 % and probe MPJPE 150 vs 175 mm, so the autoencoder is data-limited. Body
+shape (+10 % MSE) and camera jitter (−20 mm probe) make the task harder; the arms-down dataset
+is easier. Of the training variants, a VAE with β 0.01 matches the plain AE (+0.2 % MSE, same
+probe) while giving a sampleable latent; mask-weighted MSE gives worse pixels (+8 %) but a
+clearly better pose latent (162 mm); the regularization bundle did not help.
+
 ## Development checks
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on

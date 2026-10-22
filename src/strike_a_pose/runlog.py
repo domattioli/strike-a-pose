@@ -70,6 +70,14 @@ def checksums_sha256(dataset_dir: str | Path) -> str | None:
     return hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
 
 
+def peak_rss_mb() -> float:
+    """Peak resident set size of this process in MiB (Linux ``ru_maxrss`` is KiB; spec 015
+    FR-005). A resumed run reports the resumed process only."""
+    import resource
+
+    return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0, 1)
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 

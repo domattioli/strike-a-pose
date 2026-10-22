@@ -152,6 +152,7 @@ def test_fixture_probe_run(tmp_path, capsys, ae_checkpoint):
     assert cfg["seed"] == 2 and cfg["checkpoint"] == str(ae_checkpoint)
 
     info = json.loads((d / "run_info.json").read_text())
+    assert isinstance(info["peak_rss_mb"], float) and info["peak_rss_mb"] > 0  # spec 015
     ck = info["checkpoint"]
     assert ck["epoch"] == 10 and len(ck["sha256"]) == 64 and set(ck["train_run_git"]) == {
         "commit", "dirty",

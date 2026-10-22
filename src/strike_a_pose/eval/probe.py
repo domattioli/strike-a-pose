@@ -31,6 +31,7 @@ from strike_a_pose.runlog import (
     environment_summary,
     git_info,
     make_run_dir,
+    peak_rss_mb,
     seed_everything,
     utc_now,
     write_json_exact,
@@ -637,6 +638,7 @@ def run_probe(
         "figures": figures,
         "finished_utc": utc_now().isoformat(),
         "wall_s": round(time.monotonic() - t0, 1),
+        "peak_rss_mb": peak_rss_mb(),  # spec 015 FR-005
     }
     write_json_exact(run_dir / "run_info.json", info)
     return run_dir

@@ -39,6 +39,7 @@ from strike_a_pose.runlog import (
     environment_summary,
     git_info,
     make_run_dir,
+    peak_rss_mb,
     seed_everything,
     utc_now,
     write_json_exact,
@@ -724,6 +725,7 @@ def _train_and_evaluate(
         "finished_utc": utc_now().isoformat(),
         "wall_s": round(elapsed0 + time.monotonic() - t0, 1),
         "train_wall_s": round(train_wall, 1),
+        "peak_rss_mb": peak_rss_mb(),  # spec 015 FR-005
     }
     write_json_exact(run_dir / "run_info.json", info)
 

@@ -20,6 +20,7 @@ from strike_a_pose.runlog import (
     environment_summary,
     git_info,
     make_run_dir,
+    peak_rss_mb,
     seed_everything,
     utc_now,
     write_json_exact,
@@ -55,12 +56,22 @@ class Baselines:
     pose_pca: PCA
 
 
-def load_arrays(ds: PoseImageDataset, batch_size: int, masks: bool = True) -> dict:
-    """Read a whole dataset (split) into preallocated tensors (images flattened)."""
+TRAIN_IMAGE_DTYPE_NO_PCA = torch.uint8  # spec 015 FR-004: 2.5 GB, not 10 GB, at 51,200 images
+
+
+def load_arrays(
+    ds: PoseImageDataset,
+    batch_size: int,
+    masks: bool = True,
+    image_dtype: torch.dtype = torch.float32,
+) -> dict:
+    """Read a whole dataset (split) into preallocated tensors (images flattened): float32 in
+    [0, 1], or with ``image_dtype=torch.uint8`` the lossless ``round(x * 255)`` (pixels are
+    ``k/255``; spec 015 FR-004, research R1), which ``image_mean`` accepts as is."""
     n = len(ds)
     h, w = ds.image_size
     a: dict = {"n": n, "image_size": (h, w)}
-    a["image"] = torch.empty((n, h * w), dtype=torch.float32)
+    a["image"] = torch.empty((n, h * w), dtype=image_dtype)
     if masks:
         a["mask"] = torch.empty((n, h * w), dtype=torch.bool)
     a["pose_index"] = torch.empty(n, dtype=torch.int64)
@@ -72,7 +83,8 @@ def load_arrays(ds: PoseImageDataset, batch_size: int, masks: bool = True) -> di
     for b in DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0):
         m = b["image"].shape[0]
         sl = slice(i, i + m)
-        a["image"][sl] = b["image"].reshape(m, -1)
+        x = b["image"].reshape(m, -1)
+        a["image"][sl] = torch.round(x * 255.0).to(torch.uint8) if image_dtype == torch.uint8 else x
         if masks:
             a["mask"][sl] = b["mask"].reshape(m, -1)
         a["pose_index"][sl] = b["pose_index"]
@@ -213,7 +225,8 @@ def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
     }
     write_json_exact(run_dir / "run_info.json", info)
 
-    train = load_arrays(train_ds, cfg.batch_size, masks=False)
+    dtype = torch.float32 if cfg.image_pca_ks else TRAIN_IMAGE_DTYPE_NO_PCA  # spec 015 FR-004
+    train = load_arrays(train_ds, cfg.batch_size, masks=False, image_dtype=dtype)
     b = fit_baselines(train, cfg)
     del train
     fit = {
@@ -264,6 +277,7 @@ def run_baselines(cfg: BaselineConfig, argv: list[str] | None = None) -> Path:
         "figure": figure,
         "finished_utc": utc_now().isoformat(),
         "wall_s": round(time.monotonic() - t0, 1),
+        "peak_rss_mb": peak_rss_mb(),  # spec 015 FR-005
     }
     write_json_exact(run_dir / "run_info.json", info)
     return run_dir

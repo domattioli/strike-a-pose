@@ -15,6 +15,7 @@ from strike_a_pose.runlog import (
     environment_summary,
     git_info,
     make_run_dir,
+    peak_rss_mb,
     round_sig,
     seed_everything,
     write_yaml,
@@ -71,3 +72,9 @@ def test_write_yaml_roundtrip(tmp_path):
     obj = {"b": [1, 2], "a": "x", "c": 0.075}
     write_yaml(tmp_path / "c.yaml", obj)
     assert yaml.safe_load((tmp_path / "c.yaml").read_text()) == obj
+
+
+def test_peak_rss_mb():
+    """Spec 015 FR-005: process peak RSS in MiB, rounded to 0.1."""
+    v = peak_rss_mb()
+    assert isinstance(v, float) and v > 10.0 and v == round(v, 1)

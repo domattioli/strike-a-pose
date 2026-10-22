@@ -53,6 +53,7 @@ def test_fixture_run_directory(tmp_path, capsys):
 
     info = json.loads((d / "run_info.json").read_text())
     assert info["seed"] == 3 and set(info["git"]) == {"commit", "dirty"}
+    assert isinstance(info["peak_rss_mb"], float) and info["peak_rss_mb"] > 0  # spec 015
     assert {"python", "torch", "numpy", "pillow", "platform"} <= set(info["env"])
     assert info["dataset"]["manifest_sha256"] == manifest_sha256(FIXTURE)
     assert info["dataset"]["manifest_content_sha256"] == manifest_content_sha256(
@@ -128,3 +129,42 @@ def test_config_error_exit_2(tmp_path):
     p.write_text("dataset_dir: x\n")
     assert main(["baseline", "--config", str(p)]) == 2
     assert main(["baseline", "--config", str(tmp_path / "missing.yaml")]) == 2
+
+
+# --- spec 015 FR-004: train images stay uint8 when no image PCA is fit --------------------
+
+
+def test_load_arrays_uint8_train_is_lossless():
+    import torch
+
+    from strike_a_pose.data import PoseImageDataset
+    from strike_a_pose.eval.baselines import image_mean, load_arrays
+
+    ds = PoseImageDataset(str(FIXTURE), split="train", split_file="splits/smpl_fixture.json")
+    a32 = load_arrays(ds, 8, masks=False)
+    a8 = load_arrays(ds, 8, masks=False, image_dtype=torch.uint8)
+    assert a8["image"].dtype == torch.uint8 and a32["image"].dtype == torch.float32
+    assert torch.equal(a8["image"].float() / 255.0, a32["image"])
+    assert torch.equal(image_mean(a8["image"]), image_mean(a32["image"]))
+    for k in a32:
+        if k != "image":
+            v = a32[k]
+            assert torch.equal(a8[k], v) if isinstance(v, torch.Tensor) else a8[k] == v, k
+
+
+def test_baselines_metrics_unchanged_without_image_pca(tmp_path, monkeypatch):
+    import torch
+
+    from strike_a_pose.eval import baselines
+
+    cfg = yaml.safe_load(CFG.read_text()) | {"image_pca_ks": []}
+    p = tmp_path / "nopca.yaml"
+    p.write_text(yaml.safe_dump(cfg))
+    out = []
+    for dtype, root in ((torch.uint8, "a"), (torch.float32, "b")):
+        monkeypatch.setattr(baselines, "TRAIN_IMAGE_DTYPE_NO_PCA", dtype)
+        r = tmp_path / root
+        assert main(["baseline", "--config", str(p), "--run-root", str(r)]) == 0
+        (d,) = r.iterdir()
+        out.append((d / "metrics.json").read_bytes())
+    assert out[0] == out[1]

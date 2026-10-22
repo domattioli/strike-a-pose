@@ -123,6 +123,7 @@ def test_fixture_train_run(tmp_path, capsys):
     info = json.loads((d / "run_info.json").read_text())
     assert info["seed"] == 3 and set(info["git"]) == {"commit", "dirty"}
     assert {"python", "torch", "numpy", "pillow", "platform", "torch_threads"} <= set(info["env"])
+    assert isinstance(info["peak_rss_mb"], float) and info["peak_rss_mb"] > 0  # spec 015
     assert info["dataset"]["manifest_sha256"] == manifest_sha256(FIXTURE)
     assert info["dataset"]["manifest_content_sha256"] == manifest_content_sha256(
         load_manifest(FIXTURE)

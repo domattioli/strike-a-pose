@@ -532,6 +532,20 @@ diagnostic: the 003 baselines rerun (`runs/baselines-smpl_proc_v1-20261022T01144
 regenerated one at the 1e-6 level). `splits/smpl_proc_v1.json` rewritten as `split_version` 2
 with unchanged pose lists.
 
+## SMPL campaign (started 2026-10-22 01:23 UTC, operator: run everything autonomously)
+
+Queue `data/smpl_queue.sh` (git-ignored): v1 baselines → R0 → R0b → v2a gate (intersection
+check, 5 %) → v2a / v2b / v2c / v2d (generate, split, baselines, AE, probe each) → R1 mask →
+R2 VAE β 0.01 → R3 reg; every step idempotent (skips done, resumes unfinished). Progress
+checks, three layers: (1) trainer guards (early stop, divergence abort → `aborted.json`);
+(2) `data/watchdog.sh` as a tracked background task, re-armed every ≤ 110 min: keeps the
+container alive, relaunches the queue if it died, and kills a trainer whose history has not
+advanced for > max(3 × median epoch, 15 min) so the queue resumes it from its checkpoint;
+(3) an hourly heartbeat (scheduled task) that compares epoch counts and queue steps with the
+previous hour (`data/heartbeat.log`), handles FAILED / ABORTED / SKIPPED / STALL lines, records
+finished runs under `docs/results/` and `docs/results/smpl-campaign/README.md`, and pushes.
+Committed copies: `docs/campaign-scripts/` (copy back to `data/` after a fresh clone).
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

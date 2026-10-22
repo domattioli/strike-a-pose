@@ -1,0 +1,12 @@
+batch_size: 256
+dataset_dir: data/generated/smpl_proc_v2a
+eval_splits: [val, test]
+figure_samples: 6
+figure_split: val
+image_pca_ks: [8, 16, 32, 64, 128]
+iou_threshold: 0.075
+pose_pca_ks: [4, 8, 16, 32]
+run_name: baselines-smpl_proc_v2a
+run_root: runs
+seed: 0
+split_file: splits/smpl_proc_v2a.json

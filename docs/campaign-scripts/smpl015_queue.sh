@@ -37,8 +37,10 @@ train() {  # $1 config, $2 run_name prefix, $3 probe config
   if [ -z "$d" ]; then log "start $2"; $U strike-a-pose-train --config "$1"; rc=$?
   elif [ ! -f "$d/metrics.json" ]; then
     # OOM guard (analyze A2): a second failed attempt without peak_rss_mb -> terminal stop
-    [ -f "$d/resume_tried" ] && memstop "$d unfinished after a resume (likely OOM)"
-    touch "$d/resume_tried"; log "resume $d"; $U strike-a-pose-train --resume "$d"; rc=$?
+    # marker = boot id: a differing boot id means a container restart killed the trainer (not OOM)
+    bid=$(cat /proc/sys/kernel/random/boot_id)
+    if [ -f "$d/resume_tried" ] && [ "$(cat "$d/resume_tried")" = "$bid" ]; then memstop "$d unfinished after a resume (likely OOM)"; fi
+    echo "$bid" > "$d/resume_tried"; log "resume $d"; $U strike-a-pose-train --resume "$d"; rc=$?
   else rc=0; fi
   [ "$rc" = 137 ] && memstop "$2 trainer killed (exit 137)"
   [ "$rc" != 0 ] && log "train exit $rc for $2"

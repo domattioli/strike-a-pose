@@ -120,7 +120,7 @@
 
 ## Follow-up (blocked: SMPL model not obtainable in this session)
 
-- [ ] F1 Migrate `splits/smpl_proc_v1.json` to `split_version` 2 (spec "Follow-up F1",
+- [x] F1 Migrate `splits/smpl_proc_v1.json` to `split_version` 2 (spec "Follow-up F1",
   clarification 11). With `assets/smpl/SMPL_NEUTRAL.npz` in place (never committed), at
   any commit containing 007, run the commands under "F1 commands" below.
 

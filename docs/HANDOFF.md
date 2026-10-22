@@ -518,6 +518,20 @@ unaffected).
 - SMPL: `domattioli/smpl-assets` was still empty at 20:18 UTC; F1 and the SMPL campaign wait
   for `SMPL_NEUTRAL.npz`.
 
+## F1 outcome (2026-10-22)
+
+`SMPL_NEUTRAL.npz` arrived via `domattioli/smpl-assets` (re-converted by the operator from the
+original `.pkl`; SHA-256 `f09c8ece…`, 300 shape components of which the generator uses 10; not
+the recorded `f408141b…` file). `smpl_proc_v1` regenerated at `3ba4259`+: manifest checks 1 and 2
+both miss `9000c915…` because label values differ by ≤ 5e-6 (6th-decimal rounding of the
+re-converted arrays; fixture regeneration: joints ≤ 5e-6, pixels ≤ 1 grey level). Pixel
+diagnostic: the 003 baselines rerun (`runs/baselines-smpl_proc_v1-20261022T011445Z`, copy in
+`docs/results/007-f1-baselines-smpl_proc_v1/`) reproduces **every** published 003 number to
+≤ 1e-5 relative. Verdict: reproduced in substance, not byte for byte (caveat: the published
+003/004/006 runs used the `406b68f` dataset, raw manifest `9000c915…`, which differs from the
+regenerated one at the 1e-6 level). `splits/smpl_proc_v1.json` rewritten as `split_version` 2
+with unchanged pose lists.
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

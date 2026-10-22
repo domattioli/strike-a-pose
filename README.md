@@ -118,13 +118,12 @@ refreshes it). The 004 `--resume` check and the 006 latent cache still key on th
 manifest bytes (the manifest does not hash the images), so a regenerated dataset does
 not resume an older run or reuse its cached latents.
 
-The committed `splits/smpl_proc_v1.json` (1600 / 200 / 200 poses) is still a
-`split_version` 1 file: it pins the raw manifest bytes, code commit included, so it
-is valid only for `smpl_proc_v1` generated with `configs/default.yaml`, seed 0, at
-commit `406b68f` (default run: ≈ 5 min on 4 CPU cores, 16,000 samples, 351 MB). After
-regenerating the dataset, rewrite it with the command above plus `--overwrite` (same
-pose lists); the full procedure with its checks is follow-up F1 in
-[`docs/HANDOFF.md`](docs/HANDOFF.md).
+The committed `splits/smpl_proc_v1.json` (1600 / 200 / 200 poses) is a `split_version` 2
+file (migrated 2026-10-22, follow-up F1; same pose lists as the original). It fits
+`smpl_proc_v1` generated with `configs/default.yaml`, seed 0, from the current SMPL file
+(≈ 5 min on 4 CPU cores, 16,000 samples). That dataset reproduces every published 003
+baseline number to ≤ 1e-5 but not the original manifest bytes (labels differ at the 1e-6
+level after the SMPL file was re-converted; see `docs/HANDOFF.md`, "F1 outcome").
 
 Load samples in PyTorch (sample dict, units and normalization:
 [`specs/002-data-pipeline/contracts/sample-contract.md`](specs/002-data-pipeline/contracts/sample-contract.md)):

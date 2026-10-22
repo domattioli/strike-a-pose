@@ -20,7 +20,11 @@
     "train": 0.8,
     "val": 0.1
   },
-  "manifest_sha256": "9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588",
+  "manifest_code": {
+    "commit": "b7b2f991dac00130dbf52dccd6653b8181c28cfd",
+    "dirty": false
+  },
+  "manifest_content_sha256": "03af4440c5f1daa1e2ea31b3541d2298d1e91076841c892a96a79e6c114b0067",
   "poses": {
     "test": [
       12,
@@ -2030,6 +2034,6 @@
     ]
   },
   "seed": 0,
-  "split_version": 1,
+  "split_version": 2,
   "unit": "pose_index"
 }

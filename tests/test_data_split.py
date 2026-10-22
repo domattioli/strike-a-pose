@@ -149,8 +149,8 @@ def test_load_accepts_v1_and_v2(tmp_path):
     v1 = load_split(SPLIT_V1)
     assert v1 == json.loads(SPLIT_V1.read_text()) and set(v1) == SPLIT_KEYS[1]
     assert v1["split_version"] == 1 and v1["poses"] == {"test": [0], "train": [1], "val": []}
-    proc = load_split(ROOT / "splits" / "smpl_proc_v1.json")  # v1 until 007 follow-up F1
-    assert proc["split_version"] == 1 and proc["counts"]["train"]["poses"] == 1600
+    proc = load_split(ROOT / "splits" / "smpl_proc_v1.json")  # v2 since 007 follow-up F1
+    assert proc["split_version"] == 2 and proc["counts"]["train"]["poses"] == 1600
     v2 = load_split(write_split(make_split(synth_manifest(20), seed=3), tmp_path / "v2.json"))
     assert v2["split_version"] == 2 and set(v2) == SPLIT_KEYS[2]
 

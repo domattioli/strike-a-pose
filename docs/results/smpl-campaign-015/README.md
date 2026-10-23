@@ -8,3 +8,7 @@
 | baselines v3 (8,000 poses) | peak RSS 3.8 GB (uint8 fix) |
 
 Reading: raising β to 0.1 makes the prior 6× more generative (5.7 % → 33 % valid samples) at ≈ 1 % reconstruction cost and no measurable pose-information loss. Two thirds of prior samples still fail, mostly as fragmented silhouettes (582 / 1,024).
+| **R0-v3** plain AE, 8,000 poses (6,400 train) | ran all 60 epochs (best val epoch 56; still improving); val / test MSE 0.00158 / 0.00156 (v2d 0.00178, v1 0.00218), IoU 0.905 / 0.906; region MSE val hands 0.025, feet 0.022, head 0.013; peak RSS 5.9 GB; resumed once across a container restart (epoch 35) |
+| probe on R0-v3 `best.pt` | world-frame MPJPE MLP 131.0 / 127.5 mm vs mean pose 258.2 / 252.9 (−49 %); camera accuracy 0.981 / 0.983 |
+
+Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.00218 / 0.00178 / 0.00158 (−18 %, then −11 %), probe 175 / 150 / 131 mm. Diminishing but not saturated.

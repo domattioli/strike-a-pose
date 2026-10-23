@@ -12,3 +12,4 @@ Reading: raising β to 0.1 makes the prior 6× more generative (5.7 % → 33 % v
 | probe on R0-v3 `best.pt` | world-frame MPJPE MLP 131.0 / 127.5 mm vs mean pose 258.2 / 252.9 (−49 %); camera accuracy 0.981 / 0.983 |
 
 Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.00218 / 0.00178 / 0.00158 (−18 %, then −11 %), probe 175 / 150 / 131 mm. Diminishing but not saturated.
+| **R0b-v3** plain AE, seed 1 (noise bar) | val / test MSE 0.00159 / 0.00156 (+0.6 % / +0.5 % vs R0-v3); probe world MPJPE 134.4 / 130.5 mm (R0-v3 131.0 / 127.5). **v3 noise bars: seed gap 0.6 % MSE, probe gap 3.3 mm**. Seed gap vs v1→v3 gain (−27 %): ≈ 45×, so SC-002 holds |

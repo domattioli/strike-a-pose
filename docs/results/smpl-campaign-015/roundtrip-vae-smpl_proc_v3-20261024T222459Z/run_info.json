@@ -1,0 +1,58 @@
+{
+  "argv": [
+    "strike-a-pose-eval",
+    "round-trip",
+    "--config",
+    "configs/roundtrip_vae_smpl_proc_v3.yaml"
+  ],
+  "cache": {
+    "hit": true,
+    "path": "runs/probe-cache/33b816f9ea8f-05e13c862ec9-1b3cae265288.pt"
+  },
+  "checkpoint": {
+    "path": "runs/ae-vae-smpl_proc_v3-20261023T132901Z/best.pt",
+    "sha256": "33b816f9ea8f848786198431abb74f020e2ff5e3684eab6d5b4f2f06b6de0dbe"
+  },
+  "cwd": "/home/user/strike-a-pose",
+  "dataset": {
+    "checksums_sha256": "df56a6425851fae85ce593d54fd053521dcf746d884fcd30037d6eabd8e2d59e",
+    "dir": "data/generated/smpl_proc_v3",
+    "manifest_sha256": "05e13c862ec9e8d6e087ae4594104831405f8d5672ae5063d6401c86985262bb",
+    "split_file_sha256": "1b3cae2652881d4d0cc89c9774058569e2f316b7674b4f8b6b35d20662344a80"
+  },
+  "env": {
+    "cpu_count": 4,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "numpy": "2.5.4",
+    "pillow": "13.0.0",
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "torch": "2.14.1+cu130",
+    "torch_threads": 4
+  },
+  "finished_utc": "2026-10-24T22:31:16.553046+00:00",
+  "git": {
+    "commit": "cb27ec6704ef4100a450d773d88a019420ccc7ef",
+    "dirty": false
+  },
+  "peak_rss_mb": 2765.4,
+  "probe_run": {
+    "metrics_sha256": "d71ebfb34663fb18ec039431a7d61c6beb36159616cc6d65e55aa3fd5028557f",
+    "path": "runs/probe-smpl_proc_v3-20261023T190738Z"
+  },
+  "reference_checkpoint": {
+    "path": "runs/ae-smpl_proc_v3-20261023T004930Z/best.pt",
+    "sha256": "65cec74735e6a0b3da293fd812d24170a3367844ffe70e8d9d6266598a38ca32"
+  },
+  "sample_run": {
+    "path": "runs/sample-vae-smpl_proc_v3-20261024T024345Z",
+    "samples_sha256": "4a2f7d9a057a4f3f395e681fc5f9827151ae2653238f9cc45be40601ec289212"
+  },
+  "seed": 0,
+  "smpl_model": {
+    "path": "assets/smpl/SMPL_NEUTRAL.npz",
+    "sha256": "f09c8ecefcf130ace1de859001fa555d3e0ac0e73cd74bd85661836d7385c209"
+  },
+  "started_utc": "2026-10-24T22:24:59.088008+00:00",
+  "wall_s": 377.5
+}

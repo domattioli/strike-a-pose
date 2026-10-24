@@ -130,3 +130,15 @@ Variants against the 3-seed mean (val; test agrees):
 | R1-v3 mask-weighted | +14.4 % | 31 | **−8.4 mm** | **−5.0** | real pose gain, real pixel cost |
 
 Against the seed mean rather than seed 0 alone, R1-v3's pose gain is 8.4 mm = 5 seed sd: **not borderline, a real effect.** It stays DROPPED under the 015 rule only because of its +14 % MSE. Whether a pose-for-pixels trade should be promotable is an operator decision (the rule was not changed).
+
+### Round-trip on v3 (VAE β 0.01, `roundtrip-vae-smpl_proc_v3-20261024T222459Z`)
+
+τ = 0.379 (p5 of real test; v1: 0.31–0.32). The better v3 probe sharpens the test: the random-pose control now passes only 54 % of real test images (v1: 73–76 %).
+
+| Set | plausible | plausible & valid | control |
+|---|---|---|---|
+| prior samples | 45.7 % | 23.4 % | 32.6 % |
+| VAE recon val | 94.4 % | 87.7 % | 53.2 % |
+| real test (ceiling) | 95.0 % | 93.6 % | 54.1 % |
+
+Reading: on v3 the metric separates real from random poses by 41 points (95 vs 54 %). Prior samples sit 13 points above their chance level (46 vs 33 %); about a quarter of β 0.01 samples are both one connected body and pose-consistent. The round-trip remains limited by probe accuracy (median real IoU 0.58). β 0.1 on v3 was not round-tripped (its sample run postdates the 016 configs); add a config if wanted.

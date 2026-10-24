@@ -110,7 +110,7 @@ Files: `src/strike_a_pose/eval/roundtrip_config.py`, `src/strike_a_pose/eval/rou
 Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
 `tests/test_roundtrip.py`.
 
-- [ ] T020 Tests (red first), appended to `tests/test_roundtrip.py`. Module-scoped fixture
+- [X] T020 Tests (red first), appended to `tests/test_roundtrip.py`. Module-scoped fixture
   `rt_inputs(tmp_path_factory)` builds, with cwd = ROOT: a random VAE and a random plain AE
   checkpoint (copy `_ckpt` from `tests/test_sample.py`: seeds 0 and 1, `CH = [16, 32, 64, 128,
   256, 256]`); a sample run `run_sample(sample_config.load_config("configs/sample_fixture.yaml")
@@ -150,7 +150,7 @@ Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
   - `test_refit_matches_probe(rt_inputs)`: `refit_probe(pcfg, metrics, data)` (data from
     `load_or_extract`) returns predictors whose test-split `score("smpl_pose", …)["angle_deg"]`
     and `score("yaw", …)["accuracy"]` equal the probe run's recorded values within 0.05 / 0.005.
-- [ ] T021 In `roundtrip.py`:
+- [X] T021 In `roundtrip.py`:
   - `refit_probe(pcfg: ProbeConfig, metrics: dict, data: dict) -> tuple[Callable, Callable,
     Standardizer, dict]`: `zs = Standardizer.fit(data["train"]["latents"]["trained"])`;
     `ztr = zs(data["train"]["latents"]["trained"])`; pose:
@@ -201,7 +201,7 @@ Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
     SMPL load: `SMPLModel.load(require_file(Path(cfg.smpl_model_path), "SMPL model file"))`,
     `MissingAssetError` re-raised as `ConfigError`.
   - `__all__` lists the public functions.
-- [ ] T022 `src/strike_a_pose/eval/cli.py`: subparser `round-trip` (help "probe round-trip
+- [X] T022 `src/strike_a_pose/eval/cli.py`: subparser `round-trip` (help "probe round-trip
   plausibility of a sample run's sets (spec 016)") with `--config` (required), `--sample-run`,
   `--probe-run`, `--smpl-model`, `--run-root`; handler `_round_trip(a, argv)` mirroring
   `_sample` (lazy imports; `ConfigError` → `EXIT_CONFIG`, `DatasetError` → `EXIT_DATA`,

@@ -2,32 +2,50 @@
 
 import copy
 import json
+import os
+import shutil
+import time
 from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
+import yaml
 
+from strike_a_pose.data import PoseImageDataset
+from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.datagen.cameras import camera_ring
 from strike_a_pose.datagen.config import CameraRingConfig
 from strike_a_pose.datagen.render import render
 from strike_a_pose.datagen.smpl import SMPLModel
+from strike_a_pose.eval import probe_config, sample_config
+from strike_a_pose.eval.cli import EXIT_CONFIG, main
 from strike_a_pose.eval.config import ConfigError
+from strike_a_pose.eval.probe import _encoders, load_or_extract, run_probe, score
 from strike_a_pose.eval.roundtrip import (
     HIST_HEADER,
     HIST_ROW_H,
     HIST_W,
+    SET_ORDER,
     calibrate_threshold,
     camera_from_dict,
     check_renderable,
     iou_histogram_figure,
+    refit_probe,
     rerender_masks,
+    run_round_trip,
     silhouette_iou,
     summarize,
 )
 from strike_a_pose.eval.roundtrip_config import config_from_dict, load_config
+from strike_a_pose.eval.sample import run_sample
+from strike_a_pose.models import ConvAutoencoder, load_checkpoint
+from strike_a_pose.runlog import round_sig
+from tests.conftest import make_synthetic_smpl
 
 ROOT = Path(__file__).parents[1]
 FIXTURE_CFG = "configs/roundtrip_fixture.yaml"
+CH = [16, 32, 64, 128, 256, 256]
 MANIFEST = ROOT / "tests/fixtures/smpl_fixture/manifest.json"
 
 
@@ -168,3 +186,158 @@ def test_iou_histogram_figure():
     im = iou_histogram_figure(d, 0.5)
     assert im.mode == "L" and im.size == (HIST_W, HIST_HEADER + 2 * HIST_ROW_H)
     assert im.tobytes() == iou_histogram_figure(d, 0.5).tobytes()
+
+
+# --------------------------------------------------------------------------- B2: run
+
+
+def _ckpt(path: Path, variational: bool, seed: int, latent_dim: int = 64) -> Path:
+    torch.manual_seed(seed)
+    m = ConvAutoencoder((256, 192), latent_dim, CH, variational=variational)
+    torch.save({"model_hparams": m.hparams(), "model": m.state_dict()}, path)
+    return path
+
+
+@pytest.fixture(scope="module")
+def rt_inputs(tmp_path_factory):
+    root = tmp_path_factory.mktemp("rt")
+    cwd = os.getcwd()
+    os.chdir(ROOT)
+    try:
+        vae = _ckpt(root / "vae.pt", True, 0)
+        ae = _ckpt(root / "ae.pt", False, 1)
+        scfg = sample_config.load_config("configs/sample_fixture.yaml").with_overrides(
+            checkpoint=str(vae), reference_checkpoint=str(ae), run_root=str(root / "s")
+        )
+        sample_dir = run_sample(scfg)
+        pcfg = probe_config.load_config("configs/probe_fixture.yaml").with_overrides(
+            checkpoint=str(vae), run_root=str(root / "p"), cache_dir=str(root / "cache")
+        )
+        probe_dir = run_probe(pcfg)
+        smpl = make_synthetic_smpl(root / "SMPL_SYNTH.npz")
+    finally:
+        os.chdir(cwd)
+    return {"root": root, "vae": vae, "sample": sample_dir, "probe": probe_dir, "smpl": smpl,
+            "pcfg": pcfg}  # fmt: skip
+
+
+def _cfg(inp, run_root, **kw):
+    return load_config(FIXTURE_CFG).with_overrides(
+        sample_run=str(inp["sample"]), probe_run=str(inp["probe"]),
+        smpl_model_path=str(inp["smpl"]), run_root=str(run_root), **kw,
+    )  # fmt: skip
+
+
+def test_fixture_round_trip_run(rt_inputs, tmp_path):
+    t0 = time.monotonic()
+    d = run_round_trip(_cfg(rt_inputs, tmp_path / "a"))
+    assert time.monotonic() - t0 < 60
+    assert {p.name for p in d.iterdir()} == {
+        "config.yaml", "run_info.json", "samples.json", "round_trip_per_image.json",
+        "round_trip.png", "round_trip_iou.png",
+    }  # fmt: skip
+    r = json.loads((d / "samples.json").read_text())
+    src = json.loads((rt_inputs["sample"] / "samples.json").read_text())
+    assert set(r["sets"]) == set(SET_ORDER)  # write_json_exact sorts keys
+    for name, want in (("vae_prior", 8), ("ae_prior", 8), ("vae_recon_val", 4), ("real_test", 4)):
+        assert r["sets"][name]["round_trip"]["n"] == want
+        assert r["sets"][name]["n"] == want
+    assert r["sets"]["real_test"]["round_trip"]["plausible_fraction"] >= 0.95
+    for name, s in src["sets"].items():
+        assert {k: v for k, v in r["sets"][name].items() if k != "round_trip"} == s
+    per = json.loads((d / "round_trip_per_image.json").read_text())
+    crit = r["round_trip_criteria"]
+    assert crit["calibration"]["set"] == "real_test" and crit["calibration"]["split"] == "test"
+    assert crit["calibration"]["tau"] == round_sig(
+        calibrate_threshold(np.array(per["sets"]["real_test"]["iou"]), 5.0)
+    )
+    assert crit["smpl_model"]["matches_manifest"] is False
+    assert crit["probe"]["refit"]["split"] == "test"
+    assert crit["probe"]["refit"]["matches"] is True
+    assert r["round_trip_version"] == 1 and "source_sample_run" in r
+    info = json.loads((d / "run_info.json").read_text())
+    assert info["peak_rss_mb"] > 0 and "wall_s" in info
+
+
+def test_round_trip_deterministic(rt_inputs, tmp_path):
+    a = run_round_trip(_cfg(rt_inputs, tmp_path / "a"))
+    b = run_round_trip(_cfg(rt_inputs, tmp_path / "b"))
+    for f in ("samples.json", "round_trip_per_image.json"):
+        text = (a / f).read_text()
+        if f == "samples.json":  # the run dir name is not in it, the source path is the same
+            pass
+        assert text == (b / f).read_text()
+
+
+def test_round_trip_refusals(rt_inputs, tmp_path):
+    def copy(src, name):
+        dst = tmp_path / name
+        shutil.copytree(src, dst)
+        return dst
+
+    def refuses(inp, match=None):
+        root = tmp_path / "out"
+        with pytest.raises(ConfigError, match=match):
+            run_round_trip(_cfg(inp, root))
+        assert not root.exists() or not any(root.iterdir())
+
+    inp = dict(rt_inputs)
+    other = copy(rt_inputs["probe"], "p_other")  # (a)
+    m = json.loads((other / "metrics.json").read_text())
+    m["encoder"]["checkpoint_sha256"] = "0" * 64
+    (other / "metrics.json").write_text(json.dumps(m))
+    refuses(inp | {"probe": other})
+    tam = copy(rt_inputs["sample"], "s_tamper")  # (b)
+    s = json.loads((tam / "samples.json").read_text())
+    s["sets"]["vae_prior"]["foreground_px_mean"] += 1.0
+    (tam / "samples.json").write_text(json.dumps(s))
+    refuses(inp | {"sample": tam}, "not reproduced")
+    refuses(inp | {"smpl": tmp_path / "missing.npz"})  # (c)
+    nop = copy(rt_inputs["probe"], "p_notarget")  # (d)
+    c = yaml.safe_load((nop / "config.yaml").read_text())
+    c["targets"] = ["joints_world", "yaw"]
+    (nop / "config.yaml").write_text(yaml.safe_dump(c))
+    refuses(inp | {"probe": nop})
+    nos = copy(rt_inputs["sample"], "s_nosamples")  # (e)
+    (nos / "samples.json").unlink()
+    refuses(inp | {"sample": nos})
+
+
+def test_round_trip_cli(rt_inputs, tmp_path, capsys):
+    argv = [
+        "round-trip", "--config", FIXTURE_CFG, "--sample-run", str(rt_inputs["sample"]),
+        "--probe-run", str(rt_inputs["probe"]), "--smpl-model", str(rt_inputs["smpl"]),
+        "--run-root", str(tmp_path),
+    ]  # fmt: skip
+    assert main(argv) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert any(ln.startswith("wrote ") for ln in lines)
+    sets = [ln for ln in lines if ln.startswith("  ") and "plausible" in ln and "valid" in ln]
+    assert [ln.split(":")[0].strip() for ln in sets] == list(SET_ORDER)
+    argv[argv.index("--smpl-model") + 1] = str(tmp_path / "nope.npz")
+    assert main(argv) == EXIT_CONFIG
+
+
+def test_refit_matches_probe(rt_inputs):
+    pcfg = rt_inputs["pcfg"]
+    metrics = json.loads((rt_inputs["probe"] / "metrics.json").read_text())
+    model, _ = load_checkpoint(rt_inputs["vae"])
+    kw = {"split_file": pcfg.split_file}
+    ds = {
+        s: PoseImageDataset(pcfg.dataset_dir, split=s, **kw) for s in ("train", *pcfg.eval_splits)
+    }
+    hashes = {
+        "checkpoint_sha256": sha256_file(rt_inputs["vae"]),
+        "manifest_sha256": ds["train"].manifest_sha256,
+        "split_sha256": sha256_file(Path(pcfg.split_file)),
+    }
+    os.chdir(ROOT)
+    data, _, _ = load_or_extract(pcfg, ds, _encoders(model, pcfg), hashes)
+    pose_fn, yaw_fn, zs, _ = refit_probe(pcfg, metrics, data)
+    a = data["test"]
+    z = zs(a["latents"]["trained"])
+    rec = metrics["splits"]["test"]["targets"]
+    got = score("smpl_pose", pose_fn(z), a, 8)["angle_deg"]
+    assert abs(got - rec["smpl_pose"]["mlp"]["angle_deg"]) < 0.05
+    got = score("yaw", yaw_fn(z), a, 8)["accuracy"]
+    assert abs(got - rec["yaw"]["mlp"]["accuracy"]) < 0.005

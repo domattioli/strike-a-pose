@@ -32,12 +32,22 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--run-root", default=None, help="override config run_root")
     m.add_argument("--checkpoint", default=None, help="override config checkpoint (the VAE)")
     m.add_argument("--reference-checkpoint", default=None, help="override the plain-AE reference")
+    r = sub.add_parser(
+        "round-trip", help="probe round-trip plausibility of a sample run's sets (spec 016)"
+    )
+    r.add_argument("--config", required=True, help="round-trip config YAML")
+    r.add_argument("--sample-run", default=None, help="override config sample_run")
+    r.add_argument("--probe-run", default=None, help="override config probe_run")
+    r.add_argument("--smpl-model", default=None, help="override config smpl_model_path")
+    r.add_argument("--run-root", default=None, help="override config run_root")
     a = p.parse_args(argv)
     full_argv = ["strike-a-pose-eval", *(sys.argv[1:] if argv is None else argv)]
     if a.cmd == "probe":
         return _probe(a, full_argv)
     if a.cmd == "sample":
         return _sample(a, full_argv)
+    if a.cmd == "round-trip":
+        return _round_trip(a, full_argv)
 
     from .baselines import run_baselines  # heavy imports only for real runs
 
@@ -128,6 +138,45 @@ def _sample(a: argparse.Namespace, argv: list[str]) -> int:
     print(f"wrote {run_dir}")
     for name, s in json.loads((run_dir / "samples.json").read_text())["sets"].items():
         print(f"  {name}: valid {s['valid_fraction']:.3f} nn_mse {s['nn_mse_mean']}")
+    return 0
+
+
+def _round_trip(a: argparse.Namespace, argv: list[str]) -> int:
+    from .roundtrip import SET_ORDER, run_round_trip  # heavy imports only for real runs
+    from .roundtrip_config import load_config as load_rt_config
+
+    try:
+        cfg = load_rt_config(a.config).with_overrides(
+            sample_run=a.sample_run,
+            probe_run=a.probe_run,
+            smpl_model_path=a.smpl_model,
+            run_root=a.run_root,
+        )
+        run_dir = run_round_trip(cfg, argv=argv, log=lambda m: print(m, flush=True))
+    except ConfigError as e:
+        print(f"config error: {e}", file=sys.stderr)
+        return EXIT_CONFIG
+    except DatasetError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_DATA
+    except FileExistsError as e:
+        print(f"error: run directory exists: {e}", file=sys.stderr)
+        return EXIT_EXISTS
+    print(f"wrote {run_dir}")
+    report = json.loads((run_dir / "samples.json").read_text())
+
+    def f3(x: float | None) -> str:
+        return "n/a" if x is None else f"{x:.3f}"
+
+    for name in (n for n in SET_ORDER if n in report["sets"]):
+        s = report["sets"][name]
+        rt = s["round_trip"]
+        print(
+            f"  {name}: plausible {f3(rt['plausible_fraction'])} valid {f3(s['valid_fraction'])}"
+            f" iou_p50 {f3(rt['iou_quantiles']['p50'])}"
+        )
+    cal = report["round_trip_criteria"]["calibration"]
+    print(f"  tau {cal['tau']:.4f} (p{cal['percentile']:g} of {cal['set']})")
     return 0
 
 

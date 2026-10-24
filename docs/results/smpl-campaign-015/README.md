@@ -14,7 +14,7 @@ Reading: raising β to 0.1 makes the prior 6× more generative (5.7 % → 33 % v
 Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.00218 / 0.00178 / 0.00158 (−18 %, then −11 %), probe 175 / 150 / 131 mm. Diminishing but not saturated.
 | **R0b-v3** plain AE, seed 1 (noise bar) | val / test MSE 0.00159 / 0.00156 (+0.6 % / +0.5 % vs R0-v3); probe world MPJPE 134.4 / 130.5 mm (R0-v3 131.0 / 127.5). **v3 noise bars: seed gap 0.6 % MSE, probe gap 3.3 mm**. v2d→v3 gain −11.2 % ≈ 18× the seed gap (> 3×), so SC-002 holds |
 | **R2-v3** VAE β 0.01, v3 (`ae-vae-smpl_proc_v3-20261023T132901Z`) | val / test MSE 0.00159 / 0.00157 (+0.7 % vs R0-v3); KL ≈ 262 nats/image; probe world MPJPE 132.3 / 128.4 mm (R0-v3 131.0 / 127.5). Verdict **REPORTED**: +0.7 % MSE is about the size of the seed gap (0.6 % val / 0.5 % test, just outside it); +1.3 mm probe is inside the 3.3 mm gap. No win, at most a small cost |
-| **R1-v3** mask-weighted MSE, v3 (`ae-mask-smpl_proc_v3-20261023T195044Z`) | val / test MSE 0.00181 / 0.00179 (+14.5 % vs R0-v3), IoU 0.856; probe world MPJPE 124.5 / 121.2 mm (−6.58 mm vs R0-v3 = 1.97× the probe gap on val, just under the 2× latent bar; 2.05× on test); peak RSS 5.9 GB. Verdict **DROPPED** (MSE > +5 %). Lowest probe error of the campaign, but it fails the latent criterion on val independently of the MSE bound (passes on test); the val/test agreement on DROPPED comes from the MSE bound alone. Borderline until the third seed (grill point 1) |
+| **R1-v3** mask-weighted MSE, v3 (`ae-mask-smpl_proc_v3-20261023T195044Z`) | val / test MSE 0.00181 / 0.00179 (+14.5 % vs R0-v3), IoU 0.856; probe world MPJPE 124.5 / 121.2 mm (−6.58 mm vs R0-v3 = 1.97× the probe gap on val, just under the 2× latent bar; 2.05× on test); peak RSS 5.9 GB. Verdict **DROPPED** (MSE > +5 %). Lowest probe error of the campaign, but it fails the latent criterion on val independently of the MSE bound (passes on test); the val/test agreement on DROPPED comes from the MSE bound alone. Against the three-seed mean the gain is −8.4 mm = 5 sd (grill point 1 result) |
 | Sampling, R2-v3 (`sample-vae-smpl_proc_v3-*`) | VAE β 0.01 on v3: prior samples valid **32.4 %** of 1,024 (β 0.01 on v1: 5.7 %); fails 497 fragmented, 195 wrong area; NN-MSE 0.0103 (blank 0.0126, reconstructions 0.0083). Bars: plain-AE decoder 0 %; VAE reconstructions of val 93.2 % |
 
 ## Summary (QUEUE_DONE 2026-10-24 02:46 UTC)
@@ -28,7 +28,7 @@ Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.002
 
 - More poses is the biggest lever: 1,600 → 6,400 train poses gives val MSE −27 % and probe 175 → 131 mm, not yet saturated.
 - The VAE costs at most about one seed gap on v3 (+0.7 % MSE) and, with 4× the poses, its prior becomes as generative at β 0.01 (32 %) as β 0.1 was on v1 (33 %).
-- Mask weighting again trades pixels for pose information (−6.6 mm probe, borderline vs a two-seed noise bar; +14.5 % MSE); the promotion rule drops it. Whether that trade is wanted is an operator call.
+- Mask weighting again trades pixels for pose information (−8.4 mm probe vs the three-seed mean = 5 seed sd, real; +14.5 % MSE); the promotion rule drops it. Whether that trade is wanted is an operator call.
 - No memory stops. Peak RSS for training: plain AE 5.9 GB, VAE on v3 6.1 GB, VAE β 0.1 on v1 11.6 GB (within 0.4 GB of the 12 GB gate; not explained).
 
 ## Grill point 3 (2026-10-24): region rescore, val

@@ -424,6 +424,13 @@ with β 0.01 on v3 costs nothing measurable (+0.7 %, 132 mm; reported) and its p
 probe error (124.5 mm, a gain exactly at the 2× noise bar from two seeds, so borderline) at
 +14.5 % MSE and is dropped by the promotion rule. A third seed is running to firm up the bar.
 
+**Distance to usable (grill point 8, 2026-10-24).** The best probe error, 124–131 mm, halves the
+mean-pose error (258 mm) but is far from usable pose estimation (target ≤ 80 mm world MPJPE).
+Levers seen so far: more distinct poses (175 → 131 mm over 4× data, possibly part training
+length; a step-matched v1 run is queued) and mask-weighted loss (−7 mm, borderline). Neither
+extrapolates to 80 mm (16k poses ≈ 117 mm). Reaching it likely needs a direction change (pose
+supervision on the encoder); the decision waits on the grill runs.
+
 ## Development checks
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on

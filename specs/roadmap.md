@@ -468,3 +468,12 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   ≥ 500. Real-SMPL flag rate v1 80.3 → 1.75 %, v2d 2.23 %, v3 2.24 %, armsdown-v1 23 % (FAIL);
   residual is genuine forearm-in-torso under strong spine twist, below the 5 % gate: no pose-table
   change. Surrogate rulings Q1–Q5. Tasks B1–B2 for a Sonnet implementer.
+- 2026-10-24: slice 018 `pose-supervised-ae` designed (operator decision 2026-10-24: direction
+  change to pose supervision on the encoder; target ≤ 80 mm world MPJPE, grill point 8). Optional
+  MLP head (latent → 256 → 256 → 72 root-relative world joints) trained jointly: loss = recon +
+  λ · MSE on per-coordinate standardized joints (12 constant coordinates masked); head in its own
+  checkpoint keys, val / test MPJPE recorded separately; 006 probe unchanged on frozen train
+  latents; 015 promotion rule unchanged; new pose-track report (Δ vs three-seed mean, real gain
+  < −2 sd). Campaign on v3: λ 0.003, λ 0.03, λ 0.03 + mask α 4 (≈ 17 h,
+  `docs/campaign-scripts/pose018_queue.sh`). Surrogate rulings Q1–Q9. Tasks B1–B4 for a Sonnet
+  implementer.

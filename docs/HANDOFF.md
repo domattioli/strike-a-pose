@@ -597,7 +597,7 @@ as a harness-tracked background task, re-armed every ≤ 110 min):
 
 After the runs: verdicts with `scripts/promotion.py` (v3 variants against R0-v3 / R0b-v3),
 the v1 → v2d → v3 curve and the SC-002 statement (v3's gain over v2d > 3× the v3 seed gap, or
-saturated) in `docs/results/smpl-campaign/README.md`.
+saturated) in `docs/results/smpl-campaign-015/README.md`.
 
 ## Process rules
 

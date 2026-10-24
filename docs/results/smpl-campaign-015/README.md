@@ -67,3 +67,13 @@ region (within the R0/R0b spread, except feet +1.6 %).
 ```
 
 Verdicts agree on val and test for both variants (R2-v3 REPORTED, R1-v3 DROPPED).
+
+## Grill point 7 (2026-10-24): is the pose-count curve clean?
+
+Datasets: the v1 / v2d / v3 manifests are identical in `inputs` (pose ranges, Euler order), `skeleton`, `cameras`, betas, image size and generator seed (0); only `num_poses` differs (2,000 / 4,000 / 8,000). Generator code commits differ (b7b2f99 / 32b177d / 2f4450c) but the inputs they record are identical.
+
+Confounds that remain:
+- **Gradient steps scale with data.** All three trained for 60 epochs at batch 64, so v3 got 4× the optimizer steps of v1, and R0-v3 was still improving at epoch 56. Part of the "more poses" gain may be "more training". A v1 run with 240 epochs (same steps as v3) would separate the two; about 4 h of CPU.
+- **Each dataset is scored on its own val split** (same distribution, different poses), so the curve compares slightly different exams. Noise from this is small next to the gaps (±0.6 % vs −11 %).
+
+Extrapolation (three points, so this is an exact fit, not a test): val MSE 0.00218 / 0.00178 / 0.00158 has differences halving per doubling, which implies a floor near 0.00138 and about 0.00148 (−6 %) at 12,800 train poses (16,000 total). Probe 175 / 150 / 131 mm has differences shrinking ×0.76, which implies about 117 mm at 12,800. Treat both as rough: a fourth point could change the floor a lot.

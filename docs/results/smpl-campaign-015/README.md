@@ -90,3 +90,16 @@ Extrapolation (three points, so this is an exact fit, not a test): val MSE 0.002
 | real test (ceiling) | 95.0 % | 92.1 % | 73.1 % | 95.0 % | 92.1 % | 75.6 % |
 
 Reading: **the round-trip score barely separates real poses from random ones.** A random training pose at the right camera already "round-trips" for 73–76 % of real images, because silhouettes from one viewpoint overlap heavily (torso, legs). The median real-image IoU is only 0.52 (probe error ≈ 125–175 mm), so the threshold is low. The gap over control is real but small (real test 95 % vs 73 %; β 0.1 prior 87 % vs 75 %). What the metric does support: β 0.1 samples look like bodies about as often as reconstructions do once they are one connected blob (plausible & valid 31 % vs valid 33 %), and β 0.01 samples rarely do. It does not support "most samples are plausible people". A sharper check needs a better probe (point 8) or a pose-prior likelihood; the v3 round-trip is deferred until the training queue ends (it was cut off by the time limit while competing with training).
+
+## Grill point 4 result (2026-10-24): β 0.01 vs β 0.1, both on v3
+
+| | R0-v3 plain | R2-v3 β 0.01 | R2b-v3 β 0.1 |
+|---|---|---|---|
+| Val / test MSE | 0.00158 / 0.00156 | 0.00159 / 0.00157 (+0.7 %) | 0.00161 / 0.00158 (+1.8 % / +1.6 %) |
+| Probe world MPJPE val / test (mm) | 131.0 / 127.5 | 132.3 / 128.4 (+1.3) | 137.3 / 133.0 (+6.3 / +5.6) |
+| Last train KL (nats/image) | – | 262 | 171 |
+| Prior samples valid | 0 % | 32.4 % | **59.0 %** |
+| Prior NN-MSE to train | 0.0110 (blank) | 0.0103 | 0.0095 |
+| Peak RSS | 5.9 GB | 6.1 GB | 5.9 GB |
+
+Verdict R2b-v3: **REPORTED** on val and test (no pixel or latent win). Reading: on equal data, β 0.1 nearly doubles the valid-sample rate (32 → 59 %; fragmented failures 497 → 341) for +1.1 % MSE over β 0.01 and a pose-probe cost of +5 mm (about 1.5–1.9× the seed gap). So the point 4 confound resolves both ways: more data alone took β 0.01 from 5.7 % to 32 %, and β 0.1 adds a further 27 points on top. The choice of β is a trade-off between a sampleable prior and pose information in the latent.

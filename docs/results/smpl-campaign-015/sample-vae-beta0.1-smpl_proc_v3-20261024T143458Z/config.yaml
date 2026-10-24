@@ -1,0 +1,4 @@
+{batch_size: 256, checkpoint: runs/ae-vae-beta0.1-smpl_proc_v3-20261024T065708Z/best.pt,
+  dataset_dir: data/generated/smpl_proc_v3, figure_samples: 32, iou_threshold: 0.075,
+  n_recon: 1024, n_samples: 1024, recon_split: val, reference_checkpoint: runs/ae-smpl_proc_v3-20261023T004930Z/best.pt,
+  run_name: sample-vae-beta0.1-smpl_proc_v3, run_root: runs, seed: 0, split_file: splits/smpl_proc_v3.json}

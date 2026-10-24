@@ -1,0 +1,11 @@
+# Probe round-trip plausibility (spec 016): fixture (tests).
+# Run: strike-a-pose-eval round-trip --config configs/roundtrip_fixture.yaml --sample-run D --probe-run D --smpl-model P
+run_name: roundtrip-fixture
+run_root: runs                         # git-ignored
+seed: 0
+sample_run: runs/sample-fixture        # placeholder; override with --sample-run
+probe_run: runs/probe-fixture          # placeholder; override with --probe-run
+smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
+calibration_percentile: 5.0
+control: true
+figure_samples: 4

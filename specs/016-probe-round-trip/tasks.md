@@ -11,6 +11,9 @@ commit or copy `assets/smpl/SMPL_NEUTRAL.npz` (tests use the synthetic body of
 do not kill it and do not run real (v1 / v3) round trips; tests only. Python 3.11 syntax.
 Touch only the files your batch lists. House style: docstrings cite "spec 016 FR-xxx".
 
+Operator ruling 2026-10-24: `real_test` (first `n_recon` images of the `test` split) is the τ ceiling set,
+replacing `real_val` wherever this file names it; `vae_recon_val` still uses `recon_split`.
+
 ## Stage 0 — design (lead)
 
 - [x] T001 spec.md (surrogate rulings 2026-10-24), plan.md, research.md, data-model.md, tasks.md.
@@ -20,7 +23,7 @@ Touch only the files your batch lists. House style: docstrings cite "spec 016 FR
 Files: `src/strike_a_pose/eval/roundtrip_config.py`, `src/strike_a_pose/eval/roundtrip.py`,
 `configs/roundtrip_fixture.yaml`, `tests/test_roundtrip.py`.
 
-- [ ] T010 Tests (red first) in new `tests/test_roundtrip.py` (autouse fixture
+- [X] T010 Tests (red first) in new `tests/test_roundtrip.py` (autouse fixture
   `monkeypatch.chdir(ROOT)` as in `tests/test_sample.py`):
   - `test_config()`: `load_config("configs/roundtrip_fixture.yaml")` loads; defaults
     `calibration_percentile == 5.0`, `control is True`, `figure_samples == 8`, `seed == 0`;
@@ -60,7 +63,7 @@ Files: `src/strike_a_pose/eval/roundtrip_config.py`, `src/strike_a_pose/eval/rou
   - `test_iou_histogram_figure()`: `iou_histogram_figure({"a": np.array([0.1, 0.9]),
     "b": np.array([])}, 0.5)` returns a PIL image, mode `"L"`, size
     `(HIST_W, HIST_HEADER + 2 * HIST_ROW_H)`; deterministic (two calls `tobytes()` equal).
-- [ ] T011 `src/strike_a_pose/eval/roundtrip_config.py` modelled on `sample_config.py`:
+- [X] T011 `src/strike_a_pose/eval/roundtrip_config.py` modelled on `sample_config.py`:
   `@dataclass(frozen=True) class RoundTripConfig` with fields and defaults of data-model.md
   (`sample_run: str`, `probe_run: str`, `smpl_model_path: str = "assets/smpl/SMPL_NEUTRAL.npz"`,
   `run_name: str = "roundtrip"`, `run_root: str = "runs"`, `seed: int = 0`,
@@ -68,17 +71,17 @@ Files: `src/strike_a_pose/eval/roundtrip_config.py`, `src/strike_a_pose/eval/rou
   `to_dict()`, `with_overrides(**kw)`; `config_from_dict(data) -> RoundTripConfig` (rules of
   data-model.md; int percentile accepted and stored as float; bool rejected for numbers);
   `load_config(path) -> RoundTripConfig` (YAML errors → `ConfigError`, as `sample_config`).
-- [ ] T012 `configs/roundtrip_fixture.yaml`: header comment (spec 016, fixture, tests; run line
+- [X] T012 `configs/roundtrip_fixture.yaml`: header comment (spec 016, fixture, tests; run line
   `strike-a-pose-eval round-trip --config configs/roundtrip_fixture.yaml --sample-run D
   --probe-run D --smpl-model P`), `run_name: roundtrip-fixture`, `run_root: runs`, `seed: 0`,
   `sample_run: runs/sample-fixture` and `probe_run: runs/probe-fixture` (placeholders,
   overridden), `smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz`, `calibration_percentile: 5.0`,
   `control: true`, `figure_samples: 4`.
-- [ ] T013 `src/strike_a_pose/eval/roundtrip.py` (module docstring "Probe round-trip
+- [X] T013 `src/strike_a_pose/eval/roundtrip.py` (module docstring "Probe round-trip
   plausibility of VAE samples (spec 016)"), constants `ROUND_TRIP_VERSION = 1`,
   `CONTROL_STREAM = 16`, `QUANTILES = (5, 25, 50, 75, 95)`, `HIST_BINS = 20`, `HIST_W = 480`,
   `HIST_HEADER = 20`, `HIST_ROW_H = 60`, `SET_ORDER = ("vae_prior", "ae_prior", "vae_recon_val",
-  "real_val")`, and:
+  "real_test")`, and:
   - `silhouette_iou(a: np.ndarray, b: np.ndarray) -> float` (bool masks; `ValueError` on shape
     mismatch; 0.0 when the union is empty).
   - `calibrate_threshold(ious: np.ndarray, percentile: float) -> float` =
@@ -123,10 +126,10 @@ Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
     `config.yaml`, `run_info.json`, `samples.json`, `round_trip_per_image.json`,
     `round_trip.png`, `round_trip_iou.png`; `samples.json["sets"]` keys in `SET_ORDER` order
     (`ae_prior` present); every set has `round_trip` with `n == ` the source `n` (8 / 8 / 4) and
-    `real_val["round_trip"]["n"] == 4`; `real_val["round_trip"]["plausible_fraction"] >= 0.95`;
+    `real_test["round_trip"]["n"] == 4`; `real_test["round_trip"]["plausible_fraction"] >= 0.95`;
     every source set's original fields are unchanged (dict equality with the source
     `samples.json` minus `round_trip`); `round_trip_criteria.calibration.tau` equals
-    `calibrate_threshold(per_image["real_val"]["iou"], 5.0)` after `round_sig`;
+    `calibrate_threshold(per_image["real_test"]["iou"], 5.0)` after `round_sig`;
     `smpl_model.matches_manifest is False` (synthetic body); `probe.refit.split == "test"`,
     `probe.refit.matches is True`; `run_info.json` has `peak_rss_mb > 0` and `wall_s`;
     runtime < 60 s.
@@ -175,7 +178,7 @@ Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
     vae.latent_dim, generator=torch.Generator().manual_seed(scfg.seed))`; `decode_batches` for
     `vae_prior` and, if `ref`, `ae_prior`; `xv = _val_images(val_ds, min(scfg.n_recon,
     len(val_ds)), scfg.batch_size)`; μ-decode → `vae_recon_val`), plus
-    `real_val = xv.reshape(xv.shape[0], -1)`; keys in `SET_ORDER` order. Import
+    `real_test = xv.reshape(xv.shape[0], -1)`; keys in `SET_ORDER` order. Import
     `decode_batches, _val_images, classify` from `.sample`.
   - `check_reproduced(images: dict, source: dict, image_size) -> dict[str, np.ndarray]`: with
     `lo, hi = source["criteria"]["area_bounds_px"]` and `t = source["criteria"]["iou_threshold"]`,
@@ -183,12 +186,12 @@ Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
     present in `source["sets"]`, `ConfigError(f"sample run not reproduced: {name} …")` unless
     `round_sig(float(fg.sum(px).mean())) == source.foreground_px_mean` and
     `round_sig(valid.mean()) == source.valid_fraction`; a source set missing from `images` or
-    vice versa (except `real_val`) → `ConfigError`. Returns `{set: valid}` for all sets.
+    vice versa (except `real_test`) → `ConfigError`. Returns `{set: valid}` for all sets.
   - `run_round_trip(cfg: RoundTripConfig, argv=None, log=None) -> Path` following plan.md
     "Flow" and FR-002 – FR-008: all refusals before `make_run_dir`; the control uses
     `np.random.default_rng([cfg.seed, CONTROL_STREAM, SET_ORDER.index(name)])
     .integers(0, n_train_poses, size=n)` over train rows with `camera_index == 0`; τ from
-    `real_val` before summarizing any set; the `real_val` set record gets the 015 fields computed
+    `real_test` before summarizing any set; the `real_test` set record gets the 015 fields computed
     with `classify` (fail counts), `nn_mse_mean` / `nn_mse_median` `None`; figure
     `round_trip.png` = `grid_figure([("vae prior", s), ("re-render", r), ("real val", x),
     ("re-render", rx)], image_size)` on the first `min(figure_samples, n)` of each (re-renders
@@ -205,7 +208,7 @@ Files: `src/strike_a_pose/eval/roundtrip.py`, `src/strike_a_pose/eval/cli.py`,
   `FileExistsError` → `EXIT_EXISTS`); after `wrote <dir>` prints per set
   `f"  {name}: plausible {rt['plausible_fraction']:.3f} valid {s['valid_fraction']:.3f}
   iou_p50 {rt['iou_quantiles']['p50']:.3f}"` (use `"n/a"` for `None`), then
-  `f"  tau {tau:.4f} (p{percentile:g} of real_val)"`. Wire `a.cmd == "round-trip"` in `main`.
+  `f"  tau {tau:.4f} (p{percentile:g} of real_test)"`. Wire `a.cmd == "round-trip"` in `main`.
   Acceptance: whole suite green.
 
 ## Batch B3 — apply to the existing runs + docs (spec FR-009; after B2 is committed)
@@ -237,9 +240,9 @@ Files: `configs/roundtrip_vae.yaml`, `configs/roundtrip_vae_beta0.1.yaml`,
   launches it (`nohup sh docs/campaign-scripts/roundtrip016.sh &`).
 - [ ] T032 (after the runs) README section "## 016 round-trip plausibility (2026-10-xx)" in
   `docs/results/smpl-campaign-015/README.md`: one table per run, rows `vae_prior`, `ae_prior`,
-  `vae_recon_val`, `real_val`, columns n, valid (015), plausible, plausible & valid, IoU p50,
+  `vae_recon_val`, `real_test`, columns n, valid (015), plausible, plausible & valid, IoU p50,
   control p50, control plausible; a line with τ, the refit check and the SMPL match; the
   reading of SC-002 (`vae_prior` plausible fraction vs control plausible fraction, and vs
-  `real_val` 0.95); cite run dirs; copy each run's `samples.json`, `round_trip_iou.png` and
+  `real_test` 0.95); cite run dirs; copy each run's `samples.json`, `round_trip_iou.png` and
   `round_trip.png` into `docs/results/smpl-campaign-015/<run dir name>/` (no checkpoints, no
   SMPL file). Roadmap changelog line "2026-10-xx: slice 016 runs done …".

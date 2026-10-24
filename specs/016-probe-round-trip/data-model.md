@@ -26,7 +26,7 @@ Source keys unchanged and in place, plus:
 "source_sample_run": {"path", "samples_sha256"},
 "round_trip_criteria": {
   "silhouette_threshold": <source criteria.iou_threshold>,
-  "calibration": {"set": "real_val", "split": <recon_split>, "percentile": 5.0,
+  "calibration": {"set": "real_test", "split": "test", "percentile": 5.0,
                   "method": "lower", "n": int, "tau": float},
   "probe": {"run": path, "metrics_sha256", "checkpoint_sha256",
             "weight_decay": {"smpl_pose": float, "yaw": float},
@@ -36,7 +36,7 @@ Source keys unchanged and in place, plus:
   "render": "SMPLModel.forward(predicted 72-d pose, zero betas); ring camera of the predicted yaw class",
   "control": {"enabled": bool, "stream": 16, "train_poses": int}},
 "sets": {<each source set>: {... 015 fields ..., "round_trip": RT},
-         "real_val": {"n", "valid_fraction", "fail_empty", "fail_area", "fail_components",
+         "real_test": {"n", "valid_fraction", "fail_empty", "fail_area", "fail_components",
                       "nn_mse_mean": null, "nn_mse_median": null, "foreground_px_mean",
                       "round_trip": RT}}
 RT = {"n", "iou_mean", "iou_quantiles": {"p5", "p25", "p50", "p75", "p95"},
@@ -45,7 +45,7 @@ RT = {"n", "iou_mean", "iou_quantiles": {"p5", "p25", "p50", "p75", "p95"},
       "control_plausible_fraction": float | null}
 ```
 
-Set order everywhere: `vae_prior`, `ae_prior` (if in source), `vae_recon_val`, `real_val`.
+Set order everywhere: `vae_prior`, `ae_prior` (if in source), `vae_recon_val`, `real_test`.
 Floats go through `write_json_exact` (`round_sig`, 6 significant digits). Empty set (n = 0):
 `iou_mean`, quantiles, fractions null.
 

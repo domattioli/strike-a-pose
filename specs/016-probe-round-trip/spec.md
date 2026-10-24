@@ -8,7 +8,7 @@ basis (clarification batch 1 answered by surrogate ruling 2026-10-24, below)
 body-sized connected silhouette) is too weak. Add a probe round-trip plausibility metric: encode
 each sample with the VAE encoder (μ), predict pose / camera with the trained probe, re-render the
 predicted body with the repo's NumPy SMPL rasterizer, score silhouette IoU between re-render and
-sample; report a plausible fraction at an a-priori threshold calibrated on real val images, the
+sample; report a plausible fraction at an a-priori threshold calibrated on real test images, the
 IoU distribution and the existing valid fraction, in `samples.json` and a figure. CPU-cheap.
 
 Settled context (checked at the branch head, 2026-10-24):
@@ -42,7 +42,7 @@ Settled context (checked at the branch head, 2026-10-24):
 ### User Story 1 - Round-trip plausibility of prior samples (Priority: P1)
 
 The researcher runs `strike-a-pose-eval round-trip --config …` on an existing sample run and its
-VAE's probe run and gets, per set (`vae_prior`, `ae_prior`, `vae_recon_val`, `real_val`), the
+VAE's probe run and gets, per set (`vae_prior`, `ae_prior`, `vae_recon_val`, `real_test`), the
 round-trip IoU distribution and the fraction of images whose IoU reaches a threshold calibrated
 on real val images, next to the 015 valid fraction, so "the sample looks like *a* body in *some*
 pose" is measured, not only "one blob of body size".
@@ -50,7 +50,7 @@ pose" is measured, not only "one blob of body size".
 **Independent Test**: on the fixture (random VAE, fixture probe run, synthetic body model) the
 command writes a run dir with `samples.json` (source sets + `round_trip` blocks),
 `round_trip_per_image.json`, `round_trip.png`, `round_trip_iou.png`; two runs give byte-identical
-JSON; `real_val.plausible_fraction ≥ 1 − p/100`.
+JSON; `real_test.plausible_fraction ≥ 1 − p/100`.
 
 **Acceptance Scenarios**:
 
@@ -93,8 +93,7 @@ README gains the table.
   run's targets include `smpl_pose` and `yaw`; dataset renderable (edge case); SMPL file exists
   (`MissingAssetError` → `ConfigError`).
 - **FR-003** Rebuild the sets exactly as `run_sample` does (same seed, decoders, `n_recon`,
-  `recon_split`) plus **`real_val`** = the same first `n_recon` images of `recon_split` (the
-  inputs of `vae_recon_val`); verify each rebuilt 015 set reproduces the source
+  `recon_split`) plus **`real_test`** = the first `n_recon` images of the `test` split (operator ruling, Clarifications batch 2); verify each rebuilt 015 set reproduces the source
   `foreground_px_mean` (after `round_sig`) and `valid_fraction` (with the source area bounds),
   else `ConfigError("sample run not reproduced: …")`. No NN-MSE is recomputed.
 - **FR-004** Probe refit: load latents with `probe.load_or_extract` (probe config, its encoders,
@@ -111,7 +110,7 @@ README gains the table.
   re-render mask = `render(SMPLModel.forward(pose, betas)[0], faces, cam)[1] > 0`; sample
   silhouette = image > `iou_threshold` of the sample run; IoU = |A ∧ B| / |A ∨ B| (0 if union
   empty).
-- **FR-006** Threshold (pre-registered): τ = `np.percentile(IoU(real_val), p, method="lower")`
+- **FR-006** Threshold (pre-registered): τ = `np.percentile(IoU(real_test), p, method="lower")`
   with p = `calibration_percentile` = 5.0: a sample is **plausible** iff IoU ≥ τ, i.e. it
   round-trips at least as well as the worst 5 % of real images. τ depends on real images only,
   is computed before any sample set is scored, and is reported.
@@ -120,7 +119,7 @@ README gains the table.
   same predicted camera; report the control IoU median and control plausible fraction.
 - **FR-008** Outputs in a new run dir `<run_root>/<run_name>-<UTC>`: `config.yaml`;
   `samples.json` = source `samples.json` with `round_trip_version`, `source_sample_run`,
-  `round_trip_criteria` and per set `round_trip` blocks added (and the new set `real_val` whose
+  `round_trip_criteria` and per set `round_trip` blocks added (and the new set `real_test` whose
   015 fields are `valid_fraction` / fail counts / `foreground_px_mean`, `nn_mse_*` null);
   `round_trip_per_image.json`; `round_trip.png` (8 rows: VAE prior sample | its re-render | real
   val image | its re-render); `round_trip_iou.png` (IoU histogram per set, τ line);
@@ -139,7 +138,7 @@ README gains the table.
 
 - **SC-001** Each v1 / v3 round-trip run ≤ 15 min wall on 4 vCPU, ≤ 3 GB peak RSS.
 - **SC-002** The README states, per run, τ, the plausible fraction of `vae_prior` vs `ae_prior`,
-  `vae_recon_val`, `real_val` and the control, and whether `vae_prior` exceeds the control by
+  `vae_recon_val`, `real_test` and the control, and whether `vae_prior` exceeds the control by
   more than the control's own spread.
 - **SC-003** Unit and fixture tests cover IoU, τ, camera parsing, re-render identity,
   summaries, refusals, determinism; suite green.
@@ -178,3 +177,11 @@ Answers: Q1 → (a). Q2 → (a). Q3 → (a). Q4 → (a). Q5 → (a). Questions a
 5. **Chance control.** (a) Add the shuffled-pose control (random train pose, same predicted
    camera); (b) none. Default (a): an IoU between two body silhouettes at the same camera is
    high by chance (shared torso / legs), so plausibility needs a floor to be read against.
+
+### Batch 2 (operator ruling 2026-10-24)
+
+1. **Calibration set.** The ceiling that calibrates τ is the round-trip IoU of real **test**
+   images (set `real_test`: the first `n_recon` images of the `test` split), not val: the probe
+   used val to select its weight decay. `vae_recon_val` is unchanged (its inputs are
+   `recon_split`). `calibration.split` is `"test"`.
+2. **Promotion.** The plausible fraction stays report-only; it is not part of any promotion rule.

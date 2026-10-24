@@ -34,12 +34,13 @@ per render (generation ≈ 19 ms / image incl. PNG); 4 sets × 1,024 × 2 (round
 ## R3 Threshold calibration
 
 The probe is imperfect (22.5° mean joint angle on v3 val), so even real images do not round-trip
-to IoU 1. The ceiling is the round-trip IoU distribution of real val images; a sample is
+to IoU 1. The ceiling is the round-trip IoU distribution of real test images; a sample is
 plausible if it does as well as a typical real image's lower tail. τ = 5th percentile with
-`method="lower"` (an order statistic, so `fraction(IoU ≥ τ) ≥ 0.95` on real val exactly, ties
+`method="lower"` (an order statistic, so `fraction(IoU ≥ τ) ≥ 0.95` on real test exactly, ties
 included). The rule is fixed here before any number is seen; only its value is data-derived,
-from real images only. Real val images were also used by the probe to pick the weight decay
-(3 values): a negligible optimistic bias on the ceiling, noted in the README; test is reserved.
+from real images only. The probe picked its weight decay on val (3 values), so the ceiling is
+calibrated on real **test** images (operator ruling 2026-10-24, spec Clarifications batch 2):
+no selection bias on the ceiling.
 
 ## R4 Circularity (the 015 Q3 objection)
 

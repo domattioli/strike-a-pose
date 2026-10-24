@@ -1,5 +1,5 @@
 #!/bin/sh
-# Grill queue (operator 2026-10-24, point 1: third R0-v3 seed); reuses the 015 queue helpers.
+# Grill queue (operator 2026-10-24; point 1: third R0-v3 seed; point 4: VAE beta 0.1 on v3 + sampling); reuses the 015 queue helpers.
 # Former header: Spec 015 campaign queue (operator 2026-10-22; order: surrogate ruling Q2 (a)):
 #   R2b (VAE beta 0.1, v1) + probe -> sampling of R2b and R2 (v1) ->
 #   smpl_proc_v3: generate, split, baselines [mem gate], R0-v3 [mem gate], R0b-v3, R2-v3,
@@ -75,13 +75,19 @@ t = time.monotonic(); a = load_split(ds, 256); print(f'{a[\"n\"]} images {time.m
   fi
   mem_gate "$b"
 }
-TRAIN="ae-seed2-smpl_proc_v3"
-pending() { d=$(latest ae-seed2-smpl_proc_v3); [ -z "$d" ] && return 0; [ ! -f "$d/metrics.json" ] && [ ! -f "$d/aborted.json" ] && return 0; [ -f "$d/probed.txt" ] || return 0; return 1; }
+TRAIN="ae-seed2-smpl_proc_v3 ae-vae-beta0.1-smpl_proc_v3"
+pending() {  # point 1 seed 2, point 4 beta 0.1 on v3 (+ probes) and its sampling
+  for n in $TRAIN; do d=$(latest $n); [ -z "$d" ] && return 0; [ -f "$d/aborted.json" ] && continue; [ ! -f "$d/metrics.json" ] && return 0; [ -f "$d/probed.txt" ] || return 0; done
+  ls runs/sample-vae-beta0.1-smpl_proc_v3-2026*/samples.json >/dev/null 2>&1 || return 0
+  return 1
+}
 pass=0
 while [ $pass -lt 5 ]; do
 pass=$((pass+1)); log "pass $pass"
 c=configs/smpl_proc_v3
 train $c/ae_seed2.yaml ae-seed2-smpl_proc_v3 $c/probe.yaml
+train $c/ae_vae_beta0.1.yaml ae-vae-beta0.1-smpl_proc_v3 $c/probe.yaml
+sample_run $c/sample_vae_beta0.1.yaml ae-vae-beta0.1-smpl_proc_v3 ae-smpl_proc_v3 sample-vae-beta0.1-smpl_proc_v3
 pending || break
 done
 pending && { log "QUEUE_INCOMPLETE after $pass passes (see FAILED/exit lines)"; exit 1; }

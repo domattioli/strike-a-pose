@@ -574,7 +574,11 @@ steps candidates: more poses (8,000 / AMASS), the VAE β 0.1 follow-up, R1 + VAE
 combined realistic dataset; (3) recalibrate the 014 intersection check; (4) sign-off on
 007-014 and the capsule license reading.
 
-## 015 campaign (ready 2026-10-22, not started)
+## 015 campaign (done 2026-10-24; results docs/results/smpl-campaign-015/)
+
+QUEUE_DONE 2026-10-24 02:46 UTC. R0-v3 0.00158 / 131 mm; R0b-v3 noise 0.6 % / 3.3 mm; R2-v3 (VAE β 0.01) REPORTED (+0.7 %, 132 mm, prior 32 % valid); R1-v3 (mask) DROPPED (+14.5 %, 124.5 mm). Open: operator call on whether the mask-weighted pose/pixel trade should be accepted; more poses still helps.
+
+Original plan:
 
 Slice 015 `pose-scale-and-sampling` (spec, plan, tasks under `specs/015-pose-scale-and-sampling/`):
 `smpl_proc_v3` (8,000 poses) configs, baselines with uint8 train images (no image PCA; v3 peak

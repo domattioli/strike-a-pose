@@ -414,7 +414,14 @@ probe) while giving a sampleable latent; mask-weighted MSE gives worse pixels (+
 clearly better pose latent (162 mm); the regularization bundle did not help. Under the
 promotion rule of slice 015 (pixel or latent win; operator decision 2026-10-22) R1 is
 dropped (it misses the +5 % MSE bound of a latent win, probe gain 4.4× the noise), R2 and R3
-are reported, not carried. Slice 015 (8,000 poses, VAE β 0.1, prior sampling) is ready to run.
+are reported, not carried. Slice 015 (8,000 poses, VAE β 0.1, prior sampling) ran next.
+
+**Slice 015 campaign (2026-10-24).** Full results: [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/README.md).
+With 8,000 poses (v3) the plain AE reaches val MSE 0.00158 (−27 % vs v1) and probe MPJPE 131 mm
+(v1 175), still improving with pose count. Seed noise on v3: 0.6 % MSE, 3.3 mm probe. A VAE
+with β 0.01 on v3 costs nothing measurable (+0.7 %, 132 mm; reported) and its prior samples are
+32 % valid silhouettes (5.7 % on v1); β 0.1 on v1 gave 33 %. Mask-weighted MSE again gives the
+best pose latent (124.5 mm) at +14.5 % MSE and is dropped by the promotion rule.
 
 ## Development checks
 

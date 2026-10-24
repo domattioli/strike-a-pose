@@ -123,6 +123,9 @@ count unchanged; the script on a synthetic config prints the rate, passes / fail
     of the best-fit rigid motion of its vertices (rest → posed, Kabsch / orthogonal Procrustes,
     proper rotation);
   - an arm vertex counts once if it lies inside any segment's volume.
+
+  Superseded in part by spec 017 (2026-10-24): spine3 capped at the shoulders − 5 cm, ≥ 0.4 % of
+  arm vertices per pose; real-SMPL rates in 017 research R4.
   Rationale (research R1): human torso cross-sections are close to ellipses wider than deep;
   inscribing the ellipse in the box excludes the box corners; per-segment rigid frames follow
   spine bending; Kabsch uses only vertices and skinning weights (no model internals, works for

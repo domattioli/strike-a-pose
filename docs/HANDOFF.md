@@ -86,10 +86,11 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   `configs/smpl_proc_v{2,3,4,5}/` removed. The arms-down table is `armsdown-v1` (no alias;
   never generated under its old name); v2a's confound (narrowed shoulder / collar z: less pose
   variety; more limb–torso overlap) is documented in 010 FR-003. `scripts/intersection_check.py`
-  (`datagen/intersection.py`, NumPy): share of poses with an arm vertex inside the torso
-  (per-segment elliptic cylinders, Kabsch-fitted rest frames, 1 cm margin); v2a's split is not
-  frozen above 5 %; the visual check stays. Verified on the synthetic body only (the real-SMPL
-  rate is unknown until the v2a step).
+  (`datagen/intersection.py`, NumPy): share of poses with at least 0.4 % of the arm vertices
+  (11 of 2,559 on SMPL) inside the torso (per-segment elliptic cylinders, Kabsch-fitted rest
+  frames, 1 cm margin, spine3 half-width capped at the rest shoulder half-span − 5 cm; spec 017
+  recalibration of 014). Hard gate: v2a's split is not frozen above 5 %; the visual check stays.
+  Real SMPL: v1 1.75 %, v2d 2.23 %, v3 2.24 %, armsdown-v1 23 % (FAIL).
 - Slice 013 `capsule-body` (operator decision 2026-10-21: SMPL still unavailable) implemented
   2026-10-21; approved at surrogate scope (rulings Q1 mirror the campaign with v2a–v2d, Q2 (a),
   Q3 (b)), operator sign-off pending. `datagen/capsule.py` + `strike-a-pose-data
@@ -209,8 +210,8 @@ git add docs/results/campaign/r0 docs/HANDOFF.md   # commit "docs(campaign): R0 
 
 # dataset step (DS = smpl_proc_v2a, smpl_proc_v2b, smpl_proc_v2c, smpl_proc_v2d)
 launch "$DS" bash -c "uv run --locked strike-a-pose-data generate --config configs/$DS/generate.yaml --seed 0 && uv run --locked strike-a-pose-data validate data/generated/$DS"
-# v2a only: the intersection gate (exit 1 = FAIL: more than 5 % of the poses have an arm
-# vertex inside the torso; then no split, see the step rule), then the visual check (010
+# v2a only: the intersection gate (spec 017 rule; exit 1 = FAIL: more than 5 % of the poses have
+# >= 0.4 % of the arm vertices inside the torso; real SMPL armsdown-v1 ~ 23 %; then no split, see the step rule), then the visual check (010
 # tasks.md, Follow-up R); v2c: the jitter fallback count (same place); then the split
 if [ "$DS" = smpl_proc_v2a ]; then
   uv run --locked python scripts/intersection_check.py --config configs/$DS/generate.yaml \

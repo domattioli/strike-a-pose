@@ -30,3 +30,19 @@ Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.002
 - The VAE is free on v3 (inside noise) and, with 4× the poses, its prior becomes as generative at β 0.01 (32 %) as β 0.1 was on v1 (33 %).
 - Mask weighting again trades pixels for pose information (−6.6 mm probe, borderline vs a two-seed noise bar; +14.5 % MSE); the promotion rule drops it. Whether that trade is wanted is an operator call.
 - No memory stops; peak RSS ≤ 5.9 GB for training.
+
+## Grill point 3 (2026-10-24): region rescore, val
+
+Question: is R1-v3's +14.5 % whole-image MSE mostly background it was told to down-weight?
+
+| Run | Whole | Hands | Feet | Head | IoU |
+|---|---|---|---|---|---|
+| R0-v3 | 0.00158 | 0.02542 | 0.02166 | 0.01338 | 0.905 |
+| R0b-v3 | 0.00159 (+0.6 %) | 0.02547 (+0.2 %) | 0.02178 (+0.5 %) | 0.01339 (+0.1 %) | 0.904 |
+| R2-v3 | 0.00159 (+0.7 %) | 0.02541 (−0.0 %) | 0.02201 (+1.6 %) | 0.01332 (−0.5 %) | 0.904 |
+| R1-v3 | 0.00181 (+14.5 %) | 0.02934 (+15.4 %) | 0.02428 (+12.1 %) | 0.01517 (+13.4 %) | 0.856 |
+
+Answer: no. R1-v3 is 12–15 % worse on every body region and its silhouette IoU drops 0.905 → 0.856,
+so the pixel cost is on the body, not the background. The DROPPED verdict stands on fair grounds;
+its latent encodes pose a bit better while drawing the body worse. R2-v3 matches R0-v3 on every
+region (within the R0/R0b spread, except feet +1.6 %).

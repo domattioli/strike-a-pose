@@ -1,13 +1,15 @@
 """Limb–torso intersection check of a procedural dataset's poses (spec 014; campaign v2a gate).
 
     uv run --locked python scripts/intersection_check.py --config CFG --seed 0
-        [--num-poses N] [--smpl-model PATH] [--threshold 0.05] [--margin-m 0.01] [--json]
+        [--num-poses N] [--smpl-model PATH] [--threshold 0.05] [--margin-m 0.01]
+        [--shoulder-clearance-m 0.05] [--json]
 
 Samples the config's poses exactly as `strike-a-pose-data generate` does (same table, seed and
 pose stream; per-pose betas from the dataset's stream when body_shape is set), poses the body
 model and counts, per pose, the arm vertices (dominant joints 16-23) inside the torso (dominant
 joints 0, 3, 6, 9; per-segment inscribed elliptic cylinders, strike_a_pose.datagen.intersection).
-FAIL when the fraction of poses with at least one such vertex exceeds the threshold. Writes
+FAIL when the fraction of poses with at least `ceil(0.4 %)` of the arm vertices inside (spec 017;
+spine3 capped at the shoulders minus the clearance) exceeds the threshold. Writes
 nothing. Exit 0 pass, 1 fail, 2 config error / AMASS source / invalid check (the rest pose
 intersects, a degenerate torso segment), 3 missing body model.
 """
@@ -26,6 +28,7 @@ from strike_a_pose.datagen.intersection import (
     ARM_JOINTS,
     MARGIN_M,
     MAX_INTERSECTING_FRACTION,
+    SHOULDER_CLEARANCE_M,
     TORSO_JOINTS,
     survey,
 )
@@ -45,6 +48,8 @@ def check(a: argparse.Namespace) -> tuple[int, dict]:
         raise ConfigError("--num-poses must be >= 1")
     if not 0.0 <= a.threshold <= 1.0 or a.margin_m < 0:
         raise ConfigError("--threshold must be in [0, 1] and --margin-m >= 0")
+    if a.shoulder_clearance_m < 0:
+        raise ConfigError("--shoulder-clearance-m must be >= 0")
     model_path = Path(a.smpl_model or cfg.smpl_model_path)
     body = SMPLModel.load(model_path)
     poses = sample_procedural_poses(n, a.seed, cfg.ranges_version)
@@ -56,11 +61,13 @@ def check(a: argparse.Namespace) -> tuple[int, dict]:
         for p in poses
     ]
     try:
-        s = survey(body, [np.array(p.pose) for p in poses], betas, a.margin_m)
+        s = survey(
+            body, [np.array(p.pose) for p in poses], betas, a.margin_m, a.shoulder_clearance_m
+        )
     except ValueError as e:
         raise ConfigError(f"invalid check: {e}") from e
     rest_bad = sum(c > 0 for c in s.rest_counts)
-    hits = sorted(((c, i) for i, c in enumerate(s.counts) if c > 0), reverse=True)
+    hits = sorted(((c, i) for i, c in enumerate(s.counts) if c >= s.min_inside), reverse=True)
     report = {
         "config": str(a.config), "dataset_name": cfg.dataset_name,
         "ranges_version": cfg.ranges_version, "seed": a.seed, "poses": n,
@@ -69,6 +76,8 @@ def check(a: argparse.Namespace) -> tuple[int, dict]:
         "torso_joints": list(TORSO_JOINTS), "arm_joints": list(ARM_JOINTS),
         "torso_vertices": {str(k): v for k, v in s.torso_vertices.items()},
         "arm_vertices": s.arm_vertices, "margin_m": a.margin_m,
+        "check_version": "017", "shoulder_clearance_m": a.shoulder_clearance_m,
+        "spine3_half_x_m": round(s.spine3_half_x, 6), "min_inside_vertices": s.min_inside,
         "rest_poses_intersecting": rest_bad,
         "intersecting_poses": s.intersecting, "fraction": s.fraction, "threshold": a.threshold,
         "count_median": statistics.median(c for c, _ in hits) if hits else 0,
@@ -91,7 +100,9 @@ def _print(r: dict) -> None:
     tv = ", ".join(f"{k}: {v}" for k, v in r["torso_vertices"].items())
     print(
         f"torso joints {r['torso_joints']} (vertices {tv}); arm joints 16-23 "
-        f"({r['arm_vertices']} vertices); margin {r['margin_m']:.3f} m"
+        f"({r['arm_vertices']} vertices); margin {r['margin_m']:.3f} m; spine3 half-width "
+        f"{r['spine3_half_x_m']:.3f} m (shoulder clearance {r['shoulder_clearance_m']:.3f} m); "
+        f"a pose intersects at >= {r['min_inside_vertices']} arm vertices"
     )
     print(
         f"rest pose: {r['rest_poses_intersecting']} intersecting"
@@ -118,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--smpl-model", default=None, help="body model (default: the config's)")
     p.add_argument("--threshold", type=float, default=MAX_INTERSECTING_FRACTION)
     p.add_argument("--margin-m", type=float, default=MARGIN_M)
+    p.add_argument("--shoulder-clearance-m", type=float, default=SHOULDER_CLEARANCE_M)
     p.add_argument("--json", action="store_true", help="print the report as JSON")
     a = p.parse_args(argv)
     try:

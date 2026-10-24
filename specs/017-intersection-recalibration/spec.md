@@ -47,6 +47,12 @@ seed 0, CPU, ≤ 1 GB; scripts and figures in the session scratchpad, not commit
   the residual gone anyway, the option would be narrowing spine1 y (±75° → ±45°) — not designed
   here, operator-gated.
 
+### Session 2026-10-24 (operator rulings)
+
+- Operator ruling 1: the recalibrated check IS a hard 5 % gate again for realism datasets (v2a
+  etc.), confirming Q4 (`MAX_INTERSECTING_FRACTION` unchanged, exit 1 on FAIL).
+- Operator ruling 2: no pose-table change (spine1 y range stays), confirming Q5.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A check that means something on real SMPL (Priority: P1)

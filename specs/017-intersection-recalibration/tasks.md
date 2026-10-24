@@ -21,7 +21,7 @@ docstrings cite "spec 017 FR-xxx".
 Files: `src/strike_a_pose/datagen/intersection.py`, `scripts/intersection_check.py`,
 `tests/test_intersection.py`.
 
-- [ ] T010 Tests (red first), edits to `tests/test_intersection.py`:
+- [X] T010 Tests (red first), edits to `tests/test_intersection.py`:
   - Update every call to the new signatures (data-model.md): `_count` builds
     `rest, rest_j = body.forward(np.zeros(72), ZERO_BETAS)` and calls
     `count_arm_torso_intersections(rest, rest_j, verts, body.weights, margin)`; same in
@@ -63,7 +63,7 @@ Files: `src/strike_a_pose/datagen/intersection.py`, `scripts/intersection_check.
     `sample_procedural_poses(2000, 0)` with betas 0: `s.min_inside == 11`,
     `s.arm_vertices == 2559`, `abs(s.intersecting - 35) <= 2`,
     `s.spine3_half_x == pytest.approx(0.1238, abs=5e-4)`. Measured ≈ 12 s.
-- [ ] T011 `src/strike_a_pose/datagen/intersection.py`:
+- [X] T011 `src/strike_a_pose/datagen/intersection.py`:
   - Constants `SPINE3 = 9`, `SHOULDER_JOINTS = (16, 17)`, `SHOULDER_CLEARANCE_M = 0.05`
     (comment: "≈ SMPL upper-arm radius; spec 017 FR-001"), `MIN_INSIDE_FRACTION = 0.004`.
   - `def min_inside_vertices(arm_vertices: int) -> int: return max(1, math.ceil(
@@ -84,7 +84,7 @@ Files: `src/strike_a_pose/datagen/intersection.py`, `scripts/intersection_check.
     `rest, rest_j = body.forward(np.zeros(72), b)`; pass both. Module docstring: add the cap and
     the per-pose minimum, "spec 017 FR-001, FR-002 (014's box reached past the shoulders on
     real SMPL: 80 % of v1 poses flagged by armpit skin)".
-- [ ] T012 `scripts/intersection_check.py`: import `SHOULDER_CLEARANCE_M`; flag
+- [X] T012 `scripts/intersection_check.py`: import `SHOULDER_CLEARANCE_M`; flag
   `--shoulder-clearance-m` (float, default `SHOULDER_CLEARANCE_M`, must be ≥ 0 else
   `ConfigError`); pass to `survey`; `hits` = poses with `c >= s.min_inside`; report adds
   `"check_version": "017"`, `"shoulder_clearance_m": a.shoulder_clearance_m`,
@@ -93,7 +93,7 @@ Files: `src/strike_a_pose/datagen/intersection.py`, `scripts/intersection_check.
   {shoulder_clearance_m:.3f} m); a pose intersects at >= {min_inside_vertices} arm vertices`.
   Docstring: usage line gains `[--shoulder-clearance-m 0.05]`; the "FAIL when" sentence says
   "poses with at least `ceil(0.4 %)` of the arm vertices inside (spec 017)".
-- [ ] T013 Verification run (real SMPL, after green): `uv run --locked python
+- [X] T013 Verification run (real SMPL, after green): `uv run --locked python
   scripts/intersection_check.py --config configs/smpl_proc_v2d/generate.yaml --seed 0` →
   expect `89 / 4000 = 2.23 %` (±2 poses), PASS, exit 0. Paste the output into the report.
 
@@ -101,10 +101,10 @@ Files: `src/strike_a_pose/datagen/intersection.py`, `scripts/intersection_check.
 
 Files: `specs/014-realism-ablations/spec.md`, `docs/HANDOFF.md`.
 
-- [ ] T020 014 spec: under FR-004 add one line "Superseded in part by spec 017 (2026-10-24):
+- [X] T020 014 spec: under FR-004 add one line "Superseded in part by spec 017 (2026-10-24):
   spine3 capped at the shoulders − 5 cm, ≥ 0.4 % of arm vertices per pose; real-SMPL rates in
   017 research R4."
-- [ ] T021 `docs/HANDOFF.md` lines ≈ 88–90 (intersection description) and the v2a gate comment
+- [X] T021 `docs/HANDOFF.md` lines ≈ 88–90 (intersection description) and the v2a gate comment
   (≈ 212): state the 017 rule and "real SMPL: v1 1.75 %, v2d 2.23 %, v3 2.24 %, armsdown-v1
   23 % (FAIL)". No other HANDOFF edits.
 

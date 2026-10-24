@@ -115,3 +115,18 @@ Verdict R2b-v3: **REPORTED** on val and test (no pixel or latent win). Reading: 
 The step-matched v1 run early-stopped at epoch 41 (best val epoch 31) with the LR still near its peak (9.3e-4). By then train MSE (0.00138) was 38 % below val MSE (0.00224) and falling, while val was flat: the model was memorising its 1,600 poses. Extra steps bought nothing on val or probe (+1.4 % MSE, −1 mm).
 
 Answer: **the v1 → v3 gain is pose count, not training length.** Caveat: this v1 run never reached the annealed low-LR phase that R0-v3 had; a 240-epoch cosine schedule cut off early is not identical to R0-v3's schedule. But the widening train/val gap at a flat val loss is the signature of a data limit, and annealing would mainly lower train loss further. The point 7 confound is resolved, and the extrapolation to more poses (≈ −6 % MSE, ≈ 117 mm at 16k) stands as the data lever's expected size.
+
+## Grill point 1 result (2026-10-24): three-seed noise bars on v3
+
+Seeds of the plain AE on v3 (val MSE / probe world MPJPE val): R0-v3 0.001578 / 131.0 mm, R0b-v3 0.001587 / 134.4 mm, **R0c-v3** (`ae-seed2-smpl_proc_v3-20261024T041446Z`, seed 2) 0.001573 / 133.1 mm.
+Spread over 3 seeds: val MSE range 0.9 %, sd 0.46 %; probe range 3.3 mm, sd 1.7 mm (test: 0.5 % / 0.27 %; 3.0 / 1.5 mm). The two-seed bar (0.6 %, 3.3 mm) was about right.
+
+Variants against the 3-seed mean (val; test agrees):
+
+| Variant | ΔMSE | in seed sd | Δ probe | in seed sd | Reading |
+|---|---|---|---|---|---|
+| R2-v3 VAE β 0.01 | +0.55 % | 1.2 | −0.5 mm | −0.3 | indistinguishable from the plain AE |
+| R2b-v3 VAE β 0.1 | +1.66 % | 3.6 | +4.5 mm | 2.7 | small real cost on both |
+| R1-v3 mask-weighted | +14.4 % | 31 | **−8.4 mm** | **−5.0** | real pose gain, real pixel cost |
+
+Against the seed mean rather than seed 0 alone, R1-v3's pose gain is 8.4 mm = 5 seed sd: **not borderline, a real effect.** It stays DROPPED under the 015 rule only because of its +14 % MSE. Whether a pose-for-pixels trade should be promotable is an operator decision (the rule was not changed).

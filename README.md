@@ -421,13 +421,15 @@ With 8,000 poses (v3) the plain AE reaches val MSE 0.00158 (−27 % vs v1) and p
 (v1 175), still improving with pose count. Seed noise on v3: 0.6 % MSE, 3.3 mm probe. A VAE
 with β 0.01 on v3 costs about one seed gap (+0.7 % MSE; probe 132 mm, inside noise; reported) and its prior samples are
 32 % valid silhouettes (5.7 % on v1); β 0.1 on v1 gave 33 %. Mask-weighted MSE gives the lowest
-probe error (124.5 mm, 1.97× the two-seed probe gap on val, just under the 2× bar; borderline) at
-+14.5 % MSE and is dropped by the promotion rule. A third seed is running to firm up the bar.
+probe error (124.5 mm; 8.4 mm below the mean of three plain-AE seeds = 5 seed sd, a real gain) at
++14.5 % MSE and is dropped by the promotion rule. Three seeds put the v3 noise at 0.5 % MSE and 1.7 mm
+probe (sd); the VAE at β 0.01 is indistinguishable from the plain AE, β 0.1 costs +1.7 % / +4.5 mm
+for 59 % valid prior samples (vs 32 %).
 
 **Distance to usable (grill point 8, 2026-10-24).** The best probe error, 124–131 mm, halves the
 mean-pose error (258 mm; a random-encoder control already reaches 212 mm, so training adds ≈ 81 mm) but is far from usable pose estimation (target ≤ 80 mm world MPJPE).
 Levers seen so far: more distinct poses (175 → 131 mm over 4× data; a step-matched v1 run
-confirmed this is pose count, not training length) and mask-weighted loss (−7 mm, borderline). Neither
+confirmed this is pose count, not training length) and mask-weighted loss (−8 mm, real, at +14 % MSE). Neither
 reaches 80 mm practically (fit: 16k poses ≈ 117 mm, floor ≈ 71 mm only after ~10⁵–10⁶ poses). Reaching it likely needs a direction change (pose
 supervision on the encoder); the decision waits on the grill runs.
 

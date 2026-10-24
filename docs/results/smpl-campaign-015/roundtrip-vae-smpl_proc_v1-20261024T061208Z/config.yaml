@@ -1,0 +1,3 @@
+{calibration_percentile: 5.0, control: true, figure_samples: 8, probe_run: runs/probe-smpl_proc_v1-20261022T150051Z,
+  run_name: roundtrip-vae-smpl_proc_v1, run_root: runs, sample_run: runs/sample-vae-smpl_proc_v1-20261023T002438Z,
+  seed: 0, smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz}

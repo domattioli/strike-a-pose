@@ -77,3 +77,16 @@ Confounds that remain:
 - **Each dataset is scored on its own val split** (same distribution, different poses), so the curve compares slightly different exams. This effect is unmeasured; a weak proxy, mean-image val MSE 0.01403 (v1) vs 0.01406 (v3), suggests the val sets are about equally hard.
 
 Extrapolation (three points, so this is an exact fit, not a test): val MSE 0.00218 / 0.00178 / 0.00158 has differences halving per doubling, which implies a floor near 0.00138 and about 0.00148 (−6 %) at 12,800 train poses (16,000 total). Probe 175 / 150 / 131 mm has differences shrinking ×0.76, which implies about 117 mm at 12,800 and a floor near 71 mm; reaching 80 mm by data alone would need on the order of 10⁵–10⁶ poses (the fit is unreliable that far out). Treat both as rough: a fourth point could change the floor a lot.
+
+## Grill point 5 result (2026-10-24): probe round-trip (slice 016), v1 VAEs
+
+τ = 5th percentile of real-test round-trip IoU (0.32 / 0.31). "Control" = a random training pose re-rendered at the same camera (chance level).
+
+| Set | VAE β 0.01, v1: plausible | plausible & valid | control | VAE β 0.1, v1: plausible | plausible & valid | control |
+|---|---|---|---|---|---|---|
+| prior samples | 22.0 % | 5.4 % | 20.4 % | 87.2 % | 31.0 % | 75.5 % |
+| plain-AE prior | 0 % | 0 % | 0 % | 0 % | 0 % | 0 % |
+| VAE recon val | 96.8 % | 82.5 % | 72.4 % | 97.2 % | 85.7 % | 75.3 % |
+| real test (ceiling) | 95.0 % | 92.1 % | 73.1 % | 95.0 % | 92.1 % | 75.6 % |
+
+Reading: **the round-trip score barely separates real poses from random ones.** A random training pose at the right camera already "round-trips" for 73–76 % of real images, because silhouettes from one viewpoint overlap heavily (torso, legs). The median real-image IoU is only 0.52 (probe error ≈ 125–175 mm), so the threshold is low. The gap over control is real but small (real test 95 % vs 73 %; β 0.1 prior 87 % vs 75 %). What the metric does support: β 0.1 samples look like bodies about as often as reconstructions do once they are one connected blob (plausible & valid 31 % vs valid 33 %), and β 0.01 samples rarely do. It does not support "most samples are plausible people". A sharper check needs a better probe (point 8) or a pose-prior likelihood; the v3 round-trip is deferred until the training queue ends (it was cut off by the time limit while competing with training).

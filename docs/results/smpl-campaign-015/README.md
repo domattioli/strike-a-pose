@@ -46,3 +46,24 @@ Answer: no. R1-v3 is 12–15 % worse on every body region and its silhouette IoU
 so the pixel cost is on the body, not the background. The DROPPED verdict stands on fair grounds;
 its latent encodes pose a bit better while drawing the body worse. R2-v3 matches R0-v3 on every
 region (within the R0/R0b spread, except feet +1.6 %).
+
+## Grill point 6 (2026-10-24): val vs test verdicts
+
+```
+| Variant | Val MSE vs R0 | Probe MPJPE val (mm) | Δ mm | Verdict (015) | Reason |
+|---|---|---|---|---|---|
+| R2-v3 | +0.7 % | 132.3 | +1.3 | REPORTED | +0.7 % MSE (gap 0.6 %); +1.3 mm probe (gap 3.3) |
+| R1-v3 | +14.5 % | 124.5 | -6.6 | DROPPED | +14.5 % MSE (gap 0.6 %); -6.6 mm probe (gap 3.3); MSE > +5 % |
+
+| Variant | Test MSE vs R0 | Probe MPJPE test (mm) | Δ mm | Verdict (015) | Reason |
+|---|---|---|---|---|---|
+| R2-v3 | +0.7 % | 128.4 | +1.0 | REPORTED | +0.7 % MSE (gap 0.5 %); +1.0 mm probe (gap 3.0) |
+| R1-v3 | +14.8 % | 121.2 | -6.2 | DROPPED | +14.8 % MSE (gap 0.5 %); -6.2 mm probe (gap 3.0); MSE > +5 % |
+
+| Variant | Verdict val | Verdict test | Agree |
+|---|---|---|---|
+| R2-v3 | REPORTED | REPORTED | yes |
+| R1-v3 | DROPPED | DROPPED | yes |
+```
+
+Verdicts agree on val and test for both variants (R2-v3 REPORTED, R1-v3 DROPPED).

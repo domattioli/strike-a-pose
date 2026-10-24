@@ -71,11 +71,15 @@ def _script():
     return mod
 
 
-def _run(tmp: Path, name: str, mse: float, kl: list[str] | None = None) -> Path:
+def _run(
+    tmp: Path, name: str, mse: float, kl: list[str] | None = None, test_mse: float | None = None
+) -> Path:
     d = tmp / name
     d.mkdir()
     (d / "metrics.json").write_text(
-        json.dumps({"splits": {"val": {"image": {"ae": {"image_mse": mse}}}}})
+        json.dumps(
+            {"splits": {sp: {"image": {"ae": {"image_mse": m}}} for sp, m in _both(mse, test_mse)}}
+        )
     )
     (d / "config.yaml").write_text(f"variational: {'true' if kl else 'false'}\n")
     rows = ["epoch,train_loss,val_loss,train_kl"]
@@ -84,11 +88,17 @@ def _run(tmp: Path, name: str, mse: float, kl: list[str] | None = None) -> Path:
     return d
 
 
-def _probe(tmp: Path, name: str, mp: float) -> Path:
+def _both(val: float, test: float | None) -> list[tuple[str, float]]:
+    return [("val", val), ("test", val if test is None else test)]
+
+
+def _probe(tmp: Path, name: str, mp: float, test_mp: float | None = None) -> Path:
     d = tmp / name
     d.mkdir()
-    t = {"joints_world": {"mlp": {"mpjpe_mm": mp}}}
-    (d / "metrics.json").write_text(json.dumps({"splits": {"val": {"targets": t}}}))
+    splits = {
+        sp: {"targets": {"joints_world": {"mlp": {"mpjpe_mm": m}}}} for sp, m in _both(mp, test_mp)
+    }
+    (d / "metrics.json").write_text(json.dumps({"splits": splits}))
     return d
 
 
@@ -107,3 +117,42 @@ def test_script_table(tmp_path, capsys):
     assert "DROPPED" in rows[0] and "+8.3 %" in rows[0]
     assert "REPORTED" in rows[1]
     assert _script().main([*argv[:8], "--variant", "X", str(tmp_path / "no"), str(p1)]) == 2
+
+
+def _split_argv(tmp_path: Path) -> list[str]:
+    """Variant V: val says DROPPED (+8.3 % MSE, latent win too small), test says WIN-pixel."""
+    r0, p0 = _run(tmp_path, "r0", 0.00218, test_mse=0.00300), _probe(tmp_path, "p0", 174.8, 190.0)
+    r0b, p0b = (
+        _run(tmp_path, "r0b", 0.00216, test_mse=0.00298),
+        _probe(tmp_path, "p0b", 172.0, 188.0),
+    )
+    r1, p1 = _run(tmp_path, "r1", 0.00236, test_mse=0.00280), _probe(tmp_path, "p1", 174.0, 190.0)
+    return ["--r0", str(r0), "--r0-probe", str(p0), "--r0b", str(r0b), "--r0b-probe", str(p0b),
+            "--variant", "V", str(r1), str(p1)]  # fmt: skip
+
+
+def test_split_val_is_default(tmp_path, capsys):
+    argv = _split_argv(tmp_path)
+    assert _script().main(argv) == 0
+    default = capsys.readouterr().out
+    assert _script().main([*argv, "--split", "val"]) == 0
+    assert capsys.readouterr().out == default
+    assert default.splitlines()[0].startswith("| Variant | Val MSE vs R0 | Probe MPJPE val (mm) |")
+    assert "DROPPED" in default
+
+
+def test_split_test_reads_test_numbers(tmp_path, capsys):
+    assert _script().main([*_split_argv(tmp_path), "--split", "test"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].startswith("| Variant | Test MSE vs R0 | Probe MPJPE test (mm) |")
+    assert "WIN-pixel" in out[2] and "190.0" in out[2]
+
+
+def test_split_both_agreement(tmp_path, capsys):
+    assert _script().main([*_split_argv(tmp_path), "--split", "both"]) == 0
+    out = capsys.readouterr().out.split("\n\n")
+    assert len(out) == 3
+    assert "Val MSE" in out[0] and "Test MSE" in out[1]
+    last = out[2].splitlines()
+    assert last[0] == "| Variant | Verdict val | Verdict test | Agree |"
+    assert last[2] == "| V | DROPPED | WIN-pixel | **no** |"

@@ -14,7 +14,7 @@ Reading: raising β to 0.1 makes the prior 6× more generative (5.7 % → 33 % v
 Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.00218 / 0.00178 / 0.00158 (−18 %, then −11 %), probe 175 / 150 / 131 mm. Diminishing but not saturated.
 | **R0b-v3** plain AE, seed 1 (noise bar) | val / test MSE 0.00159 / 0.00156 (+0.6 % / +0.5 % vs R0-v3); probe world MPJPE 134.4 / 130.5 mm (R0-v3 131.0 / 127.5). **v3 noise bars: seed gap 0.6 % MSE, probe gap 3.3 mm**. Seed gap vs v1→v3 gain (−27 %): ≈ 45×, so SC-002 holds |
 | **R2-v3** VAE β 0.01, v3 (`ae-vae-smpl_proc_v3-20261023T132901Z`) | val / test MSE 0.00159 / 0.00157 (+0.7 % vs R0-v3); KL ≈ 262 nats/image; probe world MPJPE 132.3 / 128.4 mm (R0-v3 131.0 / 127.5). Verdict **REPORTED** (MSE gap 0.6 %, probe gap 3.3 mm): VAE costs nothing measurable on v3, no win |
-| **R1-v3** mask-weighted MSE, v3 (`ae-mask-smpl_proc_v3-20261023T195044Z`) | val / test MSE 0.00181 / 0.00179 (+14.5 % vs R0-v3), IoU 0.856; probe world MPJPE 124.5 / 121.3 mm (−6.6 mm vs R0-v3, = 2.0× the probe gap); peak RSS 5.9 GB. Verdict **DROPPED** (MSE > +5 %). Best pose latent of the campaign, at a pixel cost the rule does not accept |
+| **R1-v3** mask-weighted MSE, v3 (`ae-mask-smpl_proc_v3-20261023T195044Z`) | val / test MSE 0.00181 / 0.00179 (+14.5 % vs R0-v3), IoU 0.856; probe world MPJPE 124.5 / 121.3 mm (−6.6 mm vs R0-v3, = 2.0× the probe gap); peak RSS 5.9 GB. Verdict **DROPPED** (MSE > +5 %). Lowest probe error of the campaign, but the gain sits exactly on the 2× bar of a two-seed noise estimate: borderline until the third seed (grill point 1) |
 | Sampling, R2-v3 (`sample-vae-smpl_proc_v3-*`) | VAE β 0.01 on v3: prior samples valid **32.4 %** of 1,024 (β 0.01 on v1: 5.7 %); fails 497 fragmented, 195 wrong area; NN-MSE 0.0103. Bars: plain-AE decoder 0 %; VAE reconstructions of val 93.2 % |
 
 ## Summary (QUEUE_DONE 2026-10-24 02:46 UTC)
@@ -28,5 +28,5 @@ Pose-count curve (plain AE): train poses 1,600 / 3,200 / 6,400 → val MSE 0.002
 
 - More poses is the biggest lever: 1,600 → 6,400 train poses gives val MSE −27 % and probe 175 → 131 mm, not yet saturated.
 - The VAE is free on v3 (inside noise) and, with 4× the poses, its prior becomes as generative at β 0.01 (32 %) as β 0.1 was on v1 (33 %).
-- Mask weighting keeps trading pixels for pose information (−6.6 mm probe, +14.5 % MSE); the promotion rule drops it. Whether that trade is wanted is an operator call.
+- Mask weighting again trades pixels for pose information (−6.6 mm probe, borderline vs a two-seed noise bar; +14.5 % MSE); the promotion rule drops it. Whether that trade is wanted is an operator call.
 - No memory stops; peak RSS ≤ 5.9 GB for training.

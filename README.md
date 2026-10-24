@@ -420,8 +420,9 @@ are reported, not carried. Slice 015 (8,000 poses, VAE β 0.1, prior sampling) r
 With 8,000 poses (v3) the plain AE reaches val MSE 0.00158 (−27 % vs v1) and probe MPJPE 131 mm
 (v1 175), still improving with pose count. Seed noise on v3: 0.6 % MSE, 3.3 mm probe. A VAE
 with β 0.01 on v3 costs nothing measurable (+0.7 %, 132 mm; reported) and its prior samples are
-32 % valid silhouettes (5.7 % on v1); β 0.1 on v1 gave 33 %. Mask-weighted MSE again gives the
-best pose latent (124.5 mm) at +14.5 % MSE and is dropped by the promotion rule.
+32 % valid silhouettes (5.7 % on v1); β 0.1 on v1 gave 33 %. Mask-weighted MSE gives the lowest
+probe error (124.5 mm, a gain exactly at the 2× noise bar from two seeds, so borderline) at
++14.5 % MSE and is dropped by the promotion rule. A third seed is running to firm up the bar.
 
 ## Development checks
 

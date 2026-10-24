@@ -21,7 +21,12 @@ while [ $(date +%s) -lt $end ]; do
     last=$(stat -c %Y "$r/history.csv"); [ -f "$r/lock" ] && lk=$(stat -c %Y "$r/lock") && [ "$lk" -gt "$last" ] && last=$lk
     age=$(( $(date +%s) - last ))
     med=$(awk -F, 'NR>1{print $5}' "$r/history.csv" | sort -n | awk '{a[NR]=$1}END{print (NR? int(a[int((NR+1)/2)]) : 0)}')
-    lim=$(( med*3 > 1800 ? med*3 : 1800 )); n=$(( $(wc -l < "$r/history.csv") - 1 ))
+    lim=$(( med*3 > 1800 ? med*3 : 1800 ))
+    # Loading phase: trainer output goes to $LOG (queue lines start with "["). If its latest line is
+    # "resuming ..." or "run dir ..." (no "loaded train" line yet after the last start) the trainer
+    # is still loading data -> allow 2x the stall limit.
+    case "$(grep -v '^\[' "$LOG" 2>/dev/null | tail -n 1)" in "resuming "*|"run dir "*) lim=$(( lim*2 ));; esac
+    n=$(( $(wc -l < "$r/history.csv") - 1 ))
     if [ "$n" -ge 1 ] && [ $age -gt $lim ]; then
       pid=$(python3 -c "import json;print(json.load(open('$r/lock'))['pid'])" 2>/dev/null)
       echo "WD $(date -u +%H:%M) STALL $r: no epoch for ${age}s (limit ${lim}s) -> kill $pid, queue will resume"

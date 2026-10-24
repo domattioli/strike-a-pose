@@ -42,6 +42,8 @@ train() {  # $1 config, $2 run_name prefix, $3 probe config
     if [ -f "$d/resume_tried" ] && [ "$(cat "$d/resume_tried")" = "$bid" ]; then memstop "$d unfinished after a resume (likely OOM)"; fi
     echo "$bid" > "$d/resume_tried"; log "resume $d"; $U strike-a-pose-train --resume "$d"; rc=$?
   else rc=0; fi
+  # watchdog SIGTERM (143) is not OOM: drop the resume marker so the next pass does not MEMORY_STOP
+  if [ "$rc" = 143 ]; then d=$(latest "$2"); [ -n "$d" ] && rm -f "$d/resume_tried"; log "trainer terminated by watchdog (exit 143); not counted as OOM"; fi
   [ "$rc" = 137 ] && memstop "$2 trainer killed (exit 137)"
   [ "$rc" != 0 ] && log "train exit $rc for $2"
   d=$(latest "$2"); [ -n "$d" ] && probe_run "$d" "$3"

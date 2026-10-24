@@ -1,0 +1,26 @@
+abort_on_divergence: true
+batch_size: 64
+beta: 0.0
+channels: [16, 32, 64, 128, 256, 256]
+context_pca_k: 64
+dataset_dir: data/generated/smpl_proc_v1
+divergence_ratio: 10.0
+dropout: 0.0
+early_stop: {min_delta: 0.0, min_epochs: 20, patience: 10}
+epochs: 240
+eval_splits: [val, test]
+figure_samples: 6
+figure_split: val
+iou_threshold: 0.075
+latent_dim: 64
+lr: 0.001
+lr_schedule: cosine
+mask_weight: 0.0
+run_name: ae-e240-smpl_proc_v1
+run_root: runs
+seed: 0
+select_weights: best_val
+shift_px: 0
+split_file: splits/smpl_proc_v1.json
+variational: false
+weight_decay: 0.0

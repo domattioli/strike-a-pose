@@ -103,3 +103,15 @@ Reading: **the round-trip score barely separates real poses from random ones.** 
 | Peak RSS | 5.9 GB | 6.1 GB | 5.9 GB |
 
 Verdict R2b-v3: **REPORTED** on val and test (no pixel or latent win). Reading: on equal data, β 0.1 nearly doubles the valid-sample rate (32 → 59 %; fragmented failures 497 → 341) for +1.1 % MSE over β 0.01 and a pose-probe cost of +5 mm (about 1.5–1.9× the seed gap). So the point 4 confound resolves both ways: more data alone took β 0.01 from 5.7 % to 32 %, and β 0.1 adds a further 27 points on top. The choice of β is a trade-off between a sampleable prior and pose information in the latent.
+
+## Grill point 7 result (2026-10-24): training length vs pose count
+
+| Run | Train poses | Planned steps | Val / test MSE | Probe val / test (mm) |
+|---|---|---|---|---|
+| v1 @ 60 epochs (R0, `ae-smpl_proc_v1-20261022T012307Z`) | 1,600 | 12,000 | 0.00218 / 0.00216 | 174.8 / 175.3 |
+| v1 @ 240 epochs (`ae-e240-smpl_proc_v1-20261024T143808Z`) | 1,600 | 48,000 (stopped early at epoch 41) | 0.00221 / 0.00220 | 173.6 / 174.7 |
+| v3 @ 60 epochs (R0-v3) | 6,400 | 48,000 | 0.00158 / 0.00156 | 131.0 / 127.5 |
+
+The step-matched v1 run early-stopped at epoch 41 (best val epoch 31) with the LR still near its peak (9.3e-4). By then train MSE (0.00138) was 38 % below val MSE (0.00224) and falling, while val was flat: the model was memorising its 1,600 poses. Extra steps bought nothing on val or probe (+1.4 % MSE, −1 mm).
+
+Answer: **the v1 → v3 gain is pose count, not training length.** Caveat: this v1 run never reached the annealed low-LR phase that R0-v3 had; a 240-epoch cosine schedule cut off early is not identical to R0-v3's schedule. But the widening train/val gap at a flat val loss is the signature of a data limit, and annealing would mainly lower train loss further. The point 7 confound is resolved, and the extrapolation to more poses (≈ −6 % MSE, ≈ 117 mm at 16k) stands as the data lever's expected size.

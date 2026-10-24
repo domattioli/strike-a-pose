@@ -426,8 +426,8 @@ probe error (124.5 mm, 1.97× the two-seed probe gap on val, just under the 2× 
 
 **Distance to usable (grill point 8, 2026-10-24).** The best probe error, 124–131 mm, halves the
 mean-pose error (258 mm; a random-encoder control already reaches 212 mm, so training adds ≈ 81 mm) but is far from usable pose estimation (target ≤ 80 mm world MPJPE).
-Levers seen so far: more distinct poses (175 → 131 mm over 4× data, possibly part training
-length; a step-matched v1 run is queued) and mask-weighted loss (−7 mm, borderline). Neither
+Levers seen so far: more distinct poses (175 → 131 mm over 4× data; a step-matched v1 run
+confirmed this is pose count, not training length) and mask-weighted loss (−7 mm, borderline). Neither
 reaches 80 mm practically (fit: 16k poses ≈ 117 mm, floor ≈ 71 mm only after ~10⁵–10⁶ poses). Reaching it likely needs a direction change (pose
 supervision on the encoder); the decision waits on the grill runs.
 

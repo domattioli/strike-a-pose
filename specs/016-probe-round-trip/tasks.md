@@ -217,7 +217,7 @@ Files: `configs/roundtrip_vae.yaml`, `configs/roundtrip_vae_beta0.1.yaml`,
 `configs/roundtrip_vae_smpl_proc_v3.yaml`, `docs/campaign-scripts/roundtrip016.sh`,
 `docs/results/smpl-campaign-015/README.md`, `specs/roadmap.md` (changelog line only).
 
-- [ ] T030 Configs (copy `roundtrip_fixture.yaml`, defaults otherwise):
+- [X] T030 Configs (copy `roundtrip_fixture.yaml`, defaults otherwise):
   - `roundtrip_vae.yaml`: `run_name: roundtrip-vae-smpl_proc_v1`, `sample_run:
     runs/sample-vae-smpl_proc_v1-20261023T002438Z`, `probe_run:
     runs/probe-smpl_proc_v1-20261022T150051Z` (probe of `ae-vae-smpl_proc_v1-20261022T134729Z`).
@@ -230,7 +230,7 @@ Files: `configs/roundtrip_vae.yaml`, `configs/roundtrip_vae_beta0.1.yaml`,
     `runs/ae-smpl_proc_v3-20261023T004930Z`).
   Before writing each, verify the probe run's `config.yaml` `checkpoint` is the sample run's
   `checkpoint` (`grep checkpoint runs/<dir>/config.yaml`); a mismatch → stop and report.
-- [ ] T031 `docs/campaign-scripts/roundtrip016.sh` (POSIX sh, `set -u`, modelled on
+- [X] T031 `docs/campaign-scripts/roundtrip016.sh` (POSIX sh, `set -u`, modelled on
   `smpl015_queue.sh`'s `log` / `$U` helpers): wait while `pgrep -f grill_queue.sh` finds a
   process (poll every 300 s); then for each of the three configs, skip if
   `runs/<run_name>-2026*/samples.json` exists, else

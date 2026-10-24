@@ -1,0 +1,11 @@
+# Probe round-trip plausibility (spec 016) of roundtrip-vae-beta0.1-smpl_proc_v1.
+# Run: strike-a-pose-eval round-trip --config configs/roundtrip_vae_beta0.1.yaml
+run_name: roundtrip-vae-beta0.1-smpl_proc_v1
+run_root: runs                         # git-ignored
+seed: 0
+sample_run: runs/sample-vae-beta0.1-smpl_proc_v1-20261023T002328Z
+probe_run: runs/probe-smpl_proc_v1-20261023T001615Z                     # probe of ae-vae-beta0.1-smpl_proc_v1-20261022T225733Z
+smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
+calibration_percentile: 5.0
+control: true
+figure_samples: 8

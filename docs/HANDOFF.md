@@ -600,6 +600,28 @@ After the runs: verdicts with `scripts/promotion.py` (v3 variants against R0-v3 
 the v1 → v2d → v3 curve and the SC-002 statement (v3's gain over v2d > 3× the v3 seed gap, or
 saturated) in `docs/results/smpl-campaign-015/README.md`.
 
+Slice 018 `pose-supervised-ae` (spec, plan, tasks under `specs/018-pose-supervised-ae/`): optional
+MLP pose head on the latent (`pose_weight` > 0; loss = recon + `pose_weight` · standardized
+root-relative `joints_world` MSE; head stored under its own checkpoint keys, so probe / sample /
+round-trip are unchanged). Queue `docs/campaign-scripts/pose018_queue.sh` (P1 λ 0.003, P2 λ 0.03,
+P3 λ 0.03 + mask 4, each probed; ≈ 17 h), same lock `data/smpl_queue.lock`, terminal lines
+`QUEUE_DONE`, `QUEUE_INCOMPLETE`, `MEMORY_STOP`. Launch (watchdog as a harness-tracked background
+task, re-armed every ≤ 110 min):
+
+    cd /home/user/strike-a-pose && cp docs/campaign-scripts/pose018_queue.sh docs/campaign-scripts/watchdog.sh data/ && LOG=data/pose018_queue.log QUEUE=data/pose018_queue.sh data/watchdog.sh 6600 >> data/watchdog018.log 2>&1
+
+After `QUEUE_DONE` (probe dirs: `runs/<run>/probed.txt`), two reports (`--split both`):
+
+    uv run --locked python scripts/promotion.py --r0 <R0-v3> --r0-probe <probe> --r0b <R0b-v3> --r0b-probe <probe> --variant <NAME> <RUN> <PROBE> ... --split both
+    uv run --locked python scripts/pose_track.py --seed <R0-v3> <probe> --seed <R0b-v3> <probe> --seed <R0c-v3> <probe> --variant <NAME> <RUN> <PROBE> ... --split both
+
+Operator rulings 2026-10-24: (1) if the pose head reaches <= 80 mm but the probe does not, the
+head's val / test MPJPE answers grill point 8 as the pose-system result; the probe stays the
+latent-quality measure; report both. (2) The best pose variant gets a second seed (about +5.5 h)
+only if its probe gain is within 3 sd of the next variant or its head / probe MPJPE is within 3 sd
+of 80 mm (`pose_track.py` prints this verdict per split); otherwise not. Results go to
+`docs/results/pose-campaign-018/README.md` (lead).
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

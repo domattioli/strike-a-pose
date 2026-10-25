@@ -162,9 +162,9 @@ Files (lead-written, already committed): `configs/smpl_proc_v3/ae_pose_l0.003.ya
 `ae_pose_l0.03.yaml`, `ae_pose_l0.03_mask.yaml`, `docs/campaign-scripts/pose018_queue.sh`.
 Implementer files: `docs/HANDOFF.md`.
 
-- [ ] T040 Validate: the three configs load (T020's parametrize) with `pose_weight` 0.003 /
+- [X] T040 Validate: the three configs load (T020's parametrize) with `pose_weight` 0.003 /
   0.03 / 0.03 and `mask_weight` 0 / 0 / 4; `sh -n docs/campaign-scripts/pose018_queue.sh`.
-- [ ] T041 `docs/HANDOFF.md` campaign procedure: add the 018 queue line (copy to `data/`, the
+- [X] T041 `docs/HANDOFF.md` campaign procedure: add the 018 queue line (copy to `data/`, the
   watchdog env `LOG=data/pose018_queue.log QUEUE=data/pose018_queue.sh`), and the two reports:
   `scripts/promotion.py --r0 <R0-v3> --r0-probe <…> --r0b <R0b-v3> --r0b-probe <…> --variant
   … --split both` and `scripts/pose_track.py --seed <R0-v3> <probe> --seed <R0b-v3> <probe>

@@ -52,7 +52,7 @@ train() {  # $1 config, $2 run_name prefix, $3 probe config
   d=$(latest "$2"); [ -n "$d" ] && probe_run "$d" "$3"
 }
 [ -f data/generated/smpl_proc_v3/manifest.json ] && grep -q '"complete": true' data/generated/smpl_proc_v3/manifest.json && [ -f splits/smpl_proc_v3.json ] || { log "QUEUE_INCOMPLETE: smpl_proc_v3 data or split missing (run the 015 queue first)"; exit 1; }
-TRAIN="ae-pose-l0.003-smpl_proc_v3 ae-pose-l0.03-smpl_proc_v3 ae-pose-l0.03-mask-smpl_proc_v3"
+TRAIN="ae-pose-l0.003-smpl_proc_v3 ae-pose-l0.03-smpl_proc_v3 ae-pose-l0.03-mask-smpl_proc_v3 ae-pose-l0.03-seed1-smpl_proc_v3"
 pending() {  # every variant trained (or aborted) and probed
   for n in $TRAIN; do d=$(latest $n); [ -z "$d" ] && return 0; [ -f "$d/aborted.json" ] && continue; [ ! -f "$d/metrics.json" ] && return 0; [ -f "$d/probed.txt" ] || return 0; done
   return 1
@@ -65,6 +65,7 @@ train $c/ae_pose_l0.003.yaml ae-pose-l0.003-smpl_proc_v3 $c/probe.yaml
 d=$(latest ae-pose-l0.003-smpl_proc_v3); [ -n "$d" ] && [ -f "$d/run_info.json" ] && mem_gate "$d"
 train $c/ae_pose_l0.03.yaml ae-pose-l0.03-smpl_proc_v3 $c/probe.yaml
 train $c/ae_pose_l0.03_mask.yaml ae-pose-l0.03-mask-smpl_proc_v3 $c/probe.yaml
+train $c/ae_pose_l0.03_seed1.yaml ae-pose-l0.03-seed1-smpl_proc_v3 $c/probe.yaml  # ruling O2 (2026-10-25)
 pending || break
 done
 pending && { log "QUEUE_INCOMPLETE after $pass passes (see FAILED/exit lines)"; exit 1; }

@@ -1,0 +1,60 @@
+{
+  "argv": [
+    "strike-a-pose-train",
+    "--config",
+    "configs/smpl_proc_v3/ae_pose_l0.03_mask.yaml"
+  ],
+  "best_checkpoint": "best.pt",
+  "best_val_epoch": 56,
+  "checkpoint": "checkpoint.pt",
+  "cwd": "/home/user/strike-a-pose",
+  "dataset": {
+    "checksums_sha256": "df56a6425851fae85ce593d54fd053521dcf746d884fcd30037d6eabd8e2d59e",
+    "dir": "data/generated/smpl_proc_v3",
+    "manifest_content_sha256": "d3cc3594061d300552d9050f250bbd1c3bdbe5fc113033160d42d0c4a27b88f7",
+    "manifest_sha256": "05e13c862ec9e8d6e087ae4594104831405f8d5672ae5063d6401c86985262bb"
+  },
+  "env": {
+    "cpu_count": 4,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "numpy": "2.5.4",
+    "pillow": "13.0.0",
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "torch": "2.14.1+cu130",
+    "torch_threads": 4
+  },
+  "figure": "recon_val.png",
+  "finished_utc": "2026-10-25T20:12:09.335733+00:00",
+  "git": {
+    "commit": "37438a3dc02462f0a5b48b3d299fbbe96eae6664",
+    "dirty": false
+  },
+  "history": "history.csv",
+  "model_parameters": 3126897,
+  "peak_rss_mb": 5972.7,
+  "pose_head_parameters": 100936,
+  "seed": 0,
+  "sessions": [
+    {
+      "argv": [
+        "strike-a-pose-train",
+        "--config",
+        "configs/smpl_proc_v3/ae_pose_l0.03_mask.yaml"
+      ],
+      "git": {
+        "commit": "37438a3dc02462f0a5b48b3d299fbbe96eae6664",
+        "dirty": false
+      },
+      "start_epoch": 1,
+      "started_utc": "2026-10-25T12:30:04.277626+00:00"
+    }
+  ],
+  "split_file": {
+    "path": "splits/smpl_proc_v3.json",
+    "sha256": "1b3cae2652881d4d0cc89c9774058569e2f316b7674b4f8b6b35d20662344a80"
+  },
+  "started_utc": "2026-10-25T12:30:04.277626+00:00",
+  "train_wall_s": 27520.6,
+  "wall_s": 27725.1
+}

@@ -1,0 +1,20 @@
+batch_size: 256
+cache_dir: runs/probe-cache
+checkpoint: runs/ae-pose-l0.003-smpl_proc_v3-20261025T001408Z/best.pt
+dataset_dir: data/generated/smpl_proc_v3
+eval_splits: [val, test]
+figure_samples: 6
+figure_split: val
+mlp_batch_size: 256
+mlp_epochs: 100
+mlp_hidden: [256, 256]
+mlp_lr: 0.001
+mlp_weight_decays: [0.0, 0.0001, 0.001]
+pose_pca_ks: [8, 16]
+random_encoder_control: true
+ridge_lambdas: [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]
+run_name: probe-smpl_proc_v3
+run_root: runs
+seed: 0
+split_file: splits/smpl_proc_v3.json
+targets: [joints_world, joints_cam, yaw, smpl_pose]

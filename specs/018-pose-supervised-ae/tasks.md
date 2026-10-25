@@ -20,7 +20,7 @@ files your batch lists. House style: docstrings cite "spec 018 FR-xxx".
 Files: `src/strike_a_pose/models/pose_head.py` (new), `src/strike_a_pose/models/__init__.py`
 (export `PoseHead`, `PoseTargetStats`), `tests/test_pose_head.py` (new).
 
-- [ ] T010 Tests (red first), `tests/test_pose_head.py`:
+- [X] T010 Tests (red first), `tests/test_pose_head.py`:
   - `test_root_relative_zeroes_the_root()`: `j = torch.arange(2*24*3, dtype=torch.float32)
     .reshape(2, 24, 3)`; `r = root_relative(j)`; `r.shape == (2, 72)`; `r[:, :3] == 0`;
     `r[0, 3:6].tolist() == [3.0, 3.0, 3.0]`.
@@ -41,7 +41,7 @@ Files: `src/strike_a_pose/models/pose_head.py` (new), `src/strike_a_pose/models/
     `active[:3] = False`; `pred = torch.zeros(4, 72)`; `t = torch.ones(4, 72)`;
     `t[:, :3] = 100.0`; `pose_loss(pred, t, active) == pytest.approx(1.0)`; gradient flows to
     `pred` (requires_grad) and is 0 on the inactive columns.
-- [ ] T011 Implement per data-model.md. `fit` computes in float64, returns float32.
+- [X] T011 Implement per data-model.md. `fit` computes in float64, returns float32.
 
 ## Batch B2 — training integration (FR-001, FR-003–FR-005)
 

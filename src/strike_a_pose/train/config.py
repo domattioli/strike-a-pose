@@ -30,6 +30,8 @@ LEGACY_VALUES: dict[str, Any] = {
     "early_stop": None,
     "abort_on_divergence": False,
     "divergence_ratio": 10.0,
+    # spec 018 pose supervision: runs before it had no pose head
+    "pose_weight": 0.0,
 }
 MAX_SHIFT_PX = 32  # spec 011: "small" pixel shifts
 DIVERGENCE_RATIO = 10.0  # spec 012 default; another value needs abort_on_divergence: true
@@ -77,6 +79,8 @@ class TrainConfig:
     early_stop: EarlyStop | None = None
     abort_on_divergence: bool = False
     divergence_ratio: float = DIVERGENCE_RATIO
+    # spec 018 pose-supervised AE (0 = no pose head, bit for bit the plain trainer)
+    pose_weight: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -134,7 +138,15 @@ def config_from_dict(data: Any) -> TrainConfig:
         if not isinstance(v, list | tuple) or not v or not all(_is_int(c) and c >= 1 for c in v):
             raise ConfigError("channels: must be a non-empty list of integers >= 1")
         d["channels"] = tuple(v)
-    numbers = ("lr", "iou_threshold", "mask_weight", "beta", "weight_decay", "dropout")
+    numbers = (
+        "lr",
+        "iou_threshold",
+        "mask_weight",
+        "beta",
+        "weight_decay",
+        "dropout",
+        "pose_weight",
+    )
     for key in (*numbers, "divergence_ratio"):
         if key in d:
             if not _is_num(d[key]) or not math.isfinite(d[key]):
@@ -204,6 +216,10 @@ def _check(cfg: TrainConfig) -> None:
     for key in ("mask_weight", "beta", "weight_decay"):
         if getattr(cfg, key) < 0:
             raise ConfigError(f"{key}: must be >= 0")
+    if cfg.pose_weight < 0:
+        raise ConfigError("pose_weight: must be >= 0")
+    if cfg.pose_weight > 0 and cfg.variational:
+        raise ConfigError("pose_weight: not with variational: true")
     if cfg.variational and cfg.beta == 0:
         raise ConfigError("beta: must be > 0 with variational: true")
     if not cfg.variational and cfg.beta != 0:

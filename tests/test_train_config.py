@@ -25,7 +25,16 @@ def test_defaults():
     assert config_from_dict(d) == c
 
 
-@pytest.mark.parametrize("name", ["ae.yaml", "ae_fixture.yaml"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ae.yaml",
+        "ae_fixture.yaml",
+        "smpl_proc_v3/ae_pose_l0.003.yaml",
+        "smpl_proc_v3/ae_pose_l0.03.yaml",
+        "smpl_proc_v3/ae_pose_l0.03_mask.yaml",
+    ],
+)
 def test_shipped_configs_load(name):
     c = load_config(ROOT / "configs" / name)
     assert c.figure_split in c.eval_splits

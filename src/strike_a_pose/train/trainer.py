@@ -16,6 +16,7 @@ import time
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import torch
@@ -26,6 +27,7 @@ from strike_a_pose.data import DatasetError, PoseImageDataset, parse_sample_id
 from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.eval.baselines import UNITS, image_mean
 from strike_a_pose.eval.config import ConfigError
+from strike_a_pose.eval.metrics import mpjpe
 from strike_a_pose.eval.pca import fit_pca
 from strike_a_pose.eval.report import (
     figure_indices,
@@ -33,7 +35,8 @@ from strike_a_pose.eval.report import (
     region_definitions,
     score_images,
 )
-from strike_a_pose.models import ConvAutoencoder
+from strike_a_pose.models import ConvAutoencoder, PoseHead, PoseTargetStats
+from strike_a_pose.models.pose_head import POSE_HEAD_HIDDEN, POSE_TARGET, pose_loss, root_relative
 from strike_a_pose.runlog import (
     checksums_sha256,
     environment_summary,
@@ -62,16 +65,39 @@ from .objective import Objective, gaussian_kl, recon_loss, reparameterize, shift
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
 IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou", "regions")}
-# train_recon / train_kl: spec 011 (appended; runs before it have the first five columns)
-HISTORY_FIELDS = ("epoch", "train_loss", "val_loss", "lr", "epoch_s", "train_recon", "train_kl")
+# train_recon / train_kl: spec 011 (appended; runs before it have the first five columns);
+# train_pose: spec 018 (empty unless a pose head is trained)
+HISTORY_FIELDS = (
+    "epoch", "train_loss", "val_loss", "lr", "epoch_s", "train_recon", "train_kl", "train_pose"
+)  # fmt: skip
+POSE_UNITS = {
+    "pose_head_mpjpe_mm": "mm, root-relative world-frame joint error of the jointly trained "
+    "pose head (not a probe; spec 018)"
+}
+HEAD_STATS = ("mean", "scale", "active")
+HEAD_KEYS = ("pose_head", "pose_head_hparams", "pose_stats")  # spec 018 FR-004
+
+
+class PoseBatch(NamedTuple):
+    """Pose supervision of :func:`train_epoch` (spec 018 FR-003): the head, the standardized
+    root-relative joint targets ``[n, 72]`` of the train images and the active-coordinate mask."""
+
+    head: PoseHead
+    targets: torch.Tensor
+    active: torch.Tensor
+
+
 CHECKPOINT, BEST = "checkpoint.pt", "best.pt"  # resume state; best-val weights
 CL = torch.channels_last
 
 
-def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> dict:
+def load_split(
+    ds: PoseImageDataset, batch_size: int, masks: bool = False, joints: bool = False
+) -> dict:
     """Read a dataset split into memory: uint8 images ``[n, 1, H, W]``; with ``masks`` (the
     scored splits) also bool masks ``[n, H*W]`` and the labels of the region metrics (spec
-    009): 2D keypoints ``kp2d`` float32 ``[n, 24, 2]`` (px) and ``visible`` bool ``[n, 24]``."""
+    009): 2D keypoints ``kp2d`` float32 ``[n, 24, 2]`` (px) and ``visible`` bool ``[n, 24]``.
+    With ``joints`` (spec 018 FR-003) also ``joints_world`` float32 ``[n, 24, 3]``."""
     n = len(ds)
     h, w = ds.image_size
     a: dict = {"n": n, "image_size": (h, w)}
@@ -81,6 +107,8 @@ def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> di
         a["mask"] = torch.empty((n, h * w), dtype=torch.bool)
         a["kp2d"] = torch.empty((n, 24, 2), dtype=torch.float32)
         a["visible"] = torch.empty((n, 24), dtype=torch.bool)
+    if joints:
+        a["joints_world"] = torch.empty((n, 24, 3), dtype=torch.float32)
     i = 0
     for b in DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0):
         m = b["image"].shape[0]
@@ -90,6 +118,8 @@ def load_split(ds: PoseImageDataset, batch_size: int, masks: bool = False) -> di
             a["mask"][i : i + m] = b["mask"].reshape(m, -1)
             a["kp2d"][i : i + m] = b["keypoints_2d"]
             a["visible"][i : i + m] = b["visibility"]
+        if joints:
+            a["joints_world"][i : i + m] = b["joints_3d_world"]
         i += m
     return a
 
@@ -107,17 +137,23 @@ def train_epoch(
     gen: torch.Generator,
     sched: torch.optim.lr_scheduler.LRScheduler | None = None,
     objective: Objective | None = None,
+    pose: PoseBatch | None = None,
 ) -> dict:
     """One shuffled pass (last batch may be smaller) under ``objective`` (spec 011; None:
     the plain AE, today's computation). Returns the epoch means of the loss
     (``train_loss``), of its reconstruction term (``train_recon``) and of the KL term
-    (``train_kl``, None unless variational) and the last lr used (``lr``)."""
+    (``train_kl``, None unless variational), of the pose term (``train_pose``, None unless
+    ``pose`` is given: spec 018, loss = recon + ``pose_weight``·pose) and the last lr used
+    (``lr``)."""
     obj = objective or Objective()
     model.train()
+    if pose is not None:
+        pose.head.train()
     n = images.shape[0]
     perm = torch.randperm(n, generator=gen)
     total = recon_total = 0.0
     kl_total: float | None = None
+    pose_total: float | None = None if pose is None else 0.0
     lr = float("nan")
     for i in range(0, n, batch_size):
         idx = perm[i : i + batch_size]
@@ -130,6 +166,10 @@ def train_epoch(
         recon = recon_loss(model.decode(z), x, obj.mask_weight)
         if logvar is None:
             loss = recon
+            if pose is not None:  # spec 018: the head reads mu, before dropout
+                pl = pose_loss(pose.head(mu), pose.targets[idx], pose.active)
+                loss = recon + obj.pose_weight * pl
+                pose_total += float(pl.detach()) * len(idx)
         else:  # KL in per-pixel units: (SSE + beta·KL) / (H·W) per image (spec 011)
             kl = gaussian_kl(mu, logvar)
             loss = recon + obj.beta * kl / (x.shape[2] * x.shape[3])
@@ -142,7 +182,14 @@ def train_epoch(
         total += float(loss.detach()) * len(idx)
         recon_total += float(recon.detach()) * len(idx)
     kl_mean = None if kl_total is None else kl_total / n
-    return {"train_loss": total / n, "train_recon": recon_total / n, "train_kl": kl_mean, "lr": lr}
+    pose_mean = None if pose_total is None else pose_total / n
+    return {
+        "train_loss": total / n,
+        "train_recon": recon_total / n,
+        "train_kl": kl_mean,
+        "train_pose": pose_mean,
+        "lr": lr,
+    }
 
 
 def make_optimizer(params, cfg: TrainConfig) -> torch.optim.Optimizer:
@@ -274,9 +321,13 @@ def weight_selection(rows: list[dict], rule: str) -> dict:
     return sel | best | {"weights": "best_val", "selected_by": "val loss", "checkpoint": BEST}
 
 
-def _best_state(epoch: int, val_loss: float, weights: dict, hparams: dict, config: dict) -> dict:
-    """``best.pt`` contents (structure unchanged since surrogate ruling 2026-10-20 #3)."""
-    return {
+def _best_state(
+    epoch: int, val_loss: float, weights: dict, hparams: dict, config: dict,
+    extra: dict | None = None,
+) -> dict:  # fmt: skip
+    """``best.pt`` contents (structure unchanged since surrogate ruling 2026-10-20 #3;
+    ``extra``: the pose-head keys of a spec 018 run)."""
+    return (extra or {}) | {
         "train_version": TRAIN_VERSION,
         "epoch": epoch,
         "val_loss": val_loss,
@@ -323,8 +374,9 @@ def reconcile_best(run_dir: Path, cfg: TrainConfig, ckpt: dict) -> None:
         return
     if best["epoch"] == ckpt["epoch"]:
         hp, config = ckpt["model_hparams"], cfg.to_dict()
+        extra = {k: ckpt[k] for k in HEAD_KEYS if k in ckpt}
         _save_checkpoint(
-            path, _best_state(best["epoch"], best["val_loss"], ckpt["model"], hp, config)
+            path, _best_state(best["epoch"], best["val_loss"], ckpt["model"], hp, config, extra)
         )
     elif cfg.select_weights == "best_val":
         have = "missing" if found is None else f"holds epoch {found.get('epoch')}"
@@ -336,12 +388,17 @@ def reconcile_best(run_dir: Path, cfg: TrainConfig, ckpt: dict) -> None:
 
 
 def load_selected_weights(
-    model: ConvAutoencoder, run_dir: Path, selection: dict, cfg: TrainConfig
+    model: ConvAutoencoder,
+    run_dir: Path,
+    selection: dict,
+    cfg: TrainConfig,
+    head: PoseHead | None = None,
 ) -> None:
     """Put the weights ``selection`` names into ``model`` (spec 008; before evaluation).
 
     ``best_val``: read back from ``best.pt``, which must hold this run's selected epoch
-    and val loss (else ``ConfigError``); ``final``: ``model`` already holds them.
+    and val loss (else ``ConfigError``); ``final``: ``model`` already holds them. With a
+    ``head`` (spec 018) its weights are read back from ``best.pt`` too.
     """
     if selection["weights"] != "best_val":
         return
@@ -352,6 +409,8 @@ def load_selected_weights(
             f"(val loss {selection['val_loss']}) of this run"
         )
     model.load_state_dict(b["model"])
+    if head is not None:
+        head.load_state_dict(b["pose_head"])
 
 
 def _selection_line(sel: dict, last: dict) -> str:
@@ -367,13 +426,17 @@ def _selection_line(sel: dict, last: dict) -> str:
 
 def _history_row(r: dict) -> list:
     return [r["epoch"], _fmt(r["train_loss"]), _fmt(r["val_loss"]), _fmt(r["lr"], ".6g"),
-            f"{r['epoch_s']:.1f}", _fmt(r["train_recon"]), _fmt(r["train_kl"])]  # fmt: skip
+            f"{r['epoch_s']:.1f}", _fmt(r["train_recon"]), _fmt(r["train_kl"]),
+            _fmt(r["train_pose"])]  # fmt: skip
 
 
 def _complete_row(r: dict) -> dict:
     """A checkpointed history row with the spec 011 columns (rows from before it lack them:
-    the plain AE's reconstruction term is its loss, and it has no KL)."""
-    return r if "train_recon" in r else r | {"train_recon": r["train_loss"], "train_kl": None}
+    the plain AE's reconstruction term is its loss, and it has no KL) and the spec 018 one
+    (no pose term)."""
+    if "train_recon" not in r:
+        r = r | {"train_recon": r["train_loss"], "train_kl": None}
+    return r if "train_pose" in r else r | {"train_pose": None}
 
 
 def _setup(cfg: TrainConfig) -> dict:
@@ -394,6 +457,8 @@ def _setup(cfg: TrainConfig) -> dict:
     except ValueError as e:
         raise ConfigError(f"model: {e}") from e
     s["model"] = model.to(memory_format=CL)
+    # spec 018 FR-002: built after the AE, from the seeded global RNG, only when on
+    s["pose_head"] = PoseHead(cfg.latent_dim) if cfg.pose_weight > 0 else None
     s["split_sha"] = sha256_file(Path(cfg.split_file))
     return s
 
@@ -461,6 +526,7 @@ def _start(
         },
         "split_file": {"path": cfg.split_file, "sha256": s["split_sha"]},
         "model_parameters": s["model"].parameter_count(),
+        **({"pose_head_parameters": s["pose_head"].parameter_count()} if s["pose_head"] else {}),
         "history": "history.csv",
         "checkpoint": CHECKPOINT,
         "started_utc": started.isoformat(),
@@ -549,11 +615,22 @@ def _train_and_evaluate(
     stop_after_epoch: int | None,
 ) -> None:
     model, train_ds, val_ds = s["model"], s["train_ds"], s["val_ds"]
-    train = load_split(train_ds, cfg.batch_size)
-    val = load_split(val_ds, cfg.batch_size, masks="val" in cfg.eval_splits)
+    head = s["pose_head"]
+    jt = head is not None  # spec 018: keep the world joints
+    train = load_split(train_ds, cfg.batch_size, joints=jt)
+    val = load_split(val_ds, cfg.batch_size, masks="val" in cfg.eval_splits, joints=jt)
     say(f"loaded train {train['n']} / val {val['n']} images ({time.monotonic() - t0:.0f} s)")
 
-    opt = make_optimizer(model.parameters(), cfg)
+    stats = pose = None
+    if head is not None:
+        rel = root_relative(train["joints_world"])
+        stats = PoseTargetStats.fit(rel.double())
+        if not bool(stats.active.any()):
+            raise ConfigError("pose_weight: no train joint coordinate varies (nothing to fit)")
+        pose = PoseBatch(head, stats.standardize(rel).float(), stats.active)
+        del rel
+    params = list(model.parameters()) + list(head.parameters()) if jt else model.parameters()
+    opt = make_optimizer(params, cfg)
     objective = Objective.from_config(cfg)
     steps_per_epoch = math.ceil(train["n"] / cfg.batch_size)
     sched = make_scheduler(opt, cfg.lr_schedule, cfg.epochs * steps_per_epoch)
@@ -565,6 +642,13 @@ def _train_and_evaluate(
         opt.load_state_dict(ckpt["optimizer"])
         if sched is not None:
             sched.load_state_dict(ckpt["scheduler"])
+        if head is not None:
+            if "pose_head" not in ckpt:
+                raise ConfigError("cannot resume: the checkpoint holds no pose head")
+            head.load_state_dict(ckpt["pose_head"])
+            saved = PoseTargetStats.from_dict(ckpt["pose_stats"])
+            if not all(torch.equal(getattr(saved, k), getattr(stats, k)) for k in HEAD_STATS):
+                raise ConfigError("pose stats differ from the checkpoint")
         _set_rng_state(gen, ckpt["rng"])
         rows = [_complete_row(r) for r in ckpt["history"]]
         elapsed0, train0 = ckpt["elapsed_s"], ckpt["train_wall_s"]
@@ -584,12 +668,15 @@ def _train_and_evaluate(
             if stop is not None:
                 break
             te = time.monotonic()
-            st = train_epoch(model, opt, train["image"], cfg.batch_size, gen, sched, objective)
+            st = train_epoch(
+                model, opt, train["image"], cfg.batch_size, gen, sched, objective, pose
+            )
             tl, lr = st["train_loss"], st["lr"]
             vl = eval_loss(model, val["image"], cfg.batch_size)
             dt = time.monotonic() - te
             row = {"epoch": epoch, "train_loss": tl, "val_loss": vl, "lr": lr, "epoch_s": dt,
-                   "train_recon": st["train_recon"], "train_kl": st["train_kl"]}  # fmt: skip
+                   "train_recon": st["train_recon"], "train_kl": st["train_kl"],
+                   "train_pose": st["train_pose"]}  # fmt: skip
             rows.append(row)
             wr.writerow(_history_row(row))
             fh.flush()
@@ -597,9 +684,14 @@ def _train_and_evaluate(
             if new_best:
                 best = {"epoch": epoch, "val_loss": vl}
             now = time.monotonic()
+            heads = {}
+            if head is not None:
+                heads = {"pose_head": head.state_dict(), "pose_head_hparams": head.hparams(),
+                         "pose_stats": stats.to_dict()}  # fmt: skip
             _save_checkpoint(
                 run_dir / CHECKPOINT,
-                {
+                heads
+                | {
                     "train_version": TRAIN_VERSION,
                     "epoch": epoch,
                     "model_hparams": model.hparams(),
@@ -616,10 +708,13 @@ def _train_and_evaluate(
             if new_best:  # after checkpoint.pt (spec 008): a kill in between is repaired
                 state = model.state_dict()
                 _save_checkpoint(
-                    run_dir / BEST, _best_state(epoch, vl, state, model.hparams(), cfg.to_dict())
+                    run_dir / BEST,
+                    _best_state(epoch, vl, state, model.hparams(), cfg.to_dict(), heads),
                 )
             vs = "-" if vl is None else f"{vl:.5f}"
             kl = "" if st["train_kl"] is None else f" kl {st['train_kl']:.1f}"
+            if st["train_pose"] is not None:
+                kl += f" pose {st['train_pose']:.4f}"
             say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f}{kl} val {vs} lr {lr:.2e} ({dt:.0f} s)")
             if stop_after_epoch is not None and stop_after_epoch <= epoch < cfg.epochs:
                 say(f"stopped after epoch {epoch} (resume: --resume {run_dir})")
@@ -630,9 +725,12 @@ def _train_and_evaluate(
                 say(f"early stop after epoch {epoch}/{cfg.epochs}: {stop['reason']}")
     train_wall = train0 + time.monotonic() - t_train
     selection = weight_selection(rows, cfg.select_weights)
-    load_selected_weights(model, run_dir, selection, cfg)  # the scored weights (spec 008)
+    load_selected_weights(model, run_dir, selection, cfg, head)  # scored weights (spec 008)
     say(_selection_line(selection, rows[-1]))
     model.eval()
+    if head is not None:
+        head.eval()
+    del pose
 
     # Context baselines, fit on train only (003 code path: exact PCA, clamp to [0, 1]); the mean
     # image from the uint8 rows in float64 batches, the float32 matrix only for the PCA (spec 012).
@@ -642,7 +740,7 @@ def _train_and_evaluate(
         x_train = to_float(train["image"]).reshape(train["n"], -1)
         pca = fit_pca(x_train, cfg.context_pca_k)
         del x_train
-    del train
+    del train  # with it the joints (spec 018)
     preds = {
         "ae": lambda x: predict_rows(model, x),
         "mean_image": lambda x: mean_image.expand(x.shape[0], -1),
@@ -653,7 +751,7 @@ def _train_and_evaluate(
 
     splits, figure = {}, None
     for name_s, ds in s["eval_ds"].items():
-        a = val if name_s == "val" else load_split(ds, cfg.batch_size, masks=True)
+        a = val if name_s == "val" else load_split(ds, cfg.batch_size, masks=True, joints=jt)
         n = a["n"]
         out: dict = {"samples": n, "poses": int(a["pose_index"].unique().numel()) if n else 0}
         if n:
@@ -666,6 +764,10 @@ def _train_and_evaluate(
                     r |= {"k": cfg.context_pca_k, "k_effective": pca.k_effective(cfg.context_pca_k)}
                 img[name] = r
             out["image"] = img
+            if head is not None:
+                out["pose_head"] = pose_head_scores(
+                    model, head, stats, a["image"], a["joints_world"], cfg.batch_size
+                )
             if name_s == cfg.figure_split:
                 idx = figure_indices(n, cfg.figure_samples)
                 xi = x[idx]
@@ -714,9 +816,17 @@ def _train_and_evaluate(
         },
         "selection": selection,
         "regions": region_definitions(),
-        "units": IMAGE_UNITS,
+        "units": IMAGE_UNITS | (POSE_UNITS if head is not None else {}),
         "splits": splits,
     }
+    if head is not None:  # spec 018 FR-005
+        metrics["pose_head"] = {
+            "target": POSE_TARGET,
+            "hidden": list(POSE_HEAD_HIDDEN),
+            "parameters": head.parameter_count(),
+            "active_coordinates": int(stats.active.sum()),
+            "pose_weight": cfg.pose_weight,
+        }
     write_json_exact(run_dir / "metrics.json", metrics)
     info |= {
         "figure": figure,
@@ -728,6 +838,29 @@ def _train_and_evaluate(
         "peak_rss_mb": peak_rss_mb(),  # spec 015 FR-005
     }
     write_json_exact(run_dir / "run_info.json", info)
+
+
+@torch.no_grad()
+def pose_head_scores(
+    model: ConvAutoencoder,
+    head: PoseHead,
+    stats: PoseTargetStats,
+    images_u8: torch.Tensor,
+    joints_world: torch.Tensor,
+    batch_size: int,
+) -> dict:
+    """Pose-head score of one split (spec 018 FR-005): eval mode, ``mu = model.encode(x)``,
+    root-relative world joints unstandardized, mean ``mpjpe`` (the probe's metric) in mm."""
+    model.eval()
+    head.eval()
+    n = images_u8.shape[0]
+    pred = []
+    for i in range(0, n, batch_size):
+        x = to_float(images_u8[i : i + batch_size]).contiguous(memory_format=CL)
+        pred.append(stats.unstandardize(head(model.encode(x))).double())
+    p = torch.cat(pred).reshape(n, 24, 3)
+    t = root_relative(joints_world).double().reshape(n, 24, 3)
+    return {"target": POSE_TARGET, "mpjpe_mm": float(mpjpe(p, t).mean() * 1000.0)}
 
 
 def _early_stop(rows: list[dict], cfg: TrainConfig) -> dict | None:
@@ -757,7 +890,10 @@ def _abort_if_diverged(
 def _headline(out: dict) -> str:
     if not out["samples"]:
         return "no samples"
-    return "; ".join(
+    line = "; ".join(
         f"{k} mse {r['image_mse']:.5f} iou {r['silhouette_iou']:.3f}"
         for k, r in out["image"].items()
     )
+    if "pose_head" in out:
+        line += f"; head {out['pose_head']['mpjpe_mm']:.1f} mm"
+    return line

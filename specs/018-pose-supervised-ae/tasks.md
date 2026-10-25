@@ -51,7 +51,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/objective.p
 `"smpl_proc_v3/ae_pose_l0.003.yaml"`, `"smpl_proc_v3/ae_pose_l0.03.yaml"`,
 `"smpl_proc_v3/ae_pose_l0.03_mask.yaml"`). Depends on B1.
 
-- [ ] T020 Tests (red first), `tests/test_train_pose.py` (reuse the helpers / cwd fixture style
+- [X] T020 Tests (red first), `tests/test_train_pose.py` (reuse the helpers / cwd fixture style
   of `tests/test_train_variants.py`: `CFG = configs/ae_fixture.yaml`, `_cfg(tmp_path, root, **kw)`
   via `load_config(CFG).with_overrides(run_root=..., **kw)`, epochs as that file uses):
   - `test_pose_weight_default_and_legacy()`: `TrainConfig(dataset_dir="d", split_file="s")
@@ -95,9 +95,9 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/objective.p
     `stop_after_epoch=1`, delete `pose_weight` from its `config.yaml` and the `train_pose`
     column from `history.csv` / from the checkpoint's `history` rows, then `resume_training`
     finishes (pattern: `test_run_dir_from_before_011_resumes`).
-- [ ] T021 `config.py`: field, `LEGACY_VALUES`, number parsing (add to `numbers`), `_check`
+- [X] T021 `config.py`: field, `LEGACY_VALUES`, number parsing (add to `numbers`), `_check`
   rules (data-model.md). `objective.py`: `pose_weight` field and `from_config`.
-- [ ] T022 `trainer.py`:
+- [X] T022 `trainer.py`:
   - `HISTORY_FIELDS` += `"train_pose"`; `_complete_row`: add `train_pose: None` when the key is
     missing (keep the 011 behaviour); `_history_row` writes `""` for None (as `train_kl`).
   - `load_split(..., joints: bool = False)` per data-model.md.

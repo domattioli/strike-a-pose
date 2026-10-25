@@ -69,6 +69,15 @@ Settled context (measured at `9075172`, see [research.md](research.md) R1–R3):
 - Q9 VAE: `pose_weight > 0` with `variational: true` is refused (`ConfigError`): no VAE run is
   planned and the head's input (μ vs a sampled z) would be one more design choice.
 
+### Operator rulings 2026-10-24
+
+- O1 Grill point 8 reading: if the pose head reaches <= 80 mm (val / test MPJPE) but the
+  frozen-latent probe does not, the head's val / test MPJPE answers grill point 8 as the
+  pose-system result; the probe stays the latent-quality measure; both are reported.
+- O2 Second seed: the best pose variant gets a second seed (about +5.5 h) only if its probe
+  gain is within 3 sd of the next variant or its head / probe MPJPE is within 3 sd of the 80 mm
+  line; otherwise not. `pose_track.py` prints this verdict per split (`second_seed_needed`).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Train a pose-supervised AE from a config (Priority: P1)

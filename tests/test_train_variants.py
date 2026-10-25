@@ -224,7 +224,7 @@ def test_regularized_run_repeats_and_records(tmp_path):
     assert all(r["train_recon"] == r["train_loss"] and r["train_kl"] == "" for r in ha)
     assert (a / "metrics.json").read_bytes() == (b / "metrics.json").read_bytes()
     objective = _metrics(a)["training"]["objective"]
-    assert objective == {"mask_weight": 0.0, "beta": 0.0, **REG}
+    assert objective == {"mask_weight": 0.0, "beta": 0.0, "pose_weight": 0.0, **REG}  # 018
     assert _metrics(a)["model"]["variational"] is False
     assert {k: yaml.safe_load((a / "config.yaml").read_text())[k] for k in REG} == REG
 

@@ -22,10 +22,11 @@ class Objective:
     beta: float = 0.0
     shift_px: int = 0
     dropout: float = 0.0
+    pose_weight: float = 0.0  # spec 018 FR-001
 
     @classmethod
     def from_config(cls, cfg: Any) -> "Objective":
-        return cls(cfg.mask_weight, cfg.beta, cfg.shift_px, cfg.dropout)
+        return cls(cfg.mask_weight, cfg.beta, cfg.shift_px, cfg.dropout, cfg.pose_weight)
 
 
 def recon_loss(y: torch.Tensor, x: torch.Tensor, mask_weight: float) -> torch.Tensor:

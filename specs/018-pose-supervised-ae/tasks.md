@@ -132,7 +132,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/objective.p
 Files: `src/strike_a_pose/eval/pose_track.py` (new), `scripts/pose_track.py` (new),
 `tests/test_pose_track.py` (new). Independent of B2 (reads JSON only).
 
-- [ ] T030 Tests (red first):
+- [X] T030 Tests (red first):
   - `test_seed_stats()`: `seed_stats([131.0, 134.4, 133.1])` → mean
     `pytest.approx(132.8333, abs=1e-4)`, sd `pytest.approx(1.71561, abs=1e-5)`; `[131.0]` →
     `ValueError`; `[1.0, 1.0]` → `ValueError` (sd 0).
@@ -151,7 +151,7 @@ Files: `src/strike_a_pose/eval/pose_track.py` (new), `scripts/pose_track.py` (ne
     `| Rank | Variant | MSE vs seeds | Probe MPJPE val (mm) | Δ vs seeds (mm) | Δ / sd | Real (< −2 sd) | Head MPJPE val (mm) | Probe ≤ 80 | Head ≤ 80 |`
     (and the `test` header), a line `seeds: n=3 mean 132.8 mm sd 1.7 mm` per split, and `–`
     for a missing head; one `--seed` → exit 2 with "need >= 2 --seed"; missing file → exit 2.
-- [ ] T031 Implement per data-model.md. Script: `--seed RUN PROBE` (append, nargs 2),
+- [X] T031 Implement per data-model.md. Script: `--seed RUN PROBE` (append, nargs 2),
   `--variant NAME RUN PROBE` (append, nargs 3, required), `--split {val,test,both}` default
   `val`; formats: MSE `+x.x %`, mm `.1f`, Δ `+.1f`, Δ / sd `+.1f`, flags `yes` / `no` / `–`.
   Writes nothing. Docstring with the usage line as `scripts/promotion.py`.

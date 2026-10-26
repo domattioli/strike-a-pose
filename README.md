@@ -430,8 +430,15 @@ for 59 % valid prior samples (vs 32 %).
 mean-pose error (258 mm; a random-encoder control already reaches 212 mm, so training adds ≈ 81 mm) but is far from usable pose estimation (target ≤ 80 mm world MPJPE).
 Levers seen so far: more distinct poses (175 → 131 mm over 4× data; a step-matched v1 run
 confirmed this is pose count, not training length) and mask-weighted loss (−8 mm, real, at +14 % MSE). Neither
-reaches 80 mm practically (fit: 16k poses ≈ 117 mm, floor ≈ 71 mm only after ~10⁵–10⁶ poses). Reaching it likely needs a direction change (pose
-supervision on the encoder); the decision waits on the grill runs.
+reaches 80 mm practically (fit: 16k poses ≈ 117 mm, floor ≈ 71 mm only after ~10⁵–10⁶ poses). Reaching it needed a direction change: see slice 018.
+
+**Slice 018 pose-supervised AE (2026-10-26).** Full results: [`docs/results/018-pose-supervised/`](docs/results/018-pose-supervised/README.md).
+A small pose head on the latent, trained jointly with reconstruction, reaches **68.6 / 66.5 mm**
+world MPJPE (val / test, two seeds agreeing within 0.3 mm) at pose weight 0.03, under the 80 mm
+target; the frozen-latent probe matches, so the encoder itself now carries the pose (plain AE
+133 mm). The cost is +36 % pixel MSE (IoU 0.905 → 0.870); a lighter weight (0.003) gives 91 mm
+for +6 %. Mask weighting does not add to pose supervision. All pose variants are dropped by the
+015 pixel-gate promotion rule; a pose-track promotion rule is an open operator decision.
 
 ## Development checks
 

@@ -477,3 +477,6 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   < −2 sd). Campaign on v3: λ 0.003, λ 0.03, λ 0.03 + mask α 4 (≈ 17 h,
   `docs/campaign-scripts/pose018_queue.sh`). Surrogate rulings Q1–Q9. Tasks B1–B4 for a Sonnet
   implementer.
+- 2026-10-26: slice 018 implemented (B1–B4) and campaign done (P1, P2, P3 + O2 second seed of P2):
+  pose weight 0.03 reaches 68.6 / 66.5 mm world MPJPE (val / test; head and frozen-latent probe
+  agree), under the 80 mm target, at +36 % pixel MSE. Results: `docs/results/018-pose-supervised/`.

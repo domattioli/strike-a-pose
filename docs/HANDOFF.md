@@ -619,8 +619,13 @@ Operator rulings 2026-10-24: (1) if the pose head reaches <= 80 mm but the probe
 head's val / test MPJPE answers grill point 8 as the pose-system result; the probe stays the
 latent-quality measure; report both. (2) The best pose variant gets a second seed (about +5.5 h)
 only if its probe gain is within 3 sd of the next variant or its head / probe MPJPE is within 3 sd
-of 80 mm (`pose_track.py` prints this verdict per split); otherwise not. Results go to
-`docs/results/pose-campaign-018/README.md` (lead).
+of 80 mm (`pose_track.py` prints this verdict per split); otherwise not. Results are in
+`docs/results/018-pose-supervised/README.md`.
+
+**018 campaign done (2026-10-26 02:41 UTC).** P1 λ 0.003: head / probe 90.9 / 91.2 mm val, +5.7 % MSE.
+P2 λ 0.03: 68.6 / 68.6 mm val (66.6 test), +36 % MSE, IoU 0.870; O2 second seed reproduces it
+(68.5 / 68.7 mm). P3 λ 0.03 + mask: 71.9 / 73.0 mm, +42 % MSE. Grill point 8 answered: ≤ 80 mm reached.
+All dropped by the 015 pixel gate. Open operator decision: a pose-track promotion rule.
 
 ## Process rules
 

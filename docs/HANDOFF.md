@@ -627,6 +627,35 @@ P2 λ 0.03: 68.6 / 68.6 mm val (66.6 test), +36 % MSE, IoU 0.870; O2 second seed
 (68.5 / 68.7 mm). P3 λ 0.03 + mask: 71.9 / 73.0 mm, +42 % MSE. Grill point 8 answered: ≤ 80 mm reached.
 All dropped by the 015 pixel gate. Open operator decision: a pose-track promotion rule.
 
+## 019 latent-capacity campaign (spec `specs/019-latent-capacity/`)
+
+Operator rulings 2026-10-28: L3 (λ 0.01) does not run now (only L1 + L2, `RUN_L3` unset); one
+seed per variant, a second L1 seed only if its pixel change lands in the 2-3 sd band. Variants on
+`smpl_proc_v3`: L1 `ae-l128` (λ 0), L2 `ae-l128-pose-l0.03` (λ 0.03), both `latent_dim` 128, seed 0.
+Queue `docs/campaign-scripts/latent019_queue.sh` (L1, 12 GB memory gate, L2, each probed; about
+12.5-14.5 h), same lock `data/smpl_queue.lock` (serializes with any other queue); terminal lines
+`QUEUE_DONE`, `QUEUE_INCOMPLETE`, `MEMORY_STOP`. `RUN_L3=1` in the environment adds L3 (`ae-l128-pose-l0.01`,
+about +6-7 h, total about 19-22 h; over the 18 h budget, so off by default). Launch (watchdog as a
+harness-tracked background task, re-armed every <= 110 min):
+
+    cd /home/user/strike-a-pose && cp docs/campaign-scripts/latent019_queue.sh docs/campaign-scripts/watchdog.sh data/ && chmod +x data/latent019_queue.sh && LOG=data/latent019_queue.log QUEUE=data/latent019_queue.sh data/watchdog.sh 6600 >> data/watchdog019.log 2>&1
+
+Before starting (T030): `git diff dd61515 -- src/strike_a_pose/train/config.py` must show only added
+keys whose defaults reproduce current behaviour (slice 020 runs in parallel). After `QUEUE_DONE`
+(probe dirs: `runs/<run>/probed.txt`), two reports (`--split both`); references (run / probe dirs
+under `runs/`, copies in `docs/results/`): R0-v3 `ae-smpl_proc_v3-20261023T004930Z` /
+`probe-smpl_proc_v3-20261023T061757Z`, R0b-v3 `ae-seed1-smpl_proc_v3-20261023T065844Z` /
+`probe-smpl_proc_v3-20261023T124246Z`, R0c-v3 `ae-seed2-smpl_proc_v3-20261024T041446Z` /
+`probe-smpl_proc_v3-20261024T213946Z`, P1 `ae-pose-l0.003-smpl_proc_v3-20261025T001408Z` /
+`probe-smpl_proc_v3-20261025T053303Z`, P2 `ae-pose-l0.03-smpl_proc_v3-20261025T061249Z` /
+`probe-smpl_proc_v3-20261025T114515Z`:
+
+    uv run --locked python scripts/promotion.py --split both --r0 runs/ae-smpl_proc_v3-20261023T004930Z --r0-probe runs/probe-smpl_proc_v3-20261023T061757Z --r0b runs/ae-seed1-smpl_proc_v3-20261023T065844Z --r0b-probe runs/probe-smpl_proc_v3-20261023T124246Z --variant L1 <L1 run> <L1 probe> --variant L2 <L2 run> <L2 probe> --variant P1 runs/ae-pose-l0.003-smpl_proc_v3-20261025T001408Z runs/probe-smpl_proc_v3-20261025T053303Z --variant P2 runs/ae-pose-l0.03-smpl_proc_v3-20261025T061249Z runs/probe-smpl_proc_v3-20261025T114515Z
+    uv run --locked python scripts/pose_track.py --split both --seed runs/ae-smpl_proc_v3-20261023T004930Z runs/probe-smpl_proc_v3-20261023T061757Z --seed runs/ae-seed1-smpl_proc_v3-20261023T065844Z runs/probe-smpl_proc_v3-20261023T124246Z --seed runs/ae-seed2-smpl_proc_v3-20261024T041446Z runs/probe-smpl_proc_v3-20261024T213946Z --variant L1 <L1 run> <L1 probe> --variant L2 <L2 run> <L2 probe> --variant P1 runs/ae-pose-l0.003-smpl_proc_v3-20261025T001408Z runs/probe-smpl_proc_v3-20261025T053303Z --variant P2 runs/ae-pose-l0.03-smpl_proc_v3-20261025T061249Z runs/probe-smpl_proc_v3-20261025T114515Z
+
+(flag names verified against `--help` 2026-10-28.) Then write
+`docs/results/019-latent-capacity/README.md` with the SC-003 readings.
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

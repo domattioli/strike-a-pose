@@ -63,13 +63,13 @@ Files: `tests/test_latent_capacity.py` (new), `tests/test_train_config.py` (appe
 
 Files: `docs/HANDOFF.md`. Depends on B1.
 
-- [ ] T020 Add a "019 latent-capacity campaign" section: copy step
+- [X] T020 Add a "019 latent-capacity campaign" section: copy step
   (`cp docs/campaign-scripts/latent019_queue.sh data/ && chmod +x data/latent019_queue.sh`),
   watchdog line from plan.md, `RUN_L3=1` meaning and its +6–7 h, terminal tokens, and the two
   post-queue commands from plan.md with the 018 P1 / P2 / R0-v3 / R0b-v3 / R0c-v3 run and probe
   dirs filled in from `docs/results/018-pose-supervised/README.md` and
   `docs/results/smpl-campaign-015/README.md`.
-- [ ] T021 `sh -n docs/campaign-scripts/latent019_queue.sh` passes; `grep -c QUEUE_DONE` on the
+- [X] T021 `sh -n docs/campaign-scripts/latent019_queue.sh` passes; `grep -c QUEUE_DONE` on the
   script is exactly 1 (the final `log` line; the header comment uses "QUEUE-DONE").
 
 ## Stage 3 — campaign (lead / operator, not the implementer)

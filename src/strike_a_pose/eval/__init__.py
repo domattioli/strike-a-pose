@@ -5,10 +5,13 @@ Contract: ``specs/003-baselines-and-metrics/contracts/eval-run.md``.
 
 from .config import BaselineConfig, ConfigError, config_from_dict, load_config
 from .metrics import (
+    BOUNDARY_TOL_PX,
     IOU_THRESHOLD,
     PSNR_MSE_FLOOR,
     REGIONS,
     ROOT_JOINT,
+    boundary_f1,
+    gradient_loss,
     image_mse,
     keypoint_error_2d,
     masked_mse,
@@ -21,6 +24,7 @@ from .metrics import (
 from .pca import PCA, fit_pca
 
 __all__ = [
+    "BOUNDARY_TOL_PX",
     "IOU_THRESHOLD",
     "PCA",
     "PSNR_MSE_FLOOR",
@@ -29,7 +33,9 @@ __all__ = [
     "BaselineConfig",
     "ConfigError",
     "config_from_dict",
+    "boundary_f1",
     "fit_pca",
+    "gradient_loss",
     "image_mse",
     "keypoint_error_2d",
     "load_config",

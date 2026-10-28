@@ -64,7 +64,9 @@ from .objective import Objective, gaussian_kl, recon_loss, reparameterize, shift
 
 TRAIN_VERSION = 2  # 2 (spec 008): metrics.json `ae` = the weights `selection` names
 METRICS_VERSION = 1  # image metrics as in 003 metrics.json
-IMAGE_UNITS = {k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou", "regions")}
+IMAGE_UNITS = {
+    k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou", "boundary_f1", "regions")
+}
 # train_recon / train_kl: spec 011 (appended; runs before it have the first five columns);
 # train_pose: spec 018 (empty unless a pose head is trained)
 HISTORY_FIELDS = (
@@ -759,7 +761,15 @@ def _train_and_evaluate(
             labels = (a["kp2d"], a["visible"], a["image_size"])  # region metrics (spec 009)
             img = {}
             for name, fn in preds.items():
-                r = score_images(fn, x, a["mask"], cfg.batch_size, cfg.iou_threshold, labels=labels)
+                r = score_images(
+                    fn,
+                    x,
+                    a["mask"],
+                    cfg.batch_size,
+                    cfg.iou_threshold,
+                    labels=labels,
+                    image_size=a["image_size"],
+                )
                 if name == pca_name:
                     r |= {"k": cfg.context_pca_k, "k_effective": pca.k_effective(cfg.context_pca_k)}
                 img[name] = r

@@ -37,6 +37,10 @@ UNITS = {
     "image_mse": "per-pixel mean squared error, images in [0, 1] (PCA output clamped to [0, 1])",
     "psnr_db": "dB, 10*log10(1/max(MSE, 1e-10)) per image, averaged over images",
     "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean",
+    "boundary_f1": (
+        "F1 of the 1-px-tolerance match between the contours of (prediction > iou_threshold) "
+        "and of the true body mask, per image mean (spec 020)"
+    ),
     "mpjpe_mm": "mm, root-relative (pelvis) 3D joint error, world frame (= camera frame)",
     "kp2d_px": "px, mean over visible joints; prediction + true root projected with true camera",
     "regions": (
@@ -150,7 +154,13 @@ def score_split(b: Baselines, a: dict, cfg: BaselineConfig) -> dict:
     labels = (a["kp2d"], a["visible"], a["image_size"])  # region metrics (spec 009)
     for name, k, pred in _image_predictors(b, cfg):
         r = score_images(
-            pred, a["image"], a["mask"], cfg.batch_size, cfg.iou_threshold, labels=labels
+            pred,
+            a["image"],
+            a["mask"],
+            cfg.batch_size,
+            cfg.iou_threshold,
+            labels=labels,
+            image_size=a["image_size"],
         )
         if k is not None:
             r |= {"k": k, "k_effective": b.image_pca.k_effective(k)}

@@ -14,8 +14,10 @@ from strike_a_pose.data import tensor_to_image
 from strike_a_pose.datagen.skeleton import SMPL24_JOINT_NAMES
 
 from .metrics import (
+    BOUNDARY_TOL_PX,
     IOU_THRESHOLD,
     REGIONS,
+    boundary_f1,
     image_mse,
     masked_mse,
     psnr,
@@ -75,8 +77,9 @@ def score_images(
     threshold: float = IOU_THRESHOLD,
     *,
     labels: RegionLabels | None = None,
+    image_size: tuple[int, int] | None = None,
 ) -> dict:
-    """Mean per-image ``image_mse``, ``psnr_db``, ``silhouette_iou`` over all rows.
+    """Mean per-image ``image_mse``, ``psnr_db``, ``silhouette_iou``, ``boundary_f1`` over all rows.
 
     ``images [n, H*W]`` float in [0, 1]; ``masks [n, H*W]`` bool; ``pred_fn`` maps a
     batch of image rows to predicted rows of the same shape and is called once per batch.
@@ -84,15 +87,21 @@ def score_images(
     gains ``regions``: per region of ``REGIONS``, ``image_mse`` = mean over the rows whose
     region is non-empty of the per-row MSE inside it (NaN if none) and ``samples`` = their
     count, from the same predictions; masks are built per batch, never stored.
+    ``boundary_f1`` (spec 020 FR-004) needs the image size: ``image_size``, else ``labels[2]``,
+    else ``ValueError``.
     """
     n = images.shape[0]
+    if image_size is None and labels is not None:
+        image_size = labels[2]
+    if image_size is None:
+        raise ValueError("image_size required")
     if labels is not None:
         kp, vis, (h, w) = labels
         if kp.shape[0] != n or vis.shape[0] != n or h * w != images.shape[1]:
             raise ValueError(
                 f"labels for {kp.shape[0]} rows of {h}x{w} do not fit images {tuple(images.shape)}"
             )
-    mse, ps, iou = [], [], []
+    mse, ps, iou, bf1 = [], [], [], []
     reg: dict[str, list[torch.Tensor]] = {name: [] for name in REGIONS}
     for i in range(0, n, batch_size):
         x = images[i : i + batch_size]
@@ -100,6 +109,11 @@ def score_images(
         mse.append(image_mse(p, x))
         ps.append(psnr(p, x))
         iou.append(silhouette_iou(p, masks[i : i + batch_size], threshold))
+        bf1.append(
+            boundary_f1(
+                p, masks[i : i + batch_size], threshold, BOUNDARY_TOL_PX, image_size=image_size
+            )
+        )
         if labels is not None:
             sl = slice(i, i + x.shape[0])
             for name, (joints, half) in REGIONS.items():
@@ -109,6 +123,7 @@ def score_images(
         "image_mse": float(torch.cat(mse).double().mean()),
         "psnr_db": float(torch.cat(ps).double().mean()),
         "silhouette_iou": float(torch.cat(iou).double().mean()),
+        "boundary_f1": float(torch.cat(bf1).double().mean()),
     }
     if labels is not None:
         out["regions"] = {name: _region_record(torch.cat(v)) for name, v in reg.items()}

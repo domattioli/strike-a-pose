@@ -15,7 +15,7 @@ from strike_a_pose.runlog import dumps_exact
 
 FIXTURE = Path(__file__).parents[1] / "tests" / "fixtures" / "smpl_fixture"
 BACKENDS = [np.asarray, lambda x: torch.as_tensor(np.asarray(x))]
-HEADLINE = ("image_mse", "psnr_db", "silhouette_iou")
+HEADLINE = ("image_mse", "psnr_db", "silhouette_iou", "boundary_f1")
 
 
 def _np(y):
@@ -265,7 +265,7 @@ def test_score_images_regions_hand_computed():
         "hands": {"image_mse": 0.0625, "samples": 3},
         "feet": {"image_mse": 0.0625, "samples": 4},
     }
-    plain = score_images(pred, x, masks, batch_size=3)
+    plain = score_images(pred, x, masks, batch_size=3, image_size=SIZE)
     assert tuple(plain) == HEADLINE  # without labels: today's result
     assert {k: r[k] for k in HEADLINE} == plain  # headline bit-identical
     assert r["image_mse"] == pytest.approx((841 * 0.25 + (3072 - 841) * 0.0625) / 3072)

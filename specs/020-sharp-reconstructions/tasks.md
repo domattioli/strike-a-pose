@@ -25,7 +25,7 @@ Files: `src/strike_a_pose/eval/metrics.py`, `src/strike_a_pose/eval/__init__.py`
 (only: add `"boundary_f1"` to the key tuple of `IMAGE_UNITS`), `tests/test_boundary_f1.py`
 (new), `tests/test_eval_report.py` (extend).
 
-- [ ] T010 Tests (red first), `tests/test_boundary_f1.py`:
+- [X] T010 Tests (red first), `tests/test_boundary_f1.py`:
   - `test_gradient_loss_zero_for_constant_offset()`: `x = torch.rand(2, 1, 8, 6,
     generator=torch.Generator().manual_seed(0))`; `gradient_loss(x + 0.3, x) == 0` (abs <
     1e-7); `gradient_loss(x, x) == 0`.
@@ -48,7 +48,7 @@ Files: `src/strike_a_pose/eval/metrics.py`, `src/strike_a_pose/eval/__init__.py`
     `[B, H*W]` with `image_size=(10, 10)`; a pred of 0.07 everywhere inside the square scores
     as empty at the default 0.075 threshold.
   - `test_boundary_f1_numpy_in_numpy_out()`: numpy float32 input → numpy `[B]` output.
-- [ ] T011 Tests (red first), `tests/test_eval_report.py`: extend the existing
+- [X] T011 Tests (red first), `tests/test_eval_report.py`: extend the existing
   `score_images` test(s) so the result has `"boundary_f1"`, equal to the mean of
   `boundary_f1(pred, mask, threshold, image_size=...)` on the same rows; an identity `pred_fn`
   gives 1.0. `score_images` needs the image size for flat rows: take it from a new keyword
@@ -56,7 +56,7 @@ Files: `src/strike_a_pose/eval/metrics.py`, `src/strike_a_pose/eval/__init__.py`
   `labels[2]`; when both None infer nothing and raise `ValueError("image_size required")`.
   Update every caller (`train/trainer.py`, `eval/baselines.py`, grep `score_images(`) to pass
   `image_size` — this is a call-site edit, allowed in those two files.
-- [ ] T012 Implement per data-model.md (`BOUNDARY_TOL_PX = 1`; torch max-pool on float32; for
+- [X] T012 Implement per data-model.md (`BOUNDARY_TOL_PX = 1`; torch max-pool on float32; for
   erosion pad with `F.pad(..., value=1.0)` then `-max_pool2d(-b, 3, 1, 0)` so outside pixels
   count as body and do not create contour; dilation `max_pool2d(c, k, 1, tol_px)` with
   zero-padding semantics — note `max_pool2d` pads with −inf, equivalent here since c ≥ 0).

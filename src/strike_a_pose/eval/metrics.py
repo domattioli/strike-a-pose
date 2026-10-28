@@ -10,12 +10,14 @@ from typing import TypeVar
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 Array = TypeVar("Array", np.ndarray, torch.Tensor)
 
 IOU_THRESHOLD = 0.075  # half the renderer's ambient floor (body >= 0.15, background 0)
 PSNR_MSE_FLOOR = 1e-10  # caps PSNR at 100 dB for max_val = 1
 ROOT_JOINT = 0  # pelvis (smpl24)
+BOUNDARY_TOL_PX = 1  # boundary-F1 match tolerance in px (spec 020 FR-002)
 
 # Image regions (spec 009 FR-001): name -> (SMPL-24 joint indices, half-size h in px); each
 # region is the union of (2h + 1)-px squares on its joints. Sized for the 001 camera ring
@@ -64,6 +66,67 @@ def silhouette_iou(pred: Array, mask: Array, threshold: float = IOU_THRESHOLD) -
     iou = torch.where(union > 0, inter / union.clamp_min(1), torch.ones_like(union))
     dtype = p.dtype if p.is_floating_point() else torch.float64
     return _out(iou.to(dtype), pred)
+
+
+def gradient_loss(y: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+    """Squared image-gradient difference (spec 020 FR-002), ``y, x`` float ``[B, 1, H, W]``.
+
+    Mean squared difference of the forward differences along H plus along W; differentiable
+    in ``y``; 0 iff ``y - x`` is constant per image.
+    """
+    dh = (y[..., 1:, :] - y[..., :-1, :]) - (x[..., 1:, :] - x[..., :-1, :])
+    dw = (y[..., :, 1:] - y[..., :, :-1]) - (x[..., :, 1:] - x[..., :, :-1])
+    return dh.pow(2).mean() + dw.pow(2).mean()
+
+
+def _contour(b: torch.Tensor) -> torch.Tensor:
+    """Contour ``b - erode(b)`` of float ``[B, 1, H, W]`` 0/1 bodies (3x3 erosion); pixels
+    outside the image count as body, so a body touching the border has no contour there."""
+    eroded = -F.max_pool2d(-F.pad(b, (1, 1, 1, 1), value=1.0), 3, 1, 0)
+    return b - eroded
+
+
+def boundary_f1(
+    pred: Array,
+    mask: Array,
+    threshold: float = IOU_THRESHOLD,
+    tol_px: int = BOUNDARY_TOL_PX,
+    *,
+    image_size: tuple[int, int] | None = None,
+) -> Array:
+    """Per-image F1 of the ``tol_px``-tolerance match between the contours of
+    ``pred > threshold`` and of the true bool ``mask`` (spec 020 FR-002).
+
+    ``pred``/``mask`` are ``[B, H, W]`` or flat ``[B, H*W]`` (then ``image_size=(H, W)`` is
+    required). Both contours empty → 1.0; exactly one empty → 0.0. ``[B]`` out, in the array
+    type of ``pred`` (float64 for non-float input, as :func:`silhouette_iou`).
+    """
+    p, m = _t(pred), _t(mask)
+    if p.shape != m.shape:
+        raise ValueError(f"shape mismatch {tuple(p.shape)} vs {tuple(m.shape)}")
+    if p.ndim == 2:
+        if image_size is None:
+            raise ValueError("image_size required for flat [B, H*W] input")
+        p, m = p.reshape(p.shape[0], 1, *image_size), m.reshape(m.shape[0], 1, *image_size)
+    elif p.ndim == 3:
+        p, m = p[:, None], m[:, None]
+    else:
+        raise ValueError(f"expected [B, H*W] or [B, H, W], got {tuple(p.shape)}")
+    cp = _contour((p > threshold).to(torch.float32))
+    cm = _contour(m.bool().to(torch.float32))
+    k = 2 * tol_px + 1
+    near_m = F.max_pool2d(cm, k, 1, tol_px)
+    near_p = F.max_pool2d(cp, k, 1, tol_px)
+    n_p, n_m = cp.sum(dim=(1, 2, 3)).double(), cm.sum(dim=(1, 2, 3)).double()
+    hit_p = (cp * near_m).sum(dim=(1, 2, 3)).double()
+    hit_m = (cm * near_p).sum(dim=(1, 2, 3)).double()
+    prec = hit_p / n_p.clamp_min(1)
+    rec = hit_m / n_m.clamp_min(1)
+    f1 = torch.where(prec + rec > 0, 2 * prec * rec / (prec + rec).clamp_min(1e-300), 0.0 * prec)
+    f1 = torch.where((n_p == 0) & (n_m == 0), torch.ones_like(f1), f1)
+    f1 = torch.where((n_p == 0) != (n_m == 0), torch.zeros_like(f1), f1)
+    dtype = p.dtype if p.is_floating_point() else torch.float64
+    return _out(f1.to(dtype), pred)
 
 
 def mpjpe(pred: Array, target: Array, root: int = ROOT_JOINT) -> Array:

@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from strike_a_pose.data import tensor_to_image
-from strike_a_pose.eval import image_mse, psnr, silhouette_iou
+from strike_a_pose.eval import boundary_f1, image_mse, psnr, silhouette_iou
 from strike_a_pose.eval.report import (
     FIG_HEADER,
     FIG_PAD,
@@ -58,8 +58,21 @@ def test_score_images_matches_metrics():
     x = torch.rand(7, 20, generator=g)
     m = x > 0.5
     pred = lambda t: (t * 0.9).clamp(0, 1)  # noqa: E731
-    r = score_images(pred, x, m, batch_size=3, threshold=0.4)
+    r = score_images(pred, x, m, batch_size=3, threshold=0.4, image_size=(4, 5))
     p = pred(x)
     assert r["image_mse"] == pytest.approx(float(image_mse(p, x).double().mean()))
     assert r["psnr_db"] == pytest.approx(float(psnr(p, x).double().mean()))
     assert r["silhouette_iou"] == pytest.approx(float(silhouette_iou(p, m, 0.4).double().mean()))
+    want = boundary_f1(p, m, 0.4, image_size=(4, 5)).double().mean()
+    assert r["boundary_f1"] == pytest.approx(float(want))
+
+
+def test_score_images_boundary_f1_identity_and_image_size():
+    m = torch.zeros(2, 10, 10, dtype=torch.bool)
+    m[:, 3:7, 3:7] = True
+    x, m = m.float().reshape(2, -1), m.reshape(2, -1)
+    assert score_images(lambda t: t, x, m, 2, image_size=(10, 10))["boundary_f1"] == 1.0
+    labels = (torch.zeros(2, 24, 2), torch.ones(2, 24, dtype=torch.bool), (10, 10))
+    assert score_images(lambda t: t, x, m, 2, labels=labels)["boundary_f1"] == 1.0
+    with pytest.raises(ValueError, match="image_size required"):
+        score_images(lambda t: t, x, m, 2)

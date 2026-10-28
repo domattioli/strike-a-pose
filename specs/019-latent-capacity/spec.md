@@ -49,6 +49,13 @@ Settled context (measured at `dd61515`, see [research.md](research.md) R1–R3):
 - Q8 Code scope: no change to `train/config.py`, losses or the decoder (slice 020 owns
   reconstruction fidelity). This slice ships configs, a queue script and tests only.
 
+### Session 2026-10-28 (operator rulings)
+
+- Operator ruling 1: **L3 (λ 0.01) does not run now.** Only L1 + L2; the queue default
+  (`RUN_L3` unset) stands. Supersedes the "operator question 1" of Q5.
+- Operator ruling 2: **one seed per variant**; a second L1 seed only if its pixel change lands in
+  the 2-3 sd band (research R4 follow-up).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Train and evaluate a 128-d AE from a config (P1)

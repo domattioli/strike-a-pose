@@ -24,10 +24,10 @@ your batch lists; in particular never edit `src/strike_a_pose/train/*`,
 Files: `tests/test_latent_capacity.py` (new), `tests/test_train_config.py` (append to the
 `test_shipped_configs_load` parametrize list only).
 
-- [ ] T010 `tests/test_train_config.py`: append `"smpl_proc_v3/ae_l128.yaml"`,
+- [X] T010 `tests/test_train_config.py`: append `"smpl_proc_v3/ae_l128.yaml"`,
   `"smpl_proc_v3/ae_l128_pose_l0.03.yaml"`, `"smpl_proc_v3/ae_l128_pose_l0.01.yaml"` to the
   parametrize list (keep existing entries; if slice 020 has appended lines, keep theirs too).
-- [ ] T011 `tests/test_latent_capacity.py` (module docstring "spec 019 FR-002"; autouse
+- [X] T011 `tests/test_latent_capacity.py` (module docstring "spec 019 FR-002"; autouse
   fixture `monkeypatch.chdir(ROOT)` like `tests/test_sample.py`):
   - `test_shipped_l128_configs()` parametrized over the three FR-001 files: `latent_dim == 128`;
     `pose_weight` is 0.0 / 0.03 / 0.01 respectively; `run_name` as in spec FR-001; every other
@@ -57,7 +57,7 @@ Files: `tests/test_latent_capacity.py` (new), `tests/test_train_config.py` (appe
   - `test_sample_refuses_mixed_latent(tmp_path)`: VAE 128, reference AE 64 → `ConfigError`
     match "latent_dim"; (mirror the existing refusal test in `tests/test_sample.py`).
   - Keep the whole module < 60 s (SC-001): mark nothing slow; reuse the fixture epochs.
-- [ ] T012 Run the suite; report timings of the new module.
+- [X] T012 Run the suite; report timings of the new module.
 
 ## Batch B2 — handoff (FR-003, FR-004)
 

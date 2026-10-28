@@ -33,6 +33,9 @@ def test_defaults():
         "smpl_proc_v3/ae_pose_l0.003.yaml",
         "smpl_proc_v3/ae_pose_l0.03.yaml",
         "smpl_proc_v3/ae_pose_l0.03_mask.yaml",
+        "smpl_proc_v3/ae_l128.yaml",
+        "smpl_proc_v3/ae_l128_pose_l0.03.yaml",
+        "smpl_proc_v3/ae_l128_pose_l0.01.yaml",
     ],
 )
 def test_shipped_configs_load(name):

@@ -656,6 +656,28 @@ under `runs/`, copies in `docs/results/`): R0-v3 `ae-smpl_proc_v3-20261023T00493
 (flag names verified against `--help` 2026-10-28.) Then write
 `docs/results/019-latent-capacity/README.md` with the SC-003 readings.
 
+## 020 fidelity campaign (sharper reconstructions; design in specs/020-sharp-reconstructions/)
+
+Adds `gradient_weight` (squared image-gradient loss, default 0 = bitwise today's trainer), the
+`boundary_f1` image metric and `scripts/fidelity.py` (`rescore`, `report`). Runs after the 019
+queue (same lock `data/smpl_queue.lock`; if it is held the queue logs "another queue holds the
+lock" and exits 0, re-run later). Copy the queue and start it under the watchdog:
+
+    cp docs/campaign-scripts/fidelity020_queue.sh data/fidelity020_queue.sh
+    LOG=data/fidelity020_queue.log QUEUE=data/fidelity020_queue.sh data/watchdog.sh
+
+It rescores the five references, trains and probes F1 (`ae_grad.yaml`) and F2
+(`ae_pose_l0.03_grad.yaml`), rescores both (about 14.5 h). After its done line, run:
+
+    uv run --locked python scripts/fidelity.py report --seed R0 --seed R0b --seed R0c --pose-ref P2 --pose-ref P2-seed1 --variant F1=RUN --variant F2=RUN --split both
+    uv run --locked python scripts/promotion.py ... --split both   (F1, F2)
+    uv run --locked python scripts/pose_track.py ... --split both  (F2)
+
+Check first that the rescored R0-v3 equals its published MSE / IoU / regions (rel 1e-5, the
+metrics.json precision) before reading any variant. Operator ruling 2026-10-28: an F2 verdict of
+SHARPER-COSTLY (probe worse than 2 sd) is not a win for the pose system; the next lever is a
+decoder-upsampling run. Q1 (reconstructions vs dataset renderer) is still pending with the operator.
+
 ## Process rules
 
 - Spec-kit per slice: specify → clarify → plan → tasks → analyze → implement;

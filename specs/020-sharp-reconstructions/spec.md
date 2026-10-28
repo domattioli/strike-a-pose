@@ -73,6 +73,14 @@ Settled context (cheap checks at `dd61515`, 320 val images = every 20th, R0-v3 a
 - Q9 Combination with `mask_weight` / `variational`: refused (`ConfigError`); neither is in
   the campaign and mask weighting already failed on pixels.
 
+### Operator rulings 2026-10-28
+
+- Q2 (operator ruling): if F2 is SHARPER-COSTLY (probe worse than 2 sd), it does not count as a
+  win for the pose system. The verdict rule (Q8) stays as fixed; a decoder-upsampling run
+  (research R5) is the next lever.
+- Q1 (pending with the operator): reconstructions (ruling a) vs the dataset renderer. The design
+  proceeds with the reconstruction reading; the answer may change the slice.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Train with a gradient term from a config (Priority: P1)

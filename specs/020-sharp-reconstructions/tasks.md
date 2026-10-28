@@ -144,7 +144,7 @@ Files: `src/strike_a_pose/eval/fidelity.py` (new), `scripts/fidelity.py` (new),
 
 - [x] T040 (lead) `configs/smpl_proc_v3/ae_grad.yaml`, `ae_pose_l0.03_grad.yaml`,
   `docs/campaign-scripts/fidelity020_queue.sh`.
-- [ ] T041 `sh -n docs/campaign-scripts/fidelity020_queue.sh`; both configs load (covered by
+- [X] T041 `sh -n docs/campaign-scripts/fidelity020_queue.sh`; both configs load (covered by
   T020's parametrize); `grep -c QUEUE_DONE docs/campaign-scripts/fidelity020_queue.sh` is 1 (only the final
   `log` line; no other text, comment or message contains that string). Add a short "020
   fidelity campaign" paragraph to `docs/HANDOFF.md` (copy step, watchdog command, runs after

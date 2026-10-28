@@ -487,3 +487,13 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   `RUN_L3=1` (L1+L2 ≈ 13–14.5 h; `docs/campaign-scripts/latent019_queue.sh`); compared with 64-d
   R0-v3 seeds and 018 P1 / P2 via promotion and pose-track `--split both`. No `src/` change
   (slice 020 owns loss / decoder). Surrogate rulings Q1–Q8. Tasks B1–B2 for a Sonnet implementer.
+- 2026-10-28: slice 020 `sharp-reconstructions` designed (operator decision 2026-10-28: improve
+  the fidelity of the renderings, read as the AE's reconstructions). Cheap check (320 val images):
+  reconstructions keep 72 % of the true gradient magnitude; boundary F1 at 1 px 0.929 (R0-v3) vs
+  0.861 (P2); no checkerboard. Optional squared image-gradient loss `gradient_weight` γ 0.5
+  (≈ 0.9 × the MSE term), new sharpness metric `boundary_f1` (1 px) in every image score,
+  `scripts/fidelity.py rescore / report` with a pre-registered SHARPER / SHARPER-COSTLY / NO-GAIN
+  verdict (bF1 > +2 seed sd, MSE ≤ +5 %, probe ≤ +2 sd). Campaign after 019, same lock: F1 plain +
+  γ 0.5, F2 pose λ 0.03 + γ 0.5, five references rescored (≈ 14.5 h,
+  `docs/campaign-scripts/fidelity020_queue.sh`). No decoder change, no skips (latent is the
+  product). Surrogate rulings Q1–Q9. Tasks B1–B4 for a Sonnet implementer.

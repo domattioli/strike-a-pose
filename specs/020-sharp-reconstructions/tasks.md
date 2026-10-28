@@ -71,7 +71,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/objective.p
 `tests/test_train_pose.py` (change only `assert HISTORY_FIELDS[-1] == "train_pose"` to
 `assert "train_pose" in HISTORY_FIELDS`). Depends on B1.
 
-- [ ] T020 Tests (red first), `tests/test_train_grad.py` (helpers / cwd fixture style of
+- [X] T020 Tests (red first), `tests/test_train_grad.py` (helpers / cwd fixture style of
   `tests/test_train_pose.py`):
   - `test_gradient_weight_default_and_legacy()`: dataclass default 0.0;
     `LEGACY_VALUES["gradient_weight"] == 0.0`; `Objective().gradient_weight == 0.0`;
@@ -96,7 +96,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/objective.p
     compare history minus timings and `best.pt` tensors).
   - `test_pre_020_history_rows_complete()`: `_complete_row({...no train_grad...})["train_grad"]
     is None`.
-- [ ] T021 Implement: config field / legacy / numeric list / validation (data-model.md);
+- [X] T021 Implement: config field / legacy / numeric list / validation (data-model.md);
   `Objective.gradient_weight` last field, `from_config` by keyword for all fields;
   `train_epoch`: after `recon = recon_loss(y, x, obj.mask_weight)` (store `y = model.decode(z)`
   once), `if obj.gradient_weight: g = gradient_loss(y, x); recon_total_term = recon +
@@ -110,7 +110,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/objective.p
 Files: `src/strike_a_pose/eval/fidelity.py` (new), `scripts/fidelity.py` (new),
 `tests/test_fidelity.py` (new). Depends on B1 (B2 for the fixture grad run in tests).
 
-- [ ] T030 Tests (red first), `tests/test_fidelity.py`:
+- [X] T030 Tests (red first), `tests/test_fidelity.py`:
   - `test_rescore_matches_training_metrics(tmp_path)`: train one fixture run (defaults);
     `rescore(run_dir, splits=("val", "test"))` → dict per data-model.md; its
     `splits.val.image_mse`, `silhouette_iou`, `boundary_f1` and region MSEs equal the run's
@@ -127,7 +127,7 @@ Files: `src/strike_a_pose/eval/fidelity.py` (new), `scripts/fidelity.py` (new),
   - `test_report_needs_two_seeds()` → `ValueError` match ">= 2".
   - `test_cli_report_exit_codes(tmp_path)`: `scripts/fidelity.py report` with one `--seed` →
     exit 2; a run dir missing `fidelity.json` → exit 2 and its path in stderr.
-- [ ] T031 Implement `eval/fidelity.py`: `rescore(run_dir, splits, batch_size=64,
+- [X] T031 Implement `eval/fidelity.py`: `rescore(run_dir, splits, batch_size=64,
   checkpoint=None)` (default checkpoint from `metrics.json["selection"]["checkpoint"]`, else
   `best.pt`; dataset / split / threshold from the run's `config.yaml` via `load_config`;
   `load_split(..., masks=True)`; `score_images(predict_rows-based fn, ..., labels=...,

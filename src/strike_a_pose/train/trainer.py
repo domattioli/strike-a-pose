@@ -27,7 +27,7 @@ from strike_a_pose.data import DatasetError, PoseImageDataset, parse_sample_id
 from strike_a_pose.datagen.assets import sha256_file
 from strike_a_pose.eval.baselines import UNITS, image_mean
 from strike_a_pose.eval.config import ConfigError
-from strike_a_pose.eval.metrics import mpjpe
+from strike_a_pose.eval.metrics import gradient_loss, mpjpe
 from strike_a_pose.eval.pca import fit_pca
 from strike_a_pose.eval.report import (
     figure_indices,
@@ -68,9 +68,11 @@ IMAGE_UNITS = {
     k: UNITS[k] for k in ("image_mse", "psnr_db", "silhouette_iou", "boundary_f1", "regions")
 }
 # train_recon / train_kl: spec 011 (appended; runs before it have the first five columns);
-# train_pose: spec 018 (empty unless a pose head is trained)
+# train_pose: spec 018 (empty unless a pose head is trained); train_grad: spec 020 (empty
+# unless gradient_weight > 0)
 HISTORY_FIELDS = (
-    "epoch", "train_loss", "val_loss", "lr", "epoch_s", "train_recon", "train_kl", "train_pose"
+    "epoch", "train_loss", "val_loss", "lr", "epoch_s", "train_recon", "train_kl", "train_pose",
+    "train_grad"
 )  # fmt: skip
 POSE_UNITS = {
     "pose_head_mpjpe_mm": "mm, root-relative world-frame joint error of the jointly trained "
@@ -145,7 +147,9 @@ def train_epoch(
     the plain AE, today's computation). Returns the epoch means of the loss
     (``train_loss``), of its reconstruction term (``train_recon``) and of the KL term
     (``train_kl``, None unless variational), of the pose term (``train_pose``, None unless
-    ``pose`` is given: spec 018, loss = recon + ``pose_weight``·pose) and the last lr used
+    ``pose`` is given: spec 018, loss = recon + ``pose_weight``·pose), of the gradient term
+    (``train_grad``, None unless ``gradient_weight`` > 0: spec 020, loss = recon +
+    ``gradient_weight``·grad [+ pose]) and the last lr used
     (``lr``)."""
     obj = objective or Objective()
     model.train()
@@ -156,6 +160,7 @@ def train_epoch(
     total = recon_total = 0.0
     kl_total: float | None = None
     pose_total: float | None = None if pose is None else 0.0
+    grad_total: float | None = None if not obj.gradient_weight else 0.0
     lr = float("nan")
     for i in range(0, n, batch_size):
         idx = perm[i : i + batch_size]
@@ -165,12 +170,17 @@ def train_epoch(
         z = mu if logvar is None else reparameterize(mu, logvar)
         if obj.dropout:  # bottleneck dropout, training only (p = 0: no call, no draw)
             z = F.dropout(z, obj.dropout, training=True)
-        recon = recon_loss(model.decode(z), x, obj.mask_weight)
+        y = model.decode(z)
+        recon = recon_loss(y, x, obj.mask_weight)
         if logvar is None:
             loss = recon
+            if obj.gradient_weight:  # spec 020: recon + gamma * gradient term
+                g = gradient_loss(y, x)
+                loss = recon + obj.gradient_weight * g
+                grad_total += float(g.detach()) * len(idx)
             if pose is not None:  # spec 018: the head reads mu, before dropout
                 pl = pose_loss(pose.head(mu), pose.targets[idx], pose.active)
-                loss = recon + obj.pose_weight * pl
+                loss = loss + obj.pose_weight * pl
                 pose_total += float(pl.detach()) * len(idx)
         else:  # KL in per-pixel units: (SSE + beta·KL) / (H·W) per image (spec 011)
             kl = gaussian_kl(mu, logvar)
@@ -185,11 +195,13 @@ def train_epoch(
         recon_total += float(recon.detach()) * len(idx)
     kl_mean = None if kl_total is None else kl_total / n
     pose_mean = None if pose_total is None else pose_total / n
+    grad_mean = None if grad_total is None else grad_total / n
     return {
         "train_loss": total / n,
         "train_recon": recon_total / n,
         "train_kl": kl_mean,
         "train_pose": pose_mean,
+        "train_grad": grad_mean,
         "lr": lr,
     }
 
@@ -429,7 +441,7 @@ def _selection_line(sel: dict, last: dict) -> str:
 def _history_row(r: dict) -> list:
     return [r["epoch"], _fmt(r["train_loss"]), _fmt(r["val_loss"]), _fmt(r["lr"], ".6g"),
             f"{r['epoch_s']:.1f}", _fmt(r["train_recon"]), _fmt(r["train_kl"]),
-            _fmt(r["train_pose"])]  # fmt: skip
+            _fmt(r["train_pose"]), _fmt(r["train_grad"])]  # fmt: skip
 
 
 def _complete_row(r: dict) -> dict:
@@ -438,7 +450,8 @@ def _complete_row(r: dict) -> dict:
     (no pose term)."""
     if "train_recon" not in r:
         r = r | {"train_recon": r["train_loss"], "train_kl": None}
-    return r if "train_pose" in r else r | {"train_pose": None}
+    r = r if "train_pose" in r else r | {"train_pose": None}
+    return r if "train_grad" in r else r | {"train_grad": None}
 
 
 def _setup(cfg: TrainConfig) -> dict:
@@ -678,7 +691,7 @@ def _train_and_evaluate(
             dt = time.monotonic() - te
             row = {"epoch": epoch, "train_loss": tl, "val_loss": vl, "lr": lr, "epoch_s": dt,
                    "train_recon": st["train_recon"], "train_kl": st["train_kl"],
-                   "train_pose": st["train_pose"]}  # fmt: skip
+                   "train_pose": st["train_pose"], "train_grad": st["train_grad"]}  # fmt: skip
             rows.append(row)
             wr.writerow(_history_row(row))
             fh.flush()
@@ -717,6 +730,8 @@ def _train_and_evaluate(
             kl = "" if st["train_kl"] is None else f" kl {st['train_kl']:.1f}"
             if st["train_pose"] is not None:
                 kl += f" pose {st['train_pose']:.4f}"
+            if st["train_grad"] is not None:
+                kl += f" grad {st['train_grad']:.4f}"
             say(f"epoch {epoch}/{cfg.epochs} train {tl:.5f}{kl} val {vs} lr {lr:.2e} ({dt:.0f} s)")
             if stop_after_epoch is not None and stop_after_epoch <= epoch < cfg.epochs:
                 say(f"stopped after epoch {epoch} (resume: --resume {run_dir})")

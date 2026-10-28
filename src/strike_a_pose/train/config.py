@@ -32,6 +32,8 @@ LEGACY_VALUES: dict[str, Any] = {
     "divergence_ratio": 10.0,
     # spec 018 pose supervision: runs before it had no pose head
     "pose_weight": 0.0,
+    # spec 020 gradient loss: runs before it had none
+    "gradient_weight": 0.0,
 }
 MAX_SHIFT_PX = 32  # spec 011: "small" pixel shifts
 DIVERGENCE_RATIO = 10.0  # spec 012 default; another value needs abort_on_divergence: true
@@ -81,6 +83,8 @@ class TrainConfig:
     divergence_ratio: float = DIVERGENCE_RATIO
     # spec 018 pose-supervised AE (0 = no pose head, bit for bit the plain trainer)
     pose_weight: float = 0.0
+    # spec 020 squared image-gradient loss weight (0 = off, bit for bit the plain trainer)
+    gradient_weight: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -146,6 +150,7 @@ def config_from_dict(data: Any) -> TrainConfig:
         "weight_decay",
         "dropout",
         "pose_weight",
+        "gradient_weight",
     )
     for key in (*numbers, "divergence_ratio"):
         if key in d:
@@ -220,6 +225,12 @@ def _check(cfg: TrainConfig) -> None:
         raise ConfigError("pose_weight: must be >= 0")
     if cfg.pose_weight > 0 and cfg.variational:
         raise ConfigError("pose_weight: not with variational: true")
+    if cfg.gradient_weight < 0:
+        raise ConfigError("gradient_weight: must be >= 0")
+    if cfg.gradient_weight > 0 and cfg.mask_weight > 0:
+        raise ConfigError("gradient_weight: not with mask_weight")
+    if cfg.gradient_weight > 0 and cfg.variational:
+        raise ConfigError("gradient_weight: not with variational: true")
     if cfg.variational and cfg.beta == 0:
         raise ConfigError("beta: must be > 0 with variational: true")
     if not cfg.variational and cfg.beta != 0:

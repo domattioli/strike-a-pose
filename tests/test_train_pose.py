@@ -125,7 +125,7 @@ def test_default_run_is_unchanged_bitwise(tmp_path):
     with (a / "history.csv").open() as fh:
         rd = csv.reader(fh)
         assert tuple(next(rd)) == HISTORY_FIELDS
-    assert HISTORY_FIELDS[-1] == "train_pose"
+    assert "train_pose" in HISTORY_FIELDS
     assert all(r["train_pose"] == "" for r in _rows(a))
     assert "pose_head" not in _metrics(a)
 

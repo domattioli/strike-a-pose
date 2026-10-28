@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from strike_a_pose.eval.promotion import Measures, verdict
+from strike_a_pose.eval.promotion import Measures, pose_track_verdict, verdict
 
 ROOT = Path(__file__).parents[1]
 # rounded README numbers (analyze A6); the real verdicts come from scripts/promotion.py
@@ -156,3 +156,57 @@ def test_split_both_agreement(tmp_path, capsys):
     last = out[2].splitlines()
     assert last[0] == "| Variant | Verdict val | Verdict test | Agree |"
     assert last[2] == "| V | DROPPED | WIN-pixel | **no** |"
+
+
+SEEDS = [170.0, 174.0, 178.0]  # mean 174, sd 4 -> bar 166
+
+
+def test_pose_track_verdict():
+    assert pose_track_verdict(165.9, SEEDS)
+    assert not pose_track_verdict(166.5, SEEDS)
+    assert not pose_track_verdict(166.0, SEEDS)  # exactly at the bar
+    with pytest.raises(ValueError):
+        pose_track_verdict(100.0, [170.0])
+
+
+def _seed_argv(tmp_path: Path) -> list[str]:
+    out = []
+    for i, (mse, mp, tmp_) in enumerate([(0.0020, 170.0, 190.0), (0.0024, 174.0, 194.0),
+                                         (0.0022, 178.0, 198.0)]):  # fmt: skip
+        out += [
+            "--seed",
+            str(_run(tmp_path, f"s{i}", mse)),
+            str(_probe(tmp_path, f"sp{i}", mp, tmp_)),
+        ]
+    return out
+
+
+def test_script_seed_columns(tmp_path, capsys):
+    argv = [*_split_argv(tmp_path), *_seed_argv(tmp_path)]
+    assert _script().main(argv) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].endswith("| Pose track | Pixel cost |")
+    assert out[2].endswith("| — | +7.3 % |")  # 174.0 not below 166; 0.00236 vs mean 0.0022
+
+
+def test_script_seed_both_requires_both(tmp_path, capsys):
+    argv = [*_split_argv(tmp_path), *_seed_argv(tmp_path)]
+    # val probe 174.0 -> no; make a variant better on val only
+    v = _probe(tmp_path, "pv", 160.0, 199.0)
+    argv[argv.index("--variant") + 3] = str(v)
+    assert _script().main([*argv, "--split", "both"]) == 0
+    out = capsys.readouterr().out.split("\n\n")
+    assert out[0].splitlines()[2].split("|")[-3].strip() == "PROMOTED (pose)"
+    assert out[1].splitlines()[2].split("|")[-3].strip() == "—"
+    last = out[2].splitlines()
+    assert last[0].endswith("| Pose track val / test |")
+    assert last[2].endswith("| — (PROMOTED (pose) / —) |")
+
+
+def test_script_no_seed_unchanged(tmp_path, capsys):
+    argv = [*_split_argv(tmp_path), "--split", "both"]
+    assert _script().main(argv) == 0
+    plain = capsys.readouterr().out
+    assert "Pose track" not in plain and "Pixel cost" not in plain
+    assert _script().main([*argv, "--seed", "x", "y"]) == 0  # a single seed is ignored
+    assert capsys.readouterr().out == plain

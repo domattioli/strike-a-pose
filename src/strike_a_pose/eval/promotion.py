@@ -9,9 +9,14 @@ A variant is compared with its dataset's control R0 and the seed-1 control R0b o
 - DROPPED: ΔMSE > +5 % and not a latent win; otherwise REPORTED (not carried).
 
 A VAE also needs its last train KL >= 1 nat/image to win (012 collapse check kept).
+
+Pose track (operator decision 2026-10-28), separate from the above: see ``pose_track_verdict``.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+
+from strike_a_pose.eval.pose_track import REAL_GAIN_SD, seed_stats
 
 MSE_DROP_REL = 0.05
 LATENT_GAP_FACTOR = 2.0
@@ -63,3 +68,11 @@ def verdict(variant: Measures, r0: Measures, r0b: Measures, variational: bool = 
     else:
         label = "REPORTED"
     return Verdict(label, d_mse, d_mp, seed_gap, probe_gap, nums + note)
+
+
+def pose_track_verdict(variant_mpjpe: float, seed_mpjpes: Sequence[float]) -> bool:
+    """Pose track: True if the variant's probe MPJPE is below seed mean - 2 x seed sd (ddof 1).
+
+    Exactly at the bar is not promoted. ``ValueError`` for < 2 seeds (or identical seeds)."""
+    mean, sd = seed_stats(list(seed_mpjpes))
+    return variant_mpjpe < mean - REAL_GAIN_SD * sd

@@ -111,7 +111,7 @@ decisions 2026-10-28:
 - Promotion gets a separate **pose track**: a variant is promoted on the pose track if its
   frozen-latent probe MPJPE beats the mean of the plain-AE seeds by more than 2 seed sd (val and
   test), with its pixel cost reported next to it; the 015 pixel track is unchanged. Implemented in
-  `scripts/promotion.py` (see the pose-track flag).
+  `scripts/promotion.py` (`--seed RUN PROBE` x >= 2 adds the "Pose track" and "Pixel cost" columns).
 - Goal for next work: **both in one model**: reconstructions as good as the best plain AE and pose
   ≤ 80 mm together (L2-style models).
 

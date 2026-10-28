@@ -497,3 +497,6 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   γ 0.5, F2 pose λ 0.03 + γ 0.5, five references rescored (≈ 14.5 h,
   `docs/campaign-scripts/fidelity020_queue.sh`). No decoder change, no skips (latent is the
   product). Surrogate rulings Q1–Q9. Tasks B1–B4 for a Sonnet implementer.
+- 2026-10-28: operator sign-off of slices 007–020 and the capsule license reading; renderings =
+  reconstructions; promotion gains a pose track (> 2 seed sd probe gain, pixel cost reported);
+  goal for next work: pose ≤ 80 mm and best-plain-AE reconstructions in one model.

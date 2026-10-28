@@ -102,7 +102,20 @@ operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
   baselines reproduce the published pose numbers (SC-005). Results are infrastructure tests:
   `docs/results/013-capsule/`.
 
-## Pending operator sign-off
+## Operator sign-off (2026-10-28)
+
+The operator approved all slices 007–020 and the capsule license reading (013 Q3: 72 SMPL-derived
+joint coordinates, already public in the fixture labels; no SMPL array used). Further operator
+decisions 2026-10-28:
+- "Renderings" in the fidelity request means the AE reconstructions (slice 020 as designed).
+- Promotion gets a separate **pose track**: a variant is promoted on the pose track if its
+  frozen-latent probe MPJPE beats the mean of the plain-AE seeds by more than 2 seed sd (val and
+  test), with its pixel cost reported next to it; the 015 pixel track is unchanged. Implemented in
+  `scripts/promotion.py` (see the pose-track flag).
+- Goal for next work: **both in one model**: reconstructions as good as the best plain AE and pose
+  ≤ 80 mm together (L2-style models).
+
+## Surrogate rulings per slice (now operator-approved)
 
 Each slice is approved at surrogate scope; key surrogate rulings in one line:
 

@@ -78,8 +78,8 @@ Settled context (cheap checks at `dd61515`, 320 val images = every 20th, R0-v3 a
 - Q2 (operator ruling): if F2 is SHARPER-COSTLY (probe worse than 2 sd), it does not count as a
   win for the pose system. The verdict rule (Q8) stays as fixed; a decoder-upsampling run
   (research R5) is the next lever.
-- Q1 (pending with the operator): reconstructions (ruling a) vs the dataset renderer. The design
-  proceeds with the reconstruction reading; the answer may change the slice.
+- Q1 (operator ruling 2026-10-28): "renderings" means the AE reconstructions (ruling a). The
+  dataset renderer is out of scope.
 
 ## User Scenarios & Testing *(mandatory)*
 

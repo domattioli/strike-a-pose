@@ -500,3 +500,4 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
 - 2026-10-28: operator sign-off of slices 007–020 and the capsule license reading; renderings =
   reconstructions; promotion gains a pose track (> 2 seed sd probe gain, pixel cost reported);
   goal for next work: pose ≤ 80 mm and best-plain-AE reconstructions in one model.
+- 2026-10-28: slice 019 campaign done: L1 (128-d) −29 % MSE, probe 120.5 mm (pixel win + pose track); L2 (128-d + pose 0.03) pose 67.0 / 64.7 mm at +5.7 % MSE (64-d: +36 %). O2 second L2 seed queued after 020. Results: `docs/results/019-latent-capacity/`.

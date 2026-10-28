@@ -440,6 +440,13 @@ target; the frozen-latent probe matches, so the encoder itself now carries the p
 for +6 %. Mask weighting does not add to pose supervision. All pose variants are dropped by the
 015 pixel-gate promotion rule; a pose-track promotion rule is an open operator decision.
 
+**Slice 019 latent capacity (2026-10-28).** Full results: [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/README.md).
+Doubling the latent to 128 numbers cuts reconstruction MSE by 29 % (IoU 0.930; hands / feet /
+head 23–36 % better) and improves the pose probe by 12 mm (L1: pixel win and pose-track
+promotion). With 128 numbers plus the pose head (L2), pose reaches 67.0 / 64.7 mm while the pixel
+cost of the head falls from +36 % to +5.7 % (vs the 64-d plain AE). Pose and pictures in one model
+is half met: pose ≤ 80 mm yes, pictures at the old plain level rather than L1's.
+
 ## Development checks
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on

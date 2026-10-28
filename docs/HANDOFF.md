@@ -669,6 +669,8 @@ under `runs/`, copies in `docs/results/`): R0-v3 `ae-smpl_proc_v3-20261023T00493
 (flag names verified against `--help` 2026-10-28.) Then write
 `docs/results/019-latent-capacity/README.md` with the SC-003 readings.
 
+**019 campaign done (2026-10-28 17:17 UTC):** L1 −29 % MSE, IoU 0.930, probe 120.5 mm; L2 head 67.0 / 64.7 mm at +5.7 % MSE. Next: O2 second L2 seed (`configs/smpl_proc_v3/ae_l128_pose_l0.03_seed1.yaml`) after the 020 campaign. Results in `docs/results/019-latent-capacity/README.md`.
+
 ## 020 fidelity campaign (sharper reconstructions; design in specs/020-sharp-reconstructions/)
 
 Adds `gradient_weight` (squared image-gradient loss, default 0 = bitwise today's trainer), the

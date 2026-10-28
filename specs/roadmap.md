@@ -480,3 +480,10 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
 - 2026-10-26: slice 018 implemented (B1–B4) and campaign done (P1, P2, P3 + O2 second seed of P2):
   pose weight 0.03 reaches 68.6 / 66.5 mm world MPJPE (val / test; head and frozen-latent probe
   agree), under the 80 mm target, at +36 % pixel MSE. Results: `docs/results/018-pose-supervised/`.
+- 2026-10-28: slice 019 `latent-capacity` designed (operator decision 2026-10-28: larger latent so
+  pose and appearance stop competing). `latent_dim` 128 (bottleneck flat 3072, +393 k params; the
+  wiring, probe, sample and round trip are already generic, proven by fixture tests). Campaign on
+  v3, one seed each: L1 plain 128-d, L2 128-d + pose λ 0.03, L3 128-d + λ 0.01 only with
+  `RUN_L3=1` (L1+L2 ≈ 13–14.5 h; `docs/campaign-scripts/latent019_queue.sh`); compared with 64-d
+  R0-v3 seeds and 018 P1 / P2 via promotion and pose-track `--split both`. No `src/` change
+  (slice 020 owns loss / decoder). Surrogate rulings Q1–Q8. Tasks B1–B2 for a Sonnet implementer.

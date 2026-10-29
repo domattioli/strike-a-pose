@@ -1,0 +1,53 @@
+{
+  "boundary_tol_px": 1,
+  "checkpoint": "runs/ae-pose-l0.03-seed1-smpl_proc_v3-20261025T205801Z/best.pt",
+  "dataset_dir": "data/generated/smpl_proc_v3",
+  "fidelity_version": 1,
+  "gradient_weight": 0.0,
+  "iou_threshold": 0.075,
+  "pose_weight": 0.03,
+  "run_dir": "runs/ae-pose-l0.03-seed1-smpl_proc_v3-20261025T205801Z",
+  "split_file": "splits/smpl_proc_v3.json",
+  "splits": {
+    "test": {
+      "boundary_f1": 0.842162,
+      "image_mse": 0.00211969,
+      "regions": {
+        "feet": {
+          "image_mse": 0.0312467,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0321526,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0168032,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.871707
+    },
+    "val": {
+      "boundary_f1": 0.839949,
+      "image_mse": 0.00215069,
+      "regions": {
+        "feet": {
+          "image_mse": 0.0316253,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0326503,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0175032,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.870451
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "boundary_tol_px": 1,
+  "checkpoint": "runs/ae-seed1-smpl_proc_v3-20261023T065844Z/best.pt",
+  "dataset_dir": "data/generated/smpl_proc_v3",
+  "fidelity_version": 1,
+  "gradient_weight": 0.0,
+  "iou_threshold": 0.075,
+  "pose_weight": 0.0,
+  "run_dir": "runs/ae-seed1-smpl_proc_v3-20261023T065844Z",
+  "split_file": "splits/smpl_proc_v3.json",
+  "splits": {
+    "test": {
+      "boundary_f1": 0.913068,
+      "image_mse": 0.00156344,
+      "regions": {
+        "feet": {
+          "image_mse": 0.021411,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0250938,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0130451,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.905331
+    },
+    "val": {
+      "boundary_f1": 0.911168,
+      "image_mse": 0.0015873,
+      "regions": {
+        "feet": {
+          "image_mse": 0.0217765,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0254679,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0133883,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.904401
+    }
+  }
+}

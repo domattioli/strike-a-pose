@@ -447,6 +447,11 @@ promotion). With 128 numbers plus the pose head (L2), pose reaches 67.0 / 64.7 m
 cost of the head falls from +36 % to +5.7 % (vs the 64-d plain AE). Pose and pictures in one model
 is half met: pose ≤ 80 mm yes, pictures at the old plain level rather than L1's.
 
+**Slice 020 sharper reconstructions (2026-10-29).** Full results: [`docs/results/020-sharp-reconstructions/`](docs/results/020-sharp-reconstructions/README.md).
+An image-gradient (edge) loss leaves the plain 64-d AE unchanged (NO-GAIN) but makes the pose model's
+outlines measurably sharper (boundary F1 0.839 → 0.850, +11 seed sd; IoU 0.870 → 0.876; MSE −2 %)
+at no pose cost (69.2 mm): SHARPER under the pre-fixed rule. Capacity (slice 019) stays the bigger lever.
+
 ## Development checks
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on

@@ -152,7 +152,7 @@ Files: `src/strike_a_pose/eval/fidelity.py` (new), `scripts/fidelity.py` (new),
 
 ## Stage 5 — campaign and results (lead, after B1–B3 merged green and the 019 queue done)
 
-- [ ] T050 Run the queue (≈ 14.5 h). After its done line: `scripts/fidelity.py report --seed
+- [X] T050 Run the queue (≈ 14.5 h). After its done line: `scripts/fidelity.py report --seed
   <R0-v3> --seed <R0b-v3> --seed <R0c-v3> --pose-ref <P2> --pose-ref <P2-seed1> --variant
   F1=<F1 run> --variant F2=<F2 run> --split both`; `promotion.py --split both` (F1, F2);
   `pose_track.py --split both` (F2); side-by-side figures; write

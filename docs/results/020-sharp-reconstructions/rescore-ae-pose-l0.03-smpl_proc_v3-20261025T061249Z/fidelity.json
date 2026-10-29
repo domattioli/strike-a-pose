@@ -1,0 +1,53 @@
+{
+  "boundary_tol_px": 1,
+  "checkpoint": "runs/ae-pose-l0.03-smpl_proc_v3-20261025T061249Z/best.pt",
+  "dataset_dir": "data/generated/smpl_proc_v3",
+  "fidelity_version": 1,
+  "gradient_weight": 0.0,
+  "iou_threshold": 0.075,
+  "pose_weight": 0.03,
+  "run_dir": "runs/ae-pose-l0.03-smpl_proc_v3-20261025T061249Z",
+  "split_file": "splits/smpl_proc_v3.json",
+  "splits": {
+    "test": {
+      "boundary_f1": 0.841996,
+      "image_mse": 0.00211644,
+      "regions": {
+        "feet": {
+          "image_mse": 0.031326,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.032224,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0166533,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.871825
+    },
+    "val": {
+      "boundary_f1": 0.838905,
+      "image_mse": 0.00215324,
+      "regions": {
+        "feet": {
+          "image_mse": 0.031832,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0325659,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.017256,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.870237
+    }
+  }
+}

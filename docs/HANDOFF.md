@@ -693,7 +693,7 @@ metrics.json precision) before reading any variant. Operator ruling 2026-10-28: 
 SHARPER-COSTLY (probe worse than 2 sd) is not a win for the pose system; the next lever is a
 decoder-upsampling run. Q1 (reconstructions vs dataset renderer) is still pending with the operator.
 
-**020 campaign done (2026-10-29 05:51 UTC):** F1 NO-GAIN, F2 SHARPER (bF1 0.850 vs 0.839, pose 69.2 mm). Recommended next: L2 + gradient loss (128-d + pose 0.03 + γ 0.5). O2 second L2 seed running: `data/l2seed_queue.sh` (copy of `docs/campaign-scripts/l2seed_queue.sh`), log `data/l2seed_queue.log`.
+**020 campaign done (2026-10-29 05:51 UTC):** F1 NO-GAIN, F2 SHARPER (bF1 0.850 vs 0.839, pose 69.2 mm). Recommended next: L2 + gradient loss (128-d + pose 0.03 + γ 0.5). O2 second L2 seed done (2026-10-29 12:58 UTC): 66.8 / 65.0 mm, +6.5 % MSE, reproduces L2. Nothing queued; next proposed: L2 + gradient loss (needs a config `configs/smpl_proc_v3/ae_l128_pose_l0.03_grad.yaml`).
 
 ## Process rules
 

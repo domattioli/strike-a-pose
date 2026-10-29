@@ -502,3 +502,4 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   goal for next work: pose ≤ 80 mm and best-plain-AE reconstructions in one model.
 - 2026-10-28: slice 019 campaign done: L1 (128-d) −29 % MSE, probe 120.5 mm (pixel win + pose track); L2 (128-d + pose 0.03) pose 67.0 / 64.7 mm at +5.7 % MSE (64-d: +36 %). O2 second L2 seed queued after 020. Results: `docs/results/019-latent-capacity/`.
 - 2026-10-29: slice 020 campaign done: F1 (plain + gradient loss) NO-GAIN; F2 (pose 0.03 + gradient loss) SHARPER (bF1 +11 sd, MSE −2 %, pose unchanged). Phase 3 (O2 second L2 seed) running. Results: `docs/results/020-sharp-reconstructions/`.
+- 2026-10-29: O2 second L2 seed done: reproduces L2 within 0.3 mm (pose head 66.8 / 65.0 mm); L2 and P2 tie on pose, L2 wins on pixels. All 019/020 campaign work recorded.

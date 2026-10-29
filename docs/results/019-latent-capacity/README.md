@@ -52,10 +52,42 @@ seeds: n=3 mean 129.1 mm sd 1.5 mm (test)
 
 second seed for L2 (operator ruling O2, test): yes (within 3 sd of P2)
 
+
+## O2 second seed of L2 (2026-10-29)
+
+| **L2-seed1** (`ae-l128-pose-l0.03-seed1-smpl_proc_v3-20261029T055258Z`) | val / test MSE 0.00168 / 0.00166 (+6.5 %), IoU 0.896 / 0.897; pose head 66.8 / 65.0 mm; probe 67.0 / 65.2 mm. Reproduces L2 within 0.3 mm |
+|---|---|
+
+seeds: n=3 mean 132.8 mm sd 1.7 mm (val)
+
+| Rank | Variant | MSE vs seeds | Probe MPJPE val (mm) | Δ vs seeds (mm) | Δ / sd | Real (< −2 sd) | Head MPJPE val (mm) | Probe ≤ 80 | Head ≤ 80 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | L2-seed1 | +6.5 % | 67.0 | -65.8 | -39.1 | yes | 66.8 | yes | yes |
+| 2 | L2 | +5.7 % | 67.1 | -65.7 | -39.0 | yes | 67.0 | yes | yes |
+| 3 | P2 | +36.3 % | 68.6 | -64.2 | -38.1 | yes | 68.6 | yes | yes |
+| 4 | P2-seed1 | +36.2 % | 68.7 | -64.2 | -38.1 | yes | 68.5 | yes | yes |
+
+second seed for L2-seed1 (operator ruling O2, val): yes (within 3 sd of L2)
+
+seeds: n=3 mean 129.1 mm sd 1.5 mm (test)
+
+| Rank | Variant | MSE vs seeds | Probe MPJPE test (mm) | Δ vs seeds (mm) | Δ / sd | Real (< −2 sd) | Head MPJPE test (mm) | Probe ≤ 80 | Head ≤ 80 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | L2 | +5.7 % | 64.9 | -64.2 | -41.7 | yes | 64.7 | yes | yes |
+| 2 | L2-seed1 | +6.5 % | 65.2 | -63.9 | -41.5 | yes | 65.0 | yes | yes |
+| 3 | P2-seed1 | +36.0 % | 66.4 | -62.7 | -40.8 | yes | 66.3 | yes | yes |
+| 4 | P2 | +35.8 % | 66.6 | -62.6 | -40.6 | yes | 66.6 | yes | yes |
+
+second seed for L2 (operator ruling O2, test): yes (within 3 sd of L2-seed1)
+
+(The O2 line now compares L2 with its own second seed; the ruling is satisfied, no third run.)
+
+Reading: two seeds each give L2 at 67.05 / 65.05 mm (val / test probe means) and P2 at 68.65 / 66.5 mm. The 1.5 mm pose difference is about one plain-seed sd: **L2 and P2 tie on pose**. The real difference is pixels: +6 % (L2) against +36 % (P2). L2 is the best pose model.
+
 ## Summary (QUEUE_DONE 2026-10-28 17:17 UTC)
 
 - **Capacity was the bottleneck for pictures.** Doubling the latent (L1) cuts val MSE by 29 % (≈ 63 seed sd), raises IoU 0.905 → 0.930, and improves hands / feet / head by 23 / 36 / 24 %; it also improves the frozen-latent probe by 12 mm. First variant with a pixel WIN and a pose-track promotion.
 - **With room, the pose head is nearly free in pixels.** L2's pose cost is +5.7 % MSE versus +36 % at 64-d (019 Q4 "cost shrank" criterion: ≤ +18 % vs L1 is **not** met — L2 is +49 % vs L1; the cost shrank against the 64-d plain baseline, not against L1). Pose is the best so far: head 67.0 / 64.7 mm, under 80 mm.
 - **Goal status (operator 2026-10-28: both in one model):** pose ≤ 80 mm ✓; reconstructions as good as the best plain AE (L1) ✗ — L2 sits at the old 64-d plain level. Levers: slice 020 (gradient loss, running now), a larger latent (256), or a smaller λ at 128-d (L3, λ 0.01, deferred).
-- **Ruling O2:** L2 is within 3 sd of P2 on pose, so a second L2 seed is due to confirm the pose ranking (≈ 6.5 h); queued after slice 020's campaign. The pixel conclusion (+5.7 % vs +36 %) does not depend on it.
+- **Ruling O2 (done 2026-10-29):** the second L2 seed reproduces L2 (66.8 / 65.0 mm head, +6.5 % MSE). L2 and P2 tie on pose (1.5 mm ≈ 1 seed sd); L2 wins on pixels (+6 % vs +36 %).
 - No memory issues (peak ≈ 6.2 GB).

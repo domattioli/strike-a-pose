@@ -452,6 +452,13 @@ An image-gradient (edge) loss leaves the plain 64-d AE unchanged (NO-GAIN) but m
 outlines measurably sharper (boundary F1 0.839 → 0.850, +11 seed sd; IoU 0.870 → 0.876; MSE −2 %)
 at no pose cost (69.2 mm): SHARPER under the pre-fixed rule. Capacity (slice 019) stays the bigger lever.
 
+**Slice 021 generative pose VAE (2026-11-03).** Full results: [`docs/results/021-generative-pose-vae/`](docs/results/021-generative-pose-vae/README.md).
+One 128-d VAE latent with a pose head (V1) keeps L2's pose (head 66.8 / 64.8 mm, probe 68.0 / 66.1 mm)
+and pixels (MSE ×1.02 of L2) and passes the sample round trip (margin 15.1 points), but only 41.6 % of
+N(0,I) samples are valid bodies (bar 56 %): **PARTIAL**, failing axis generation. The 128-d latent
+costs most of it (V2 control 46.0 %, 64-d R2b-v3 59.0 %); the head costs 4.4 points. Next: pose head
+on the sampled z, then β 0.03.
+
 ## Development checks
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on

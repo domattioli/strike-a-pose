@@ -511,3 +511,6 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
   GOAL-MET iff head ≤ 80 mm, MSE ≤ L2 + 5 %, prior valid ≥ 56 %, round-trip margin ≥ 13 points;
   else PARTIAL (pose/pixel → β 0.03; generation → head on z). `scripts/generative.py report`.
   Surrogate rulings Q1–Q10. Tasks B1–B3 for a Sonnet implementer.
+- 2026-11-03: slice 021 campaign done: **PARTIAL**. V1 head 66.8 / 64.8 mm, MSE ×1.02 of L2, round-trip
+  margin 15.1 points, prior valid 41.6 % (< 56 %). V2 control 46.0 % (head hurts, −4.4 pts, 2.0 sd);
+  64-d R2b-v3 59.0 %. Next: head on z, then β 0.03. Results: `docs/results/021-generative-pose-vae/`.

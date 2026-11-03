@@ -153,7 +153,7 @@ Files: `src/strike_a_pose/eval/generative.py` (new), `scripts/generative.py` (ne
 
 ## Stage 4 — campaign and results (lead, after B1–B3 merged green)
 
-- [ ] T040 Run the queue (≈ 15 h) as plan.md "Campaign". After its done line: the report
+- [X] T040 Run the queue (≈ 15 h) as plan.md "Campaign". After its done line: the report
   command of plan.md, `pose_track.py --split both` (V1 vs L2), figures; write
   `docs/results/021-generative-pose-vae/README.md` (verdict line, table, V2-vs-V1, R2b-v3
   context), roadmap bullet, HANDOFF `## 021` status line.

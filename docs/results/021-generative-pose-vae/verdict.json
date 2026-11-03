@@ -1,0 +1,67 @@
+{
+  "generative_version": 1,
+  "verdict": "PARTIAL",
+  "failing": [
+    "valid"
+  ],
+  "next": "head on z",
+  "checks": {
+    "pose": true,
+    "pixel": true,
+    "valid": false,
+    "margin": true
+  },
+  "goal_line_pixel": false,
+  "compare": {
+    "label": "HURTS",
+    "diff": -0.04394500000000001,
+    "sd": 0.02190496978746258
+  },
+  "entries": {
+    "V1": {
+      "name": "V1",
+      "head_mm": {
+        "val": 66.7913,
+        "test": 64.8024
+      },
+      "mse": {
+        "val": 0.00171248,
+        "test": 0.00169166
+      },
+      "prior_valid": 0.416016,
+      "prior_n": 1024,
+      "rt_plausible": 0.376953,
+      "rt_control": 0.225586
+    },
+    "V2": {
+      "name": "V2",
+      "head_mm": {
+        "val": null,
+        "test": null
+      },
+      "mse": {
+        "val": 0.00116767,
+        "test": 0.00115654
+      },
+      "prior_valid": 0.459961,
+      "prior_n": 1024,
+      "rt_plausible": 0.783203,
+      "rt_control": 0.518555
+    },
+    "R2b-v3": {
+      "name": "R2b-v3",
+      "head_mm": {
+        "val": null,
+        "test": null
+      },
+      "mse": {
+        "val": 0.00160545,
+        "test": 0.00158037
+      },
+      "prior_valid": 0.589844,
+      "prior_n": 1024,
+      "rt_plausible": 0.835938,
+      "rt_control": 0.586914
+    }
+  }
+}

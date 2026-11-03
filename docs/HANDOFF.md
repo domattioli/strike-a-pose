@@ -757,3 +757,9 @@ V1 (128-d VAE β 0.1 + head λ 0.03) → V2 (same, no head) → samples → roun
 retroactive R2b-v3). 12 GB gate after V1. Report command: specs/021-generative-pose-vae/plan.md
 "Campaign". Open with the operator: Q1 pixel bar (L2 + 5 % as ruled vs the goal line's 64-d
 + 5 %, which L2 itself misses by 1.1 %).
+
+Campaign done 2026-11-03 15:32 UTC (implemented f632166 / a77bc03; 613 tests). Verdict **PARTIAL**,
+failing axis valid samples (V1 41.6 % vs bar 56 %); pose (66.8 / 64.8 mm), pixel (×1.02 of L2) and
+round-trip margin (15.1 pts) pass. V2 (no head) 46.0 %, R2b-v3 (64-d) 59.0 %: the 128-d latent is the
+main cost, the head adds −4.4 pts. Next (pre-fixed): head on z, then β 0.03. Results and tables:
+`docs/results/021-generative-pose-vae/`.

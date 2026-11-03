@@ -92,7 +92,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/trainer.py`
 Files: `src/strike_a_pose/eval/generative.py` (new), `scripts/generative.py` (new),
 `tests/test_generative.py` (new). Independent of B1.
 
-- [ ] T020 Tests (red first), `tests/test_generative.py`. Helper `_e(name="V1", head=(67.0,
+- [X] T020 Tests (red first), `tests/test_generative.py`. Helper `_e(name="V1", head=(67.0,
   64.7), mse=(0.00170, 0.00168), valid=0.59, n=1024, plaus=0.60, ctrl=0.46)` → `GenEntry(name,
   {"val": head[0], "test": head[1]}, {"val": mse[0], "test": mse[1]}, valid, n, plaus, ctrl)`;
   `L2 = {"val": 0.001675765, "test": 0.001653395}`; `R0 = {"val": 0.0015793, "test":
@@ -106,7 +106,7 @@ Files: `src/strike_a_pose/eval/generative.py` (new), `scripts/generative.py` (ne
   - `test_partial_pose()`: `head=(79.0, 80.1)` → `("PARTIAL", ["pose"], "beta 0.03")`.
   - `test_partial_valid()`: `valid=0.5599` → `("PARTIAL", ["valid"], "head on z")`.
   - `test_partial_pixel_and_margin()`: `mse=(0.00176, 0.00168)`, `plaus=0.55, ctrl=0.46`
-    (9.0 pts) → `("PARTIAL", ["pixel", "margin"], "beta 0.03; head on z")`.
+    (9.0 pts) → `("PARTIAL", ["pixel", "margin"], "head on z; beta 0.03")` (operator ruling 2026-11-03).
   - `test_partial_pose_and_pixel_single_step()`: head 81 both, mse 0.0018 both →
     `("PARTIAL", ["pose", "pixel"], "beta 0.03")`.
   - `test_incomplete()`: `valid=None` → `("INCOMPLETE", ["valid"], "")`; head val None →
@@ -136,14 +136,14 @@ Files: `src/strike_a_pose/eval/generative.py` (new), `scripts/generative.py` (ne
     failing=- next=-"` (head 66.97 / 64.7 ≤ 80; t1 MSE ≤ L2 mean·1.05; valid 0.5898 ≥ 0.56;
     margin 13.0859 ≥ 13); `json.loads(out)["verdict"] == "GOAL-MET"`; `"QUEUE_DONE" not in`
     stdout. A missing round-trip dir → exit 2 and its path in stderr.
-- [ ] T021 Implement `eval/generative.py` and `scripts/generative.py` exactly per
+- [X] T021 Implement `eval/generative.py` and `scripts/generative.py` exactly per
   data-model.md (constants, signatures, messages, output format). `scripts/generative.py`
   is thin: argparse (`report` subcommand, `--v1/--v2/--extra` with `nargs=3` / `nargs=4`,
   `--l2`/`--r0` `action="append"`), builds entries, calls the library, prints.
 
 ## Batch B3 — validation of lead files
 
-- [ ] T030 `sh -n docs/campaign-scripts/vae021_queue.sh`; `grep -c QUEUE_DONE
+- [X] T030 `sh -n docs/campaign-scripts/vae021_queue.sh`; `grep -c QUEUE_DONE
   docs/campaign-scripts/vae021_queue.sh` is 1 (only the final `log` line); the six train /
   sample / round-trip configs load with their loaders (`load_config`, the sample config
   loader, the round-trip config loader) — add the four sample / round-trip files plus

@@ -71,7 +71,7 @@ class GenEntry:
   margin_pts ≥ 13 − EPS (None if None).
 - `goal_verdict(checks) -> tuple[str, list[str], str]`: any None → `("INCOMPLETE", [axes that
   are None], "")`; all True → `("GOAL-MET", [], "")`; else `("PARTIAL", failing in AXES order,
-  "; ".join(unique NEXT_STEP values in that order))`.
+  "; ".join(unique NEXT_STEP values, "head on z" before "beta 0.03" per operator ruling 2026-11-03))`.
 - `compare_prior(v1, v2) -> tuple[str, float, float]`: `(label, diff, sd)` per spec Q9; any
   prior None → `("INCOMPLETE", nan, nan)`.
 - `goal_line_pixel(e, r0_mse, splits) -> bool`: all mse ≤ r0_mse[s]·1.05 + EPS (informational).

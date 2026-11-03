@@ -65,6 +65,14 @@ Settled context (read-only from `/home/user/strike-a-pose/runs`, 2026-11-03):
 - Q10 R2b-v3 retroactive round trip: context only (does β 0.1 at 64-d already clear 13
   points?); printed as an extra row, never enters the verdict.
 
+### Operator rulings 2026-11-03 (after batch 1; they take precedence over the surrogate rulings)
+
+- Pixel bar (refines Q1): **L2 + 5 % stays the gating bar**. The goal-line bar (64-d plain mean
+  + 5 %) is reported in its own column ("vs R0 64-d +5 %"), never hidden, never gated.
+- Next step (refines FR-004 / Q8): if V1 fails both pose / pixel and generation, the
+  recommended next step is **"head on z" first, before "beta 0.03"**. The report's next-step
+  text follows this order (`head on z; beta 0.03`).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Train a VAE with a pose head (Priority: P1)
@@ -116,7 +124,7 @@ V1, V2 and R2b-v3; idempotent, resumable, shared lock, 12 GB gate.
   `HEAD_MAX_MM 80.0`, `MSE_COST_REL 0.05`, `PRIOR_VALID_MIN 0.56`, `MARGIN_MIN_PTS 13.0`,
   `COMPARE_SD 2.0`; verdict `GOAL-MET` / `PARTIAL` / `INCOMPLETE`, failing axes in order
   pose, pixel, valid, margin; next step "beta 0.03" for pose / pixel, "head on z" for
-  valid / margin.
+  valid / margin, listed "head on z" first when both occur (operator ruling 2026-11-03).
 - **FR-005** Configs `configs/smpl_proc_v3/ae_l128_vae_beta0.1_pose_l0.03.yaml` (V1),
   `ae_l128_vae_beta0.1.yaml` (V2) — L2's file with `variational: true, beta: 0.1` (V2:
   `pose_weight: 0.0`).

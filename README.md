@@ -1,0 +1,495 @@
+# strike-a-pose
+
+Compact latent representations of human pose: encode, reconstruct and generate
+poses. Successor to `Conv_AE-Human_Pose`, rebuilt as an importable Python
+library driven by CLI commands and versioned configs, with reproducible runs.
+
+## Status
+
+**Goal** (operator-approved 2026-11-03): Encode, reconstruct and generate: one latent ≤ 128 numbers whose pose head/probe is ≤ 80 mm MPJPE, whose reconstructions are within +5 % MSE of the 64-d plain-AE seed mean, and whose N(0,I) samples are valid bodies ≥ 59 % of the time.
+
+Latent cap 128 through slice 021; 256 only by its own slice with a pre-fixed rule.
+
+**Goal status:** pose met (L2); reconstruction +5.7 % (just misses +5 %); generation not yet combined with pose (slice 021).
+
+Best models so far, all on `smpl_proc_v3` (val / test; seeds = three plain 64-d AEs):
+
+| Model | Run | Result | Results |
+|---|---|---|---|
+| L1 128-d plain AE | `ae-l128-smpl_proc_v3-20261028T022732Z` | MSE 0.00112 (−29 %), IoU 0.930; probe 120.5 / 117.3 mm | [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/) |
+| L2 128-d + pose head λ 0.03 | `ae-l128-pose-l0.03-smpl_proc_v3-20261028T101221Z` (second seed `…seed1-…20261029T055258Z`) | pose head 67.0 / 64.7 mm (second seed 66.8 / 65.0); MSE +5.7 %; IoU 0.896 | [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/) |
+| R2b-v3 64-d VAE β 0.1 | `ae-vae-beta0.1-smpl_proc_v3-20261024T065708Z` | 59 % valid prior samples; MSE +1.7 %; probe 137.3 / 133.0 mm | [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/) |
+| F2 64-d pose head + gradient loss | `ae-pose-l0.03-grad-smpl_proc_v3-20261028T234943Z` | bF1 0.850 (SHARPER); pose head 68.7 / 67.1 mm | [`docs/results/020-sharp-reconstructions/`](docs/results/020-sharp-reconstructions/) |
+
+Slices 001–020 (roadmap: [`specs/roadmap.md`](specs/roadmap.md); older numbers under [Results](#results)):
+
+| Slice | What | State | Spec | Results |
+|---|---|---|---|---|
+| 001 `dataset-generation` | Synthetic SMPL renders + labels + manifest (`strike-a-pose-data`) | implemented | [spec](specs/001-dataset-generation/) | none |
+| 002 `data-pipeline` | Dataset loader, transforms, frozen split (`strike_a_pose.data`) | implemented | [spec](specs/002-data-pipeline/) | none |
+| 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented | [spec](specs/003-baselines-and-metrics/) | [`docs/results/003-baselines-smpl_proc_v1/`](docs/results/003-baselines-smpl_proc_v1/) |
+| 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented | [spec](specs/004-autoencoder-mvp/) | [`docs/results/004-ae-smpl_proc_v1/`](docs/results/004-ae-smpl_proc_v1/) |
+| 005 `repo-foundation` | CI, README, packaging metadata | implemented | [spec](specs/005-repo-foundation/) | none |
+| 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) | [spec](specs/006-latent-probe/) | [`docs/results/006-probe-smpl_proc_v1/`](docs/results/006-probe-smpl_proc_v1/) |
+| 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2) | implemented, operator signed off 2026-10-28 | [spec](specs/007-split-content-hash/) | [`docs/results/007-f1-baselines-smpl_proc_v1/`](docs/results/007-f1-baselines-smpl_proc_v1/) |
+| 008 `best-val-selection` | Runs score the lowest-val-loss weights (`best.pt`) by default | implemented, operator signed off 2026-10-28 | [spec](specs/008-best-val-selection/) | none |
+| 009 `region-metrics` | Image models also report MSE in hands / feet / head regions | implemented, operator signed off 2026-10-28 | [spec](specs/009-region-metrics/) | none |
+| 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera jitter | implemented, operator signed off 2026-10-28 | [spec](specs/010-dataset-realism/) | none |
+| 011 `training-variants` | Config-selectable variants: weight decay, shifts, latent dropout, mask-weighted MSE, VAE | implemented, operator signed off 2026-10-28 | [spec](specs/011-training-variants/) | [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/) |
+| 012 `run-guards` | Early stop, divergence abort, run-dir lock, campaign procedure and configs | implemented, operator signed off 2026-10-28 | [spec](specs/012-run-guards/) | [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/) |
+| 013 `capsule-body` | Interim license-free capsule body and twin configs | implemented, operator signed off 2026-10-28 | [spec](specs/013-capsule-body/) | [`docs/results/013-capsule/`](docs/results/013-capsule/) |
+| 014 `realism-ablations` | Independent single-change datasets `smpl_proc_v2a`–`v2d`, intersection check | implemented, operator signed off 2026-10-28 | [spec](specs/014-realism-ablations/) | [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/) |
+| 015 `pose-scale-and-sampling` | 8,000-pose `smpl_proc_v3`, VAE β 0.1, N(0, I) sampling | implemented, operator signed off 2026-10-28 | [spec](specs/015-pose-scale-and-sampling/) | [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/) |
+| 016 `probe-round-trip` | Probe round trip through the VAE (encode, decode, re-probe) | implemented, operator signed off 2026-10-28 | [spec](specs/016-probe-round-trip/) | [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/) |
+| 017 `intersection-recalibration` | Recalibrated limb–torso intersection check | implemented, operator signed off 2026-10-28 | [spec](specs/017-intersection-recalibration/) | none |
+| 018 `pose-supervised-ae` | AE with a pose head on the latent (λ sweep) | implemented, operator signed off 2026-10-28 | [spec](specs/018-pose-supervised-ae/) | [`docs/results/018-pose-supervised/`](docs/results/018-pose-supervised/) |
+| 019 `latent-capacity` | 128-d latent: plain (L1) and with pose head (L2) | implemented, operator signed off 2026-10-28 | [spec](specs/019-latent-capacity/) | [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/) |
+| 020 `sharp-reconstructions` | Gradient (outline) loss for sharper reconstructions | implemented, operator signed off 2026-10-28 | [spec](specs/020-sharp-reconstructions/) | [`docs/results/020-sharp-reconstructions/`](docs/results/020-sharp-reconstructions/) |
+
+## Install
+
+Requires Python >= 3.11 and [uv](https://docs.astral.sh/uv/). PyTorch comes
+from PyPI; on Linux that build pulls CUDA runtime wheels (several GB) but runs on
+CPU without a GPU.
+
+```bash
+git clone https://github.com/domattioli/strike-a-pose
+cd strike-a-pose
+uv sync --locked          # exact locked environment, incl. dev tools
+```
+
+## Usage
+
+Generating a dataset needs the licensed SMPL body model (never downloaded or
+committed; see [`docs/data-assets.md`](docs/data-assets.md)). Validating does not.
+
+```bash
+# render 2000 procedural poses x 8 cameras into data/generated/smpl_proc_v1
+uv run strike-a-pose-data generate --config configs/default.yaml --seed 0
+
+# check a dataset directory against the layout contract (exit 0 = OK)
+uv run strike-a-pose-data validate data/generated/smpl_proc_v1
+uv run strike-a-pose-data validate tests/fixtures/smpl_fixture   # committed 16-sample fixture
+```
+
+Realism options (slice [010](specs/010-dataset-realism/spec.md); each off by default and then
+left out of the manifest, so `smpl_proc_v1` is expected to regenerate byte for byte, verified by
+F1):
+`ranges_version: armsdown-v1` lowers the arms (∓65° at the shoulders after sparsification,
+shoulder z narrowed to ±20° and collar z to ±10°; every other angle drawn as with the default
+table), `body_shape: {std, clip}`
+gives each pose random SMPL betas N(0, std²) clipped at ±clip (shared by its 8 views), and
+`camera_jitter` renders each sample from a camera near its ring camera (height ±0.3 m,
+0–0.5 m farther, aimed at the ring's look-at point and tilted 0–5° down), kept only if every
+mesh vertex projects 2 px inside the image, else the ring camera; labels record the deltas in
+`camera.jitter`, while `camera_name` / `yaw_deg` stay the ring camera's. More poses is
+`num_poses`. The committed configs `configs/smpl_proc_v2a` … `v2d` are independent
+single-change datasets, each `smpl_proc_v1` plus one option and each compared with
+`smpl_proc_v1` (slice [014](specs/014-realism-ablations/spec.md); v2a arms-down, v2b shape, v2c
+jitter, v2d 4,000 poses); each directory holds the `generate`, `baselines`, `ae` and `probe`
+configs. v2a changes pose variety too (the narrowed shoulder and collar ranges), so its effect
+is not the arms' position alone. The runs (needs SMPL; after F1 and the `smpl_proc_v1`
+re-baseline) are steps of the campaign procedure in [`docs/HANDOFF.md`](docs/HANDOFF.md);
+dataset-specific checks in [`specs/010-dataset-realism/tasks.md`](specs/010-dataset-realism/tasks.md).
+For 4,000 poses the 003 image PCA would need an estimated 25–30 GB (≥ 32 GB machine), so
+`smpl_proc_v2d` runs its baselines with `image_pca_ks: []` (mean image and pose baselines only)
+and its AE with `context_pca_k: null`.
+
+Limb–torso intersection count (slice 014): poses a generation config's procedural poses with
+the body model and reports the share of poses with an arm vertex (dominant skinning weight on
+joints 16–23) inside the torso (joints 0 / 3 / 6 / 9, per-segment elliptic cylinders, 1 cm
+margin); exit 1 above `--threshold` (default 5 %), 2 for an invalid check, 3 without the model.
+
+```bash
+uv run --locked python scripts/intersection_check.py \
+    --config configs/smpl_proc_v2a/generate.yaml --seed 0     # [--num-poses N] [--json]
+```
+
+Freeze a train/val/test split once per dataset (whole poses, all 8 camera views
+together; refuses to overwrite) and commit the file under `splits/`. `val` is for
+tuning; `test` is never tuned on.
+
+```bash
+uv run strike-a-pose-data split data/generated/smpl_proc_v1 --seed 0 \
+    --out splits/smpl_proc_v1.json      # default fractions 0.8 0.1 0.1; split_version 2
+```
+
+A split file records the SHA-256 of the dataset's manifest *content*: `manifest.json`
+without its generating `code` commit (spec
+[007](specs/007-split-content-hash/spec.md)). The loader refuses a dataset with other
+content (config, seed, labels, …) and accepts the same dataset regenerated at another
+commit with a `SplitCommitWarning` naming both commits; the split keeps the generating
+commit for information (`manifest_code`; rewriting the split with `--overwrite`
+refreshes it). The 004 `--resume` check and the 006 latent cache still key on the raw
+manifest bytes (the manifest does not hash the images), so a regenerated dataset does
+not resume an older run or reuse its cached latents.
+
+The committed `splits/smpl_proc_v1.json` (1600 / 200 / 200 poses) is a `split_version` 2
+file (migrated 2026-10-22, follow-up F1; same pose lists as the original). It fits
+`smpl_proc_v1` generated with `configs/default.yaml`, seed 0, from the current SMPL file
+(≈ 5 min on 4 CPU cores, 16,000 samples). That dataset reproduces every published 003
+baseline number to ≤ 1e-5 but not the original manifest bytes (labels differ at the 1e-6
+level after the SMPL file was re-converted; see `docs/HANDOFF.md`, "F1 outcome").
+
+Load samples in PyTorch (sample dict, units and normalization:
+[`specs/002-data-pipeline/contracts/sample-contract.md`](specs/002-data-pipeline/contracts/sample-contract.md)):
+
+```python
+from torch.utils.data import DataLoader
+from strike_a_pose.data import PoseImageDataset
+
+ds = PoseImageDataset(
+    "tests/fixtures/smpl_fixture", split="train", split_file="splits/smpl_fixture.json"
+)
+batch = next(iter(DataLoader(ds, batch_size=4)))
+batch["image"].shape  # [4, 1, 256, 192], float32 in [0, 1]
+```
+
+Score trivial baselines (mean image, PCA images; mean pose, PCA joints) fitted on
+`train` only, on `val` and `test`. Each run writes a directory under `runs/`
+(git-ignored) with the resolved config, `run_info.json` (git commit, seed,
+environment, dataset + split hashes), `metrics.json` and a reconstruction figure
+(contract: [`specs/003-baselines-and-metrics/contracts/eval-run.md`](specs/003-baselines-and-metrics/contracts/eval-run.md)):
+
+```bash
+uv run strike-a-pose-eval baseline --config configs/baselines.yaml           # full dataset
+uv run strike-a-pose-eval baseline --config configs/baselines_fixture.yaml   # 16-sample fixture
+```
+
+Besides the whole-image MSE, PSNR and silhouette IoU, every image model (here the mean
+image and each PCA k; in a training run also the autoencoder) is scored by its MSE in
+three regions built from the true 2D keypoints (spec
+[009](specs/009-region-metrics/spec.md)): `hands` (21-px squares on both hand joints),
+`feet` (17-px squares on both ankle and both foot joints) and `head` (a 29-px square on
+the head joint; SMPL-24 has no face joint). A region is the union of its visible joints'
+squares, clipped to the image, and every pixel in it counts, body and background; joints
+outside the image are dropped, and `samples` counts the images whose region is
+non-empty. Each region holds its own mix of body and background pixels, so compare
+models within a region, not regions with each other or with the whole-image MSE
+(`metrics.json`: `regions` in every image entry, the definitions at the top level).
+
+The metric functions (`image_mse`, `psnr`, `silhouette_iou`, `mpjpe`,
+`keypoint_error_2d`, and the region helpers `region_mask` and `masked_mse`) live in
+`strike_a_pose.eval` and accept NumPy arrays or torch tensors. Baseline numbers for
+`smpl_proc_v1` are under [Results](#results).
+
+Train the convolutional autoencoder (latent 64) from a config: it fits on `train`,
+logs train/val loss per epoch to `history.csv`, checkpoints after every epoch, then
+scores the selected weights next to the mean image and PCA k=64 (refit on train in the
+same run) on `val` and `test`, whole-image and per region (hands, feet, head, as for the
+baselines), and writes a reconstruction figure with them. Which
+weights are scored is set by `select_weights` (spec
+[008](specs/008-best-val-selection/spec.md)): `best_val` (default) scores the epoch with
+the lowest val loss, kept as `best.pt`, and falls back to the final weights when val is
+empty (as in the fixture) or never finite; `final` scores the last epoch. Training is
+the same either way; `metrics.json` names the scored weights in `selection`
+(contract: [`specs/004-autoencoder-mvp/contracts/train-run.md`](specs/004-autoencoder-mvp/contracts/train-run.md)):
+
+```bash
+uv run strike-a-pose-train --config configs/ae.yaml           # full dataset (~85 min, 4 vCPU)
+uv run strike-a-pose-train --config configs/ae_fixture.yaml   # 16-sample fixture smoke (seconds)
+uv run strike-a-pose-train --resume runs/<run-dir>            # continue an interrupted run
+```
+
+`--resume` restores model, optimizer, lr schedule, RNG states and history from the
+last end-of-epoch `checkpoint.pt`; the finished run equals an uninterrupted one on
+the same machine and thread count. Long runs can be killed (e.g. a container
+restart): launch them detached and resume the same run dir rather than starting
+over:
+
+```bash
+mkdir -p runs
+setsid nohup uv run --locked strike-a-pose-train --config configs/ae.yaml \
+    > runs/ae.log 2>&1 < /dev/null &        # prints the run dir + resume command
+tail -3 runs/ae.log                          # progress, one line per epoch
+setsid nohup uv run --locked strike-a-pose-train --resume runs/<run-dir> \
+    > runs/ae-resume.log 2>&1 < /dev/null &  # after a kill (no metrics.json yet)
+```
+
+Each process holds `RUN_DIR/lock` while it runs (slice 012): a second `--resume` (or a
+start) on a run dir whose process is alive exits 2 (`strike-a-pose-train` or
+`python -m strike_a_pose.train.cli`); a lock left by a killed process is replaced.
+
+Run guards (slice [012](specs/012-run-guards/spec.md); off by default, so every existing
+config trains as before): `early_stop: {patience, min_epochs, min_delta}` ends a run after
+`patience` epochs without a val loss below the last improvement by more than `min_delta`
+(from epoch `min_epochs` on); the lr schedule stays planned for all `epochs` and the scored
+weights stay the best-val epoch's, so a stopped run is a prefix of the full one
+(`metrics.json` `training.stopped_early`). `abort_on_divergence: true` ends a run whose train
+loss is non-finite or, after epoch 3, above `divergence_ratio` (10) × epoch 1's, or whose val
+loss is non-finite 3 epochs in a row: it writes `aborted.json` instead of `metrics.json` and
+exits 5, and `--resume` refuses it (exit 5). The campaign configs (`configs/ae.yaml`,
+`ae_mask`, `ae_vae`, `ae_reg`, `ae_seed1`, `ae_vae_beta0.1`, `ae_vae_beta0.001`) set
+`patience: 10, min_epochs: 20` and the divergence guard; the fixture config sets neither.
+Check a run (read-only; also for the campaign's check-ins):
+
+```bash
+uv run --locked python scripts/run_status.py runs/<run-dir>          # add --json for scripts
+```
+
+It prints epochs done / planned, epoch times, minutes since the last write, best and current val
+loss, the guards' state, `train_kl` for a VAE, the lock, and a state (`running`, `stalled`,
+`looks dead`, `not running`, `finished`, `stopped early`, `aborted`). The campaign (F1 → R0 →
+R0b → realism datasets v2a–v2d → R1–R3, with decision rules and a re-armable check-in) is the
+"Campaign procedure" in [`docs/HANDOFF.md`](docs/HANDOFF.md).
+
+Runs that have a non-empty val split keep `best.pt` (weights at the lowest val loss,
+epoch logged as `best_val_epoch`) next to `checkpoint.pt` (the resume state of the last
+epoch); under `select_weights: best_val` it is the scored file. A resume rewrites
+`best.pt` from the checkpoint after a kill between the two writes and refuses (exit 2)
+when the selected epoch's weights are lost; run directories started before slice 008
+resume with `final`, the rule they were started under.
+
+Training variants (slice [011](specs/011-training-variants/spec.md)): each key is off by
+default, which is today's run bit for bit, and `configs/ae.yaml` lists them at their
+defaults. `mask_weight` α (body pixels, the non-zero pixels of the render, weigh 1 + α),
+`variational` + `beta` (a VAE: `logvar` head, sampled latent in training, `beta·KL/(H·W)`;
+`encode` and every evaluation use the mean), `weight_decay` (AdamW), `shift_px` (per-sample
+integer shifts of the train images) and `dropout` (on the latent, training only). Val loss,
+`best.pt` selection and every metric stay the plain MSE of the deterministic reconstruction,
+so a variant compares with the plain run; `history.csv` adds `train_recon` and `train_kl`;
+run directories started before slice 011 resume with the defaults.
+
+```bash
+uv run strike-a-pose-train --config configs/ae_mask.yaml   # R1: mask_weight 4
+uv run strike-a-pose-train --config configs/ae_vae.yaml    # R2: VAE, beta 0.01 (012)
+uv run strike-a-pose-train --config configs/ae_reg.yaml    # R3: weight decay + shifts + dropout
+```
+
+Each takes ~1.5 h on 4 vCPU (run it detached and resumable as above). The runs, their order,
+the VAE follow-ups (`ae_vae_beta0.001.yaml` after a KL collapse, `ae_vae_beta0.1.yaml` after a
+healthy run) and the promotion rules are in the campaign procedure
+([`docs/HANDOFF.md`](docs/HANDOFF.md)); 011's own procedure is in
+[`specs/011-training-variants/spec.md`](specs/011-training-variants/spec.md).
+
+Probe what the frozen encoder of a trained AE knows (spec 006): every image is encoded
+once (latents cached under `runs/probe-cache/`, keyed by checkpoint, manifest and split
+hashes), then closed-form ridge and small MLP probes are fit on train latents to
+predict root-relative 3D joints (world and camera frame), the camera (8 ring yaws) and
+the SMPL pose; one hyper-parameter per probe is chosen on val, test is scored once.
+Mean-pose / majority / pose-PCA baselines and an untrained-encoder control sit next to
+them in `metrics.json` (contract:
+[`specs/006-latent-probe/contracts/probe-run.md`](specs/006-latent-probe/contracts/probe-run.md)):
+
+```bash
+uv run strike-a-pose-eval probe --config configs/probe.yaml \
+    --checkpoint runs/<ae-run>/best.pt                             # full dataset (~7 min, 4 vCPU)
+uv run strike-a-pose-eval probe --config configs/probe_fixture.yaml \
+    --checkpoint runs/<ae-fixture-run>/checkpoint.pt               # fixture smoke (seconds)
+```
+
+Probe the scored weights of the train run, the file its `metrics.json` names in
+`selection.checkpoint`: `best.pt` for a full run, `checkpoint.pt` for the fixture
+(empty val). `configs/probe.yaml` names a placeholder run directory until the next full
+AE run exists; set it to that run's `best.pt` or pass `--checkpoint`.
+
+Exit codes and the on-disk layout are specified in
+[`specs/001-dataset-generation/contracts/dataset-layout.md`](specs/001-dataset-generation/contracts/dataset-layout.md).
+
+## Results
+
+The published 003 / 004 / 006 runs below predate the per-region image metrics (slice
+009); per-region numbers come with the next full run. The slice 011 training variants have no
+runs yet: their numbers come with its experiment procedure (needs SMPL).
+Infrastructure runs on the interim capsule body (slice 013) are recorded in
+[`docs/results/013-capsule/`](docs/results/013-capsule/README.md), not here.
+
+Baselines on `smpl_proc_v1` (fit on train, 12,800 images; val / test 1,600 images
+each; images in [0, 1]; MPJPE root-relative). Context for the autoencoder (004),
+not a bar to beat. Source: run `runs/baselines-smpl_proc_v1-20261020T022918Z` at
+commit `aded3a4`, config [`configs/baselines.yaml`](configs/baselines.yaml); copy of
+its [`metrics.json`](docs/results/003-baselines-smpl_proc_v1/metrics.json) and
+[`run_info.json`](docs/results/003-baselines-smpl_proc_v1/run_info.json) committed.
+
+| Baseline | val MSE | test MSE | val / test PSNR (dB) | val / test silhouette IoU |
+|---|---|---|---|---|
+| mean image | 0.01403 | 0.01385 | 18.65 / 18.71 | 0.416 / 0.420 |
+| PCA k=64 (= AE latent size) | 0.00459 | 0.00452 | 23.73 / 23.79 | 0.644 / 0.646 |
+| PCA k=128 | 0.00327 | 0.00321 | 25.19 / 25.25 | 0.701 / 0.704 |
+
+| Baseline (3D joints) | val / test MPJPE (mm) | val / test 2D error (px) |
+|---|---|---|
+| mean pose | 253.4 / 250.3 | 18.35 / 18.17 |
+| PCA k=8 | 94.0 / 93.6 | 6.83 / 6.78 |
+| PCA k=16 | 34.2 / 34.6 | 2.50 / 2.52 |
+
+All k values (image 8–128, pose 4–32) are in `metrics.json` and
+[`specs/003-baselines-and-metrics/tasks.md`](specs/003-baselines-and-metrics/tasks.md).
+
+Autoencoder (004) on `smpl_proc_v1`: `ConvAutoencoder` (latent 64, 3.1 M
+parameters) trained 60 epochs on train with config
+[`config.yaml`](docs/results/004-ae-smpl_proc_v1/config.yaml) (the run's resolved config;
+`configs/ae.yaml` has since gained `select_weights`); final-epoch weights scored on val
+and test, with the mean image and PCA k=64 refit on train in the same run (identical to
+the 003 numbers above). Source: run `runs/ae-smpl_proc_v1-20261020T030038Z` at commit
+`f9619c6`; per its `run_info.json` the run had five sessions: started at `f9619c6` (clean),
+resumed twice at epoch 3, 19 s apart, at `570f1df` with a dirty tree, then at epochs 10 and 11
+at `693b385` (clean). The training code did not change between those commits (docs-only
+diffs), but two sessions ran with uncommitted changes whose content is not recorded; copies of
+[`metrics.json`](docs/results/004-ae-smpl_proc_v1/metrics.json),
+[`run_info.json`](docs/results/004-ae-smpl_proc_v1/run_info.json),
+[`history.csv`](docs/results/004-ae-smpl_proc_v1/history.csv) and the figures in
+[`docs/results/004-ae-smpl_proc_v1/`](docs/results/004-ae-smpl_proc_v1/).
+
+| Model | val MSE | test MSE | val / test PSNR (dB) | val / test silhouette IoU |
+|---|---|---|---|---|
+| **autoencoder (latent 64)** | **0.00221** | **0.00219** | **27.15 / 27.13** | **0.879 / 0.881** |
+| mean image | 0.01403 | 0.01385 | 18.65 / 18.71 | 0.416 / 0.420 |
+| PCA k=64 | 0.00459 | 0.00452 | 23.73 / 23.79 | 0.644 / 0.646 |
+
+Training took 84 min of compute on 4 vCPU (78 s/epoch + data loading and
+evaluation). Train MSE fell 0.0352 → 0.00106; val MSE fell 0.0100 → its minimum
+0.00217 at epoch 34 and ended at 0.00221: val flattens from about epoch 30 while
+train keeps falling, i.e. mild overfitting
+([loss curve](docs/results/004-ae-smpl_proc_v1/loss_curve.png)). These published 004
+numbers, and the 006 probe numbers below, come from the final-epoch weights of a run made
+before slice 008; runs from 008 on report the best-val weights (`select_weights:
+best_val`; here the val minimum was epoch 34, 1.8 % below the final val MSE, ≈ 0.08 dB).
+That gain is known on val only, the split that selects the epoch, so best-val numbers of
+a later run and the final-weight numbers here are compared with that caveat. In the
+[val reconstructions](docs/results/004-ae-smpl_proc_v1/recon_val.png) all six
+poses shown are recognizable (body orientation, arm and leg angles), but the images are
+blurred: faces and hands lose all detail (fingers vanish), feet and wrists are
+soft, and crossing or touching limbs merge.
+
+Latent probe (006) on `smpl_proc_v1`: the frozen 004 encoder (final-epoch weights,
+latent 64) encodes every image once; probes are fit on the 12,800 train latents, one
+hyper-parameter (ridge λ, MLP weight decay) is chosen on val, test is scored once.
+The control is the same probe on an **untrained** encoder of the same architecture
+(seeded random weights). Source: run `runs/probe-smpl_proc_v1-20261020T060632Z` at
+commit `ae32db9` (clean; 450 s on 4 vCPU, encoding 80 s), config
+[`config.yaml`](docs/results/006-probe-smpl_proc_v1/config.yaml) (the run's resolved
+config; `configs/probe.yaml` now points at the next AE run's `best.pt`); copies of
+[`metrics.json`](docs/results/006-probe-smpl_proc_v1/metrics.json),
+[`run_info.json`](docs/results/006-probe-smpl_proc_v1/run_info.json) and the figures in
+[`docs/results/006-probe-smpl_proc_v1/`](docs/results/006-probe-smpl_proc_v1/).
+
+| Root-relative 3D joints, MPJPE mm (val / test) | world frame (as 003) | camera frame |
+|---|---|---|
+| **MLP probe** (64 → 256 → 256) | **172.0 / 172.8** | **161.1 / 159.6** |
+| ridge (linear) probe | 214.5 / 212.5 | 234.3 / 231.8 |
+| MLP probe, untrained encoder | 214.6 / 214.5 | 235.4 / 234.5 |
+| ridge probe, untrained encoder | 228.4 / 226.7 | 268.3 / 266.7 |
+| mean pose (fit on train) | 253.4 / 250.3 | 313.1 / 308.6 |
+| *oracle:* pose PCA k=8 of the **true** joints | *94.0 / 93.6* | *143.3 / 139.8* |
+| *oracle:* pose PCA k=16 of the **true** joints | *34.2 / 34.6* | *44.1 / 45.2* |
+
+The PCA rows are not image-based: they compress the true joints themselves (an upper
+bound on what a k-dimensional linear code of the joints can reach); the probes see only
+the image latent. World-frame mean-pose and PCA numbers equal the 003 run exactly.
+2D error of the projected prediction (true root and camera): MLP 11.5 px, ridge 14.8 px,
+mean pose 18.4 px (val, world frame).
+
+| Camera (8 ring yaws), accuracy (val / test) | accuracy | val errors by offset 45° / 90° / 135° / 180° |
+|---|---|---|
+| **MLP probe** | **0.965 / 0.959** | 17 / 11 / 6 / 22 |
+| ridge (linear) probe | 0.826 / 0.819 | 142 / 29 / 48 / 60 |
+| MLP probe, untrained encoder | 0.685 / 0.670 | 161 / 133 / 105 / 105 |
+| ridge probe, untrained encoder | 0.602 / 0.599 | 209 / 187 / 135 / 106 |
+| majority class | 0.125 / 0.125 | — |
+
+SMPL pose (geodesic joint-rotation error, joints 1–21, val / test): MLP 23.4° / 24.1°,
+ridge 24.9° / 25.5°, untrained-encoder MLP 25.0° / 25.7°, mean pose 26.9° / 27.5°.
+
+What the latent encodes (lead's reading of this one run): the **view** is in it and
+almost fully recoverable — 96 % camera accuracy with an MLP; the remaining errors are
+mostly front ↔ back flips (`Front_0` → `Back_180` 9, `Back_180` → `Front_0` 12 of 200
+each on val; [confusion](docs/results/006-probe-smpl_proc_v1/yaw_confusion_val.png)),
+which a grey silhouette-like render barely distinguishes. Much of that is linear
+(ridge 83 %, its errors mostly 45° neighbours). **Body configuration is only coarsely
+present:** the best probe removes ≈ 32 % (world) / 48 % (camera frame) of the mean-pose
+error, about as good as a 4-component PCA of the true joints (170 mm in 003), far from
+the 8-component code (94 mm). The
+[skeleton figure](docs/results/006-probe-smpl_proc_v1/skeleton_val.png) shows the
+pattern: torso orientation and outstretched arms are right, bent or raised legs and
+bent arms are pulled toward the mean pose. Training the encoder clearly adds pose
+information over random conv features (MLP 172 vs 215 mm; yaw 96 % vs 69 %), but a
+pixel-MSE autoencoder spends its 64 numbers on what dominates pixel error (silhouette
+extent and orientation), not on limb angles, and what joint information there is is
+mostly non-linear (ridge 214 mm). Caveat: the MLP weight-decay grid picked its largest
+value (1e-3) for most targets, so slightly stronger regularization might help; the grid
+was fixed a priori and not widened after test was seen.
+
+**SMPL campaign (2026-10-22).** Full results: [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/README.md).
+The re-baseline (R0, best-val weights) reproduces the published 004 run (test MSE 0.00216 vs
+0.00219; IoU 0.871). Of the realism datasets, doubling the distinct poses (v2d, 4,000) helped
+most: val MSE −18 % and probe MPJPE 150 vs 175 mm, so the autoencoder is data-limited. Body
+shape (+10 % MSE) and camera jitter (−20 mm probe) make the task harder; the arms-down dataset
+is easier. Of the training variants, a VAE with β 0.01 matches the plain AE (+0.2 % MSE, same
+probe) while giving a sampleable latent; mask-weighted MSE gives worse pixels (+8 %) but a
+clearly better pose latent (162 mm); the regularization bundle did not help. Under the
+promotion rule of slice 015 (pixel or latent win; operator decision 2026-10-22) R1 is
+dropped (it misses the +5 % MSE bound of a latent win, probe gain 4.4× the noise), R2 and R3
+are reported, not carried. Slice 015 (8,000 poses, VAE β 0.1, prior sampling) ran next.
+
+**Slice 015 campaign (2026-10-24).** Full results: [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/README.md).
+With 8,000 poses (v3) the plain AE reaches val MSE 0.00158 (−27 % vs v1) and probe MPJPE 131 mm
+(v1 175), still improving with pose count. Seed noise on v3: 0.6 % MSE, 3.3 mm probe. A VAE
+with β 0.01 on v3 costs about one seed gap (+0.7 % MSE; probe 132 mm, inside noise; reported) and its prior samples are
+32 % valid silhouettes (5.7 % on v1); β 0.1 on v1 gave 33 %. Mask-weighted MSE gives the lowest
+probe error (124.5 mm; 8.4 mm below the mean of three plain-AE seeds = 5 seed sd, a real gain) at
++14.5 % MSE and is dropped by the promotion rule. Three seeds put the v3 noise at 0.5 % MSE and 1.7 mm
+probe (sd); the VAE at β 0.01 is indistinguishable from the plain AE, β 0.1 costs +1.7 % / +4.5 mm
+for 59 % valid prior samples (vs 32 %).
+
+**Distance to usable (grill point 8, 2026-10-24).** The best probe error, 124–131 mm, halves the
+mean-pose error (258 mm; a random-encoder control already reaches 212 mm, so training adds ≈ 81 mm) but is far from usable pose estimation (target ≤ 80 mm world MPJPE).
+Levers seen so far: more distinct poses (175 → 131 mm over 4× data; a step-matched v1 run
+confirmed this is pose count, not training length) and mask-weighted loss (−8 mm, real, at +14 % MSE). Neither
+reaches 80 mm practically (fit: 16k poses ≈ 117 mm, floor ≈ 71 mm only after ~10⁵–10⁶ poses). Reaching it needed a direction change: see slice 018.
+
+**Slice 018 pose-supervised AE (2026-10-26).** Full results: [`docs/results/018-pose-supervised/`](docs/results/018-pose-supervised/README.md).
+A small pose head on the latent, trained jointly with reconstruction, reaches **68.6 / 66.5 mm**
+world MPJPE (val / test, two seeds agreeing within 0.3 mm) at pose weight 0.03, under the 80 mm
+target; the frozen-latent probe matches, so the encoder itself now carries the pose (plain AE
+133 mm). The cost is +36 % pixel MSE (IoU 0.905 → 0.870); a lighter weight (0.003) gives 91 mm
+for +6 %. Mask weighting does not add to pose supervision. All pose variants are dropped by the
+015 pixel-gate promotion rule; a pose-track promotion rule is an open operator decision.
+
+**Slice 019 latent capacity (2026-10-28).** Full results: [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/README.md).
+Doubling the latent to 128 numbers cuts reconstruction MSE by 29 % (IoU 0.930; hands / feet /
+head 23–36 % better) and improves the pose probe by 12 mm (L1: pixel win and pose-track
+promotion). With 128 numbers plus the pose head (L2), pose reaches 67.0 / 64.7 mm while the pixel
+cost of the head falls from +36 % to +5.7 % (vs the 64-d plain AE). Pose and pictures in one model
+is half met: pose ≤ 80 mm yes, pictures at the old plain level rather than L1's.
+
+**Slice 020 sharper reconstructions (2026-10-29).** Full results: [`docs/results/020-sharp-reconstructions/`](docs/results/020-sharp-reconstructions/README.md).
+An image-gradient (edge) loss leaves the plain 64-d AE unchanged (NO-GAIN) but makes the pose model's
+outlines measurably sharper (boundary F1 0.839 → 0.850, +11 seed sd; IoU 0.870 → 0.876; MSE −2 %)
+at no pose cost (69.2 mm): SHARPER under the pre-fixed rule. Capacity (slice 019) stays the bigger lever.
+
+## Development checks
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these on
+Python 3.11 and 3.13 for every push and pull request; run the same locally:
+
+```bash
+uv sync --locked
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked pytest
+uv run --locked strike-a-pose-data validate tests/fixtures/smpl_fixture
+uv run --locked strike-a-pose-eval baseline --config configs/baselines_fixture.yaml --run-root /tmp/runs
+uv run --locked strike-a-pose-train --config configs/ae_fixture.yaml --run-root /tmp/runs
+uv run --locked strike-a-pose-eval probe --config configs/probe_fixture.yaml --run-root /tmp/runs \
+    --checkpoint "$(ls -d /tmp/runs/ae-fixture-* | tail -1)/checkpoint.pt"
+```
+
+No SMPL/AMASS files are needed: tests use synthetic SMPL-format assets and the
+committed fixture.
+
+Work follows spec-kit (specify, clarify, plan, tasks, analyze, implement);
+per-slice docs live in [`specs/`](specs/), project rules in
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md).
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE) **plus an additional No-AI/ML-training
+term**: the software may not be used as training, fine-tuning or evaluation
+input for AI/ML models, or for code generation, distillation, embeddings or
+retrieval corpora, without a separate written license. See [`LICENSE`](LICENSE)
+for the full terms and the contact for commercial or AI-training licenses.
+
+The SMPL body model and AMASS motion data are third-party assets under their
+own non-commercial research licenses; obtain them yourself and follow their
+terms ([`docs/data-assets.md`](docs/data-assets.md)).

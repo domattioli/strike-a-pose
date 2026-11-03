@@ -1,0 +1,13 @@
+# smpl_proc_v3 = smpl_proc_v1 with 8,000 poses (spec 015 FR-001; config-only, like v2d).
+# single-change datasets v2a-v2d, each compared with smpl_proc_v1).
+# Run: strike-a-pose-data generate --config configs/smpl_proc_v3/generate.yaml --seed 0
+# Then validate, split (--seed 0, default fractions) and run the baselines, AE and probe
+# configs next to this file: campaign procedure in docs/HANDOFF.md.
+dataset_name: smpl_proc_v3
+output_root: data/generated
+smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
+pose_source: procedural
+num_poses: 8000                  # 4x smpl_proc_v1: where the more-poses gain saturates (spec 015)
+num_betas: 10
+image: {height: 256, width: 192}
+camera_ring: {count: 8, distance_m: 3.5, height_m: 0.0, focal_px: 320.0}

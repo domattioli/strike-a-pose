@@ -1,0 +1,105 @@
+{
+  "argv": [
+    "strike-a-pose-train",
+    "--config",
+    "configs/ae.yaml"
+  ],
+  "checkpoint": "checkpoint.pt",
+  "cwd": "/home/user/strike-a-pose",
+  "dataset": {
+    "dir": "data/generated/smpl_proc_v1",
+    "manifest_sha256": "9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588"
+  },
+  "env": {
+    "cpu_count": 4,
+    "numpy": "2.5.4",
+    "pillow": "13.0.0",
+    "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "torch": "2.14.1+cu130",
+    "torch_threads": 4
+  },
+  "figure": "recon_val.png",
+  "finished_utc": "2026-10-20T05:45:49.593468+00:00",
+  "git": {
+    "commit": "f9619c699dd75ab91e02ffef0cc113522c532e27",
+    "dirty": false
+  },
+  "history": "history.csv",
+  "model_parameters": 3126897,
+  "seed": 0,
+  "sessions": [
+    {
+      "argv": [
+        "strike-a-pose-train",
+        "--config",
+        "configs/ae.yaml"
+      ],
+      "git": {
+        "commit": "f9619c699dd75ab91e02ffef0cc113522c532e27",
+        "dirty": false
+      },
+      "start_epoch": 1,
+      "started_utc": "2026-10-20T03:00:38.675712+00:00"
+    },
+    {
+      "argv": [
+        "strike-a-pose-train",
+        "--resume",
+        "runs/ae-smpl_proc_v1-20261020T030038Z"
+      ],
+      "git": {
+        "commit": "570f1dfead959bf01b73da2ce719617fe5c94bed",
+        "dirty": true
+      },
+      "start_epoch": 3,
+      "started_utc": "2026-10-20T03:04:42.210424+00:00"
+    },
+    {
+      "argv": [
+        "strike-a-pose-train",
+        "--resume",
+        "runs/ae-smpl_proc_v1-20261020T030038Z"
+      ],
+      "git": {
+        "commit": "570f1dfead959bf01b73da2ce719617fe5c94bed",
+        "dirty": true
+      },
+      "start_epoch": 3,
+      "started_utc": "2026-10-20T03:05:01.649708+00:00"
+    },
+    {
+      "argv": [
+        "strike-a-pose-train",
+        "--resume",
+        "runs/ae-smpl_proc_v1-20261020T030038Z"
+      ],
+      "git": {
+        "commit": "693b385bc769f35958b21272e6f41b0f63e6c053",
+        "dirty": false
+      },
+      "start_epoch": 10,
+      "started_utc": "2026-10-20T03:16:30.285439+00:00"
+    },
+    {
+      "argv": [
+        "strike-a-pose-train",
+        "--resume",
+        "runs/ae-smpl_proc_v1-20261020T030038Z"
+      ],
+      "git": {
+        "commit": "693b385bc769f35958b21272e6f41b0f63e6c053",
+        "dirty": false
+      },
+      "start_epoch": 11,
+      "started_utc": "2026-10-20T04:38:19.468625+00:00"
+    }
+  ],
+  "split_file": {
+    "path": "splits/smpl_proc_v1.json",
+    "sha256": "4b539833405f73b98b07e79b5c1005d04abeca7027e496162ceb3e99aff555ab"
+  },
+  "started_utc": "2026-10-20T03:00:38.675712+00:00",
+  "train_wall_s": 4678.8,
+  "wall_s": 5057.1
+}

@@ -1,0 +1,64 @@
+# CI (slice 005): lint + format check + tests + smoke steps (dataset validate,
+# baselines 003, AE smoke train 004, latent probe 006), from the lockfile.
+# Runs without SMPL/AMASS: tests use synthetic assets, the fixture is committed.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-24.04  # pinned (surrogate ruling 2026-10-20 #5, provisional)
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up uv + Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install (locked)
+        run: uv sync --locked
+
+      - name: Ruff lint
+        run: uv run --locked ruff check .
+
+      - name: Ruff format check
+        run: uv run --locked ruff format --check .
+
+      - name: Tests
+        run: uv run --locked pytest
+
+      - name: Smoke - validate committed fixture
+        run: uv run --locked strike-a-pose-data validate tests/fixtures/smpl_fixture
+
+      - name: Smoke - baselines on committed fixture (slice 003)
+        run: >-
+          uv run --locked strike-a-pose-eval baseline
+          --config configs/baselines_fixture.yaml --run-root "$RUNNER_TEMP/runs"
+
+      - name: Smoke - train autoencoder on committed fixture (slice 004)
+        run: >-
+          uv run --locked strike-a-pose-train
+          --config configs/ae_fixture.yaml --run-root "$RUNNER_TEMP/runs"
+
+      - name: Smoke - latent probe on the fixture AE checkpoint (slice 006)
+        run: >-
+          uv run --locked strike-a-pose-eval probe
+          --config configs/probe_fixture.yaml --run-root "$RUNNER_TEMP/runs"
+          --checkpoint "$(ls -d "$RUNNER_TEMP"/runs/ae-fixture-*)/checkpoint.pt"

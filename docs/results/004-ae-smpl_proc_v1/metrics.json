@@ -1,0 +1,95 @@
+{
+  "context": {
+    "fit_split": "train",
+    "pca_k": 64,
+    "pca_k_effective": 64
+  },
+  "dataset": {
+    "manifest_sha256": "9000c915c0b9e5db495fc188821d97027c18b80a1b5859ebbee921ed745c9588",
+    "name": "smpl_proc_v1",
+    "split_file_sha256": "4b539833405f73b98b07e79b5c1005d04abeca7027e496162ceb3e99aff555ab"
+  },
+  "metrics_version": 1,
+  "model": {
+    "channels": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      256
+    ],
+    "image_size": [
+      256,
+      192
+    ],
+    "latent_dim": 64,
+    "name": "ConvAutoencoder",
+    "parameters": 3126897
+  },
+  "splits": {
+    "test": {
+      "image": {
+        "ae": {
+          "image_mse": 0.00219303,
+          "psnr_db": 27.13,
+          "silhouette_iou": 0.880697
+        },
+        "mean_image": {
+          "image_mse": 0.0138466,
+          "psnr_db": 18.7144,
+          "silhouette_iou": 0.419706
+        },
+        "pca_k64": {
+          "image_mse": 0.00451764,
+          "k": 64,
+          "k_effective": 64,
+          "psnr_db": 23.7874,
+          "silhouette_iou": 0.646362
+        }
+      },
+      "poses": 200,
+      "samples": 1600
+    },
+    "val": {
+      "image": {
+        "ae": {
+          "image_mse": 0.00220785,
+          "psnr_db": 27.1465,
+          "silhouette_iou": 0.87936
+        },
+        "mean_image": {
+          "image_mse": 0.0140267,
+          "psnr_db": 18.6527,
+          "silhouette_iou": 0.416363
+        },
+        "pca_k64": {
+          "image_mse": 0.00459007,
+          "k": 64,
+          "k_effective": 64,
+          "psnr_db": 23.7286,
+          "silhouette_iou": 0.644424
+        }
+      },
+      "poses": 200,
+      "samples": 1600
+    }
+  },
+  "train_version": 1,
+  "training": {
+    "epochs": 60,
+    "final_train_loss": 0.00105857,
+    "final_val_loss": 0.00220785,
+    "first_train_loss": 0.0351634,
+    "first_val_loss": 0.01003,
+    "steps": 12000,
+    "train_poses": 1600,
+    "train_samples": 12800,
+    "val_samples": 1600
+  },
+  "units": {
+    "image_mse": "per-pixel mean squared error, images in [0, 1] (PCA output clamped to [0, 1])",
+    "psnr_db": "dB, 10*log10(1/max(MSE, 1e-10)) per image, averaged over images",
+    "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean"
+  }
+}

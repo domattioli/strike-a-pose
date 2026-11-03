@@ -1,0 +1,61 @@
+{
+  "checkpoint": {
+    "path": "runs/ae-vae-smpl_proc_v1-20261022T134729Z/best.pt",
+    "sha256": "3722f5e5313dad41d8fc69bdabba79fbdcea9a265ecc8e17f42a0ffededa733e"
+  },
+  "criteria": {
+    "area_bounds_px": [
+      2664.99,
+      4657.0
+    ],
+    "area_percentiles": [
+      1.0,
+      99.0
+    ],
+    "iou_threshold": 0.075,
+    "largest_fraction": 0.95,
+    "train_images": 12800
+  },
+  "dataset": {
+    "manifest_sha256": "7d1eb1e93b65b5eafb1825f38e202352bd1315f6ca4b850282a4ed991e189c2e",
+    "name": "smpl_proc_v1",
+    "split_file_sha256": "eb5626125bf8574c34c5d583693084bd5b11ce9a171ddbe6d333c6940e59228a"
+  },
+  "metrics_version": 1,
+  "reference_checkpoint": {
+    "path": "runs/ae-smpl_proc_v1-20261022T012307Z/best.pt",
+    "sha256": "d35c08b5f65c7765618c938096e071c168f2d1b400ac5336dc78e82836479c87"
+  },
+  "sets": {
+    "ae_prior": {
+      "fail_area": 0,
+      "fail_components": 0,
+      "fail_empty": 1024,
+      "foreground_px_mean": 0.0,
+      "n": 1024,
+      "nn_mse_mean": 0.0126421,
+      "nn_mse_median": 0.0126437,
+      "valid_fraction": 0.0
+    },
+    "vae_prior": {
+      "fail_area": 932,
+      "fail_components": 34,
+      "fail_empty": 0,
+      "foreground_px_mean": 1428.17,
+      "n": 1024,
+      "nn_mse_mean": 0.0107966,
+      "nn_mse_median": 0.0111812,
+      "valid_fraction": 0.0566406
+    },
+    "vae_recon_val": {
+      "fail_area": 147,
+      "fail_components": 0,
+      "fail_empty": 0,
+      "foreground_px_mean": 4127.04,
+      "n": 1024,
+      "nn_mse_mean": 0.00924919,
+      "nn_mse_median": 0.00933954,
+      "valid_fraction": 0.856445
+    }
+  }
+}

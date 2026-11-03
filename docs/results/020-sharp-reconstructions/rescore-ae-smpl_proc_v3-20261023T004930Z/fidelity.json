@@ -1,0 +1,53 @@
+{
+  "boundary_tol_px": 1,
+  "checkpoint": "runs/ae-smpl_proc_v3-20261023T004930Z/best.pt",
+  "dataset_dir": "data/generated/smpl_proc_v3",
+  "fidelity_version": 1,
+  "gradient_weight": 0.0,
+  "iou_threshold": 0.075,
+  "pose_weight": 0.0,
+  "run_dir": "runs/ae-smpl_proc_v3-20261023T004930Z",
+  "split_file": "splits/smpl_proc_v3.json",
+  "splits": {
+    "test": {
+      "boundary_f1": 0.914708,
+      "image_mse": 0.00155548,
+      "regions": {
+        "feet": {
+          "image_mse": 0.0212251,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0252047,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0130763,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.905997
+    },
+    "val": {
+      "boundary_f1": 0.913158,
+      "image_mse": 0.00157751,
+      "regions": {
+        "feet": {
+          "image_mse": 0.0216637,
+          "samples": 6400
+        },
+        "hands": {
+          "image_mse": 0.0254151,
+          "samples": 6400
+        },
+        "head": {
+          "image_mse": 0.0133814,
+          "samples": 6400
+        }
+      },
+      "samples": 6400,
+      "silhouette_iou": 0.905214
+    }
+  }
+}

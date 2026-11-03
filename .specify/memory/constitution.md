@@ -1,51 +1,81 @@
-<!-- provenance: author=domattioli model=unknown effort=unknown date=2026-09-24 skill=speckit-pipeline repo=QuADMESH-RL session=unknown -->
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- provenance: author=domattioli date=2026-10-17 skill=speckit-constitution repo=strike-a-pose -->
+<!--
+Sync Impact Report
+- Version: template → 1.0.0 (initial ratification)
+- Principles added: I–VI (all new)
+- Sections added: Technical Constraints, Development Workflow, Governance
+- Templates: plan/spec/tasks templates compatible; plan "Constitution Check" gates = principles I–VI
+- Deferred TODOs: dataset choice and license deferred to MVP spec
+-->
+# strike-a-pose Constitution
+
+strike-a-pose is the successor to `Conv_AE-Human_Pose`: a Python + PyTorch
+library for learning compact latent representations of human pose
+(encode, reconstruct, and generate poses). The predecessor's notebooks are
+reference material, not code to port verbatim.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Library-First, Notebooks Last
+All model, data, and training logic lives in an importable package
+(`src/strike_a_pose/`). Notebooks may only call the package for exploration
+and figures; no logic that a result depends on may live only in a notebook.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. CLI-Driven, Config-Defined Runs
+Every training, evaluation, and inference entry point is a CLI command driven
+by a versioned config file (YAML/TOML). A run is fully described by
+config + code commit + data version; no hidden notebook state or hard-coded
+paths.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Reproducibility (NON-NEGOTIABLE)
+Seeds are set and logged for Python, NumPy, and PyTorch. Every run writes its
+resolved config, git commit, environment summary, and metrics to its output
+directory. A reported number that cannot be regenerated from those artifacts
+is not a result.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Test-First for Core Logic
+Data transforms, pose representations (joint ordering, normalization,
+skeleton definitions), losses, and metrics have pytest unit tests written
+before or alongside the implementation. Training includes a CPU smoke test
+(a few steps on a tiny fixture dataset) that runs in CI in under ~2 minutes.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Honest Evaluation
+Each model is reported against a trivial baseline (e.g., mean pose, PCA) on a
+held-out split defined once and never tuned on. Metrics use standard units
+(e.g., MPJPE in mm or normalized units, stated explicitly). Claims in docs or
+READMEs must cite the run that produced them.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Simplicity / MVP Discipline
+Build the smallest thing that answers the current question. No speculative
+abstractions, plugin systems, or multi-framework support. New dependencies
+need a stated reason in the plan.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Technical Constraints
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- Python ≥ 3.11, PyTorch 2.x; dependencies pinned in `pyproject.toml` + lockfile.
+- Must run on CPU for tests; GPU (CUDA) optional for training.
+- Formatting/lint: `ruff`; type hints on public APIs.
+- Datasets and checkpoints are never committed; data access is scripted and
+  documented, with dataset license terms respected.
+- No secrets committed (`*.env`, `*token*`, `*secret*`, `*.pem`).
+- Repository license: PolyForm Noncommercial 1.0.0 + No-AI clause; new
+  dependencies must be license-compatible.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow
+
+- Work follows spec-kit: specify → clarify → plan → tasks → analyze → implement.
+- Each feature's `spec.md` requires operator sign-off before plan/implement.
+- Clarification questions are batched, never asked one at a time.
+- `main` is protected; work on feature branches, one PR = one purpose.
+  Operator merges; agents open PRs and do not merge them.
+- CI (lint + unit tests + smoke train) must be green before review.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes other practices in this repo. Every plan's
+Constitution Check gates on Principles I–VI; any violation must be justified
+in the plan's Complexity Tracking table. Amendments require a PR that updates
+this file, bumps the version (MAJOR: principle removed/redefined; MINOR:
+principle/section added; PATCH: wording), and updates dependent templates.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17

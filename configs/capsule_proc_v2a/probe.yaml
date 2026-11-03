@@ -1,0 +1,29 @@
+# Capsule twin of configs/smpl_proc_v2a/probe.yaml (spec 013): infrastructure test on the interim capsule body,
+# not SMPL; only dataset / run names, paths and the body file differ (test-enforced).
+# Copy of configs/capsule_proc_v1/probe.yaml for capsule_proc_v2a (spec 010 FR-010, amended by spec 014): names and
+# paths differ.
+# Latent probe on capsule_proc_v2a (spec 006).
+# Run: strike-a-pose-eval probe --config configs/capsule_proc_v2a/probe.yaml   (CPU, a few min on 4 vCPU)
+# Frozen encoder of an AE run's scored weights (best.pt by default, spec 008) -> latents
+# (cached under runs/probe-cache); ridge + MLP probes fit on train, one hyper-parameter
+# chosen on val, test scored once.
+run_name: probe-capsule_proc_v2a
+run_root: runs                          # git-ignored
+seed: 0
+dataset_dir: data/generated/capsule_proc_v2a
+split_file: splits/capsule_proc_v2a.json
+checkpoint: runs/ae-capsule_proc_v2a-YYYYmmddTHHMMSSZ/best.pt   # this dataset's AE run
+cache_dir: runs/probe-cache             # latents keyed by checkpoint/manifest/split SHA-256
+batch_size: 256                         # loading / encoding
+eval_splits: [val, test]                # val: selection + report; test: scored once
+targets: [joints_world, joints_cam, yaw, smpl_pose]
+ridge_lambdas: [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]   # penalty lambda * n, standardized latents
+mlp_hidden: [256, 256]
+mlp_epochs: 100
+mlp_batch_size: 256
+mlp_lr: 0.001                           # Adam, cosine decay to 0 per step
+mlp_weight_decays: [0.0, 0.0001, 0.001] # chosen on val
+pose_pca_ks: [8, 16]                    # oracle references (PCA of the true joints, as 003)
+random_encoder_control: true            # same probes on an untrained, seeded encoder
+figure_split: val
+figure_samples: 6

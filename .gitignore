@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# strike-a-pose: generated data and licensed assets (never committed)
+/data/
+/assets/
+# eval / train run directories (spec 003); numbers are recorded in docs
+/runs/

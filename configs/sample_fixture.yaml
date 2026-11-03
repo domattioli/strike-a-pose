@@ -1,0 +1,15 @@
+# VAE prior sampling evaluation (spec 015 FR-008): fixture (tests).
+# Run: strike-a-pose-eval sample --config configs/sample_fixture.yaml --checkpoint VAE/best.pt --reference-checkpoint AE/best.pt
+run_name: sample-fixture
+run_root: runs                         # git-ignored
+seed: 0
+dataset_dir: tests/fixtures/smpl_fixture
+split_file: splits/smpl_fixture.json
+checkpoint: runs/vae-fixture/checkpoint.pt
+reference_checkpoint: runs/ae-fixture/checkpoint.pt
+n_samples: 8
+n_recon: 4
+recon_split: test                      # the fixture split has no val poses
+batch_size: 4
+iou_threshold: 0.075                   # 003 default (half the render ambient floor)
+figure_samples: 4

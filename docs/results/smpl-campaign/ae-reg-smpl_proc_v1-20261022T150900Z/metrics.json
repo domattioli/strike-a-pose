@@ -1,0 +1,223 @@
+{
+  "context": {
+    "fit_split": "train",
+    "pca_k": 64,
+    "pca_k_effective": 64
+  },
+  "dataset": {
+    "manifest_sha256": "7d1eb1e93b65b5eafb1825f38e202352bd1315f6ca4b850282a4ed991e189c2e",
+    "name": "smpl_proc_v1",
+    "split_file_sha256": "eb5626125bf8574c34c5d583693084bd5b11ce9a171ddbe6d333c6940e59228a"
+  },
+  "metrics_version": 1,
+  "model": {
+    "channels": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      256
+    ],
+    "image_size": [
+      256,
+      192
+    ],
+    "latent_dim": 64,
+    "name": "ConvAutoencoder",
+    "parameters": 3126897,
+    "variational": false
+  },
+  "regions": {
+    "feet": {
+      "half_size_px": 8,
+      "joints": [
+        "left_ankle",
+        "right_ankle",
+        "left_foot",
+        "right_foot"
+      ]
+    },
+    "hands": {
+      "half_size_px": 10,
+      "joints": [
+        "left_hand",
+        "right_hand"
+      ]
+    },
+    "head": {
+      "half_size_px": 14,
+      "joints": [
+        "head"
+      ]
+    }
+  },
+  "selection": {
+    "checkpoint": "best.pt",
+    "epoch": 58,
+    "select_weights": "best_val",
+    "selected_by": "val loss",
+    "val_loss": 0.00220817,
+    "weights": "best_val"
+  },
+  "splits": {
+    "test": {
+      "image": {
+        "ae": {
+          "image_mse": 0.0022099,
+          "psnr_db": 26.8539,
+          "regions": {
+            "feet": {
+              "image_mse": 0.0321645,
+              "samples": 1600
+            },
+            "hands": {
+              "image_mse": 0.0311487,
+              "samples": 1600
+            },
+            "head": {
+              "image_mse": 0.0164432,
+              "samples": 1600
+            }
+          },
+          "silhouette_iou": 0.839986
+        },
+        "mean_image": {
+          "image_mse": 0.0138466,
+          "psnr_db": 18.7144,
+          "regions": {
+            "feet": {
+              "image_mse": 0.113906,
+              "samples": 1600
+            },
+            "hands": {
+              "image_mse": 0.0798429,
+              "samples": 1600
+            },
+            "head": {
+              "image_mse": 0.11593,
+              "samples": 1600
+            }
+          },
+          "silhouette_iou": 0.419707
+        },
+        "pca_k64": {
+          "image_mse": 0.00451764,
+          "k": 64,
+          "k_effective": 64,
+          "psnr_db": 23.7874,
+          "regions": {
+            "feet": {
+              "image_mse": 0.0567622,
+              "samples": 1600
+            },
+            "hands": {
+              "image_mse": 0.0510962,
+              "samples": 1600
+            },
+            "head": {
+              "image_mse": 0.0256437,
+              "samples": 1600
+            }
+          },
+          "silhouette_iou": 0.646361
+        }
+      },
+      "poses": 200,
+      "samples": 1600
+    },
+    "val": {
+      "image": {
+        "ae": {
+          "image_mse": 0.00220817,
+          "psnr_db": 26.8757,
+          "regions": {
+            "feet": {
+              "image_mse": 0.0314564,
+              "samples": 1600
+            },
+            "hands": {
+              "image_mse": 0.0312876,
+              "samples": 1600
+            },
+            "head": {
+              "image_mse": 0.0164223,
+              "samples": 1600
+            }
+          },
+          "silhouette_iou": 0.838707
+        },
+        "mean_image": {
+          "image_mse": 0.0140267,
+          "psnr_db": 18.6527,
+          "regions": {
+            "feet": {
+              "image_mse": 0.113356,
+              "samples": 1600
+            },
+            "hands": {
+              "image_mse": 0.0819132,
+              "samples": 1600
+            },
+            "head": {
+              "image_mse": 0.116304,
+              "samples": 1600
+            }
+          },
+          "silhouette_iou": 0.416363
+        },
+        "pca_k64": {
+          "image_mse": 0.00459008,
+          "k": 64,
+          "k_effective": 64,
+          "psnr_db": 23.7286,
+          "regions": {
+            "feet": {
+              "image_mse": 0.0565063,
+              "samples": 1600
+            },
+            "hands": {
+              "image_mse": 0.0524865,
+              "samples": 1600
+            },
+            "head": {
+              "image_mse": 0.0258822,
+              "samples": 1600
+            }
+          },
+          "silhouette_iou": 0.644425
+        }
+      },
+      "poses": 200,
+      "samples": 1600
+    }
+  },
+  "train_version": 2,
+  "training": {
+    "best_val_epoch": 58,
+    "best_val_loss": 0.00220817,
+    "epochs": 60,
+    "final_train_loss": 0.00272388,
+    "final_val_loss": 0.00221184,
+    "first_train_loss": 0.0356606,
+    "first_val_loss": 0.0102472,
+    "objective": {
+      "beta": 0.0,
+      "dropout": 0.1,
+      "mask_weight": 0.0,
+      "shift_px": 4,
+      "weight_decay": 0.05
+    },
+    "steps": 12000,
+    "stopped_early": null,
+    "train_poses": 1600,
+    "train_samples": 12800,
+    "val_samples": 1600
+  },
+  "units": {
+    "image_mse": "per-pixel mean squared error, images in [0, 1] (PCA output clamped to [0, 1])",
+    "psnr_db": "dB, 10*log10(1/max(MSE, 1e-10)) per image, averaged over images",
+    "regions": "per-pixel mean squared error (images in [0, 1]) over every pixel of the region, body and background, per image; mean over the images whose region is non-empty (samples); a region (top-level regions) is the union of the squares of side 2*half_size_px+1 px centred on the pixels of its visible joints, clipped to the image",
+    "silhouette_iou": "IoU of (prediction > iou_threshold) vs true body mask, per image mean"
+  }
+}

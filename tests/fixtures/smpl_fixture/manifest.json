@@ -1,0 +1,965 @@
+{
+  "cameras": [
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0
+        ]
+      ],
+      "height": 256,
+      "name": "Front_0",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 0.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          0.707107,
+          0.0,
+          0.707107
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.707107,
+          0.0,
+          -0.707107
+        ]
+      ],
+      "height": 256,
+      "name": "FrontRight_45",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 45.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "height": 256,
+      "name": "Right_90",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 90.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          -0.707107,
+          0.0,
+          0.707107
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.707107,
+          0.0,
+          0.707107
+        ]
+      ],
+      "height": 256,
+      "name": "BackRight_135",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 135.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "height": 256,
+      "name": "Back_180",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 180.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          -0.707107,
+          0.0,
+          -0.707107
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          -0.707107,
+          0.0,
+          0.707107
+        ]
+      ],
+      "height": 256,
+      "name": "BackLeft_225",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 225.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "height": 256,
+      "name": "Left_270",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 270.0
+    },
+    {
+      "K": [
+        [
+          320.0,
+          0.0,
+          96.0
+        ],
+        [
+          0.0,
+          320.0,
+          128.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "R": [
+        [
+          0.707107,
+          0.0,
+          -0.707107
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          -0.707107,
+          0.0,
+          -0.707107
+        ]
+      ],
+      "height": 256,
+      "name": "FrontLeft_315",
+      "t": [
+        0.0,
+        0.0,
+        3.5
+      ],
+      "width": 192,
+      "yaw_deg": 315.0
+    }
+  ],
+  "code": {
+    "commit": "ab95629e6155d38a176d6a54492cc65a1be3a1fa",
+    "dirty": true
+  },
+  "complete": true,
+  "config": {
+    "amass_root": "assets/amass",
+    "amass_subsets": [],
+    "camera_ring": {
+      "count": 8,
+      "distance_m": 3.5,
+      "focal_px": 320.0,
+      "height_m": 0.0
+    },
+    "dataset_name": "smpl_fixture",
+    "frame_stride": 30,
+    "image": {
+      "height": 256,
+      "width": 192
+    },
+    "num_betas": 10,
+    "num_poses": 2,
+    "output_root": "data/generated",
+    "pose_source": "procedural",
+    "smpl_model_path": "assets/smpl/SMPL_NEUTRAL.npz"
+  },
+  "counts": {
+    "cameras": 8,
+    "poses": 2,
+    "samples": 16
+  },
+  "dataset_name": "smpl_fixture",
+  "inputs": {
+    "pose_source": {
+      "euler_order": "scipy xyz (extrinsic, R = Rz @ Ry @ Rx), SMPL joint-local axes",
+      "ranges_deg": [
+        {
+          "index": 0,
+          "joint": "pelvis",
+          "x_deg": [
+            0,
+            0
+          ],
+          "y_deg": [
+            0,
+            0
+          ],
+          "z_deg": [
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "joint": "left_hip",
+          "x_deg": [
+            -130,
+            80
+          ],
+          "y_deg": [
+            -20,
+            20
+          ],
+          "z_deg": [
+            -10,
+            10
+          ]
+        },
+        {
+          "index": 2,
+          "joint": "right_hip",
+          "x_deg": [
+            -130,
+            80
+          ],
+          "y_deg": [
+            -20,
+            20
+          ],
+          "z_deg": [
+            -10,
+            10
+          ]
+        },
+        {
+          "index": 3,
+          "joint": "spine1",
+          "x_deg": [
+            -50,
+            100
+          ],
+          "y_deg": [
+            -75,
+            75
+          ],
+          "z_deg": [
+            -15,
+            15
+          ]
+        },
+        {
+          "index": 4,
+          "joint": "left_knee",
+          "x_deg": [
+            0,
+            130
+          ],
+          "y_deg": [
+            -20,
+            20
+          ],
+          "z_deg": [
+            0,
+            0
+          ]
+        },
+        {
+          "index": 5,
+          "joint": "right_knee",
+          "x_deg": [
+            0,
+            130
+          ],
+          "y_deg": [
+            -20,
+            20
+          ],
+          "z_deg": [
+            0,
+            0
+          ]
+        },
+        {
+          "index": 6,
+          "joint": "spine2",
+          "x_deg": [
+            -20,
+            20
+          ],
+          "y_deg": [
+            -15,
+            15
+          ],
+          "z_deg": [
+            -20,
+            20
+          ]
+        },
+        {
+          "index": 7,
+          "joint": "left_ankle",
+          "x_deg": [
+            -30,
+            70
+          ],
+          "y_deg": [
+            -30,
+            30
+          ],
+          "z_deg": [
+            -25,
+            30
+          ]
+        },
+        {
+          "index": 8,
+          "joint": "right_ankle",
+          "x_deg": [
+            -30,
+            70
+          ],
+          "y_deg": [
+            -30,
+            30
+          ],
+          "z_deg": [
+            -25,
+            30
+          ]
+        },
+        {
+          "index": 9,
+          "joint": "spine3",
+          "x_deg": [
+            -35,
+            25
+          ],
+          "y_deg": [
+            -50,
+            50
+          ],
+          "z_deg": [
+            -45,
+            45
+          ]
+        },
+        {
+          "index": 10,
+          "joint": "left_foot",
+          "x_deg": [
+            -40,
+            40
+          ],
+          "y_deg": [
+            0,
+            0
+          ],
+          "z_deg": [
+            -20,
+            20
+          ]
+        },
+        {
+          "index": 11,
+          "joint": "right_foot",
+          "x_deg": [
+            -40,
+            40
+          ],
+          "y_deg": [
+            0,
+            0
+          ],
+          "z_deg": [
+            -20,
+            20
+          ]
+        },
+        {
+          "index": 12,
+          "joint": "neck",
+          "x_deg": [
+            -45,
+            35
+          ],
+          "y_deg": [
+            -50,
+            50
+          ],
+          "z_deg": [
+            -20,
+            20
+          ]
+        },
+        {
+          "index": 13,
+          "joint": "left_collar",
+          "x_deg": [
+            -10,
+            10
+          ],
+          "y_deg": [
+            -10,
+            10
+          ],
+          "z_deg": [
+            -30,
+            30
+          ]
+        },
+        {
+          "index": 14,
+          "joint": "right_collar",
+          "x_deg": [
+            -10,
+            10
+          ],
+          "y_deg": [
+            -10,
+            10
+          ],
+          "z_deg": [
+            -30,
+            30
+          ]
+        },
+        {
+          "index": 15,
+          "joint": "head",
+          "x_deg": [
+            -30,
+            30
+          ],
+          "y_deg": [
+            -30,
+            30
+          ],
+          "z_deg": [
+            -30,
+            30
+          ]
+        },
+        {
+          "index": 16,
+          "joint": "left_shoulder",
+          "x_deg": [
+            -20,
+            20
+          ],
+          "y_deg": [
+            -40,
+            20
+          ],
+          "z_deg": [
+            -50,
+            50
+          ]
+        },
+        {
+          "index": 17,
+          "joint": "right_shoulder",
+          "x_deg": [
+            -20,
+            20
+          ],
+          "y_deg": [
+            -40,
+            20
+          ],
+          "z_deg": [
+            -50,
+            50
+          ]
+        },
+        {
+          "index": 18,
+          "joint": "left_elbow",
+          "x_deg": [
+            -60,
+            110
+          ],
+          "y_deg": [
+            -145,
+            0
+          ],
+          "z_deg": [
+            -35,
+            5
+          ]
+        },
+        {
+          "index": 19,
+          "joint": "right_elbow",
+          "x_deg": [
+            -60,
+            110
+          ],
+          "y_deg": [
+            0,
+            145
+          ],
+          "z_deg": [
+            -35,
+            5
+          ]
+        },
+        {
+          "index": 20,
+          "joint": "left_wrist",
+          "x_deg": [
+            -50,
+            50
+          ],
+          "y_deg": [
+            -35,
+            35
+          ],
+          "z_deg": [
+            -50,
+            50
+          ]
+        },
+        {
+          "index": 21,
+          "joint": "right_wrist",
+          "x_deg": [
+            -50,
+            50
+          ],
+          "y_deg": [
+            -35,
+            35
+          ],
+          "z_deg": [
+            -50,
+            50
+          ]
+        },
+        {
+          "index": 22,
+          "joint": "left_hand",
+          "x_deg": [
+            0,
+            0
+          ],
+          "y_deg": [
+            0,
+            0
+          ],
+          "z_deg": [
+            0,
+            0
+          ]
+        },
+        {
+          "index": 23,
+          "joint": "right_hand",
+          "x_deg": [
+            0,
+            0
+          ],
+          "y_deg": [
+            0,
+            0
+          ],
+          "z_deg": [
+            0,
+            0
+          ]
+        }
+      ],
+      "ranges_version": "predecessor-v1-nohands",
+      "sparsify_min_keep": 5,
+      "type": "procedural"
+    },
+    "smpl_model": {
+      "filename": "SMPL_NEUTRAL.npz",
+      "sha256": "f408141b4cd5b6ca6466e4e218aeb88a11c60f598114951b1d6d1f8078c1da16"
+    }
+  },
+  "samples": [
+    {
+      "id": "00000_Front_0",
+      "image": "samples/00000_Front_0.png",
+      "labels": "samples/00000_Front_0.json",
+      "labels_sha256": "ecec3a63c889f57b0e58ae0bf83037a9a863d9b52cf6d7c3cd22f7ab155fae15",
+      "mask": "samples/00000_Front_0_mask.png"
+    },
+    {
+      "id": "00000_FrontRight_45",
+      "image": "samples/00000_FrontRight_45.png",
+      "labels": "samples/00000_FrontRight_45.json",
+      "labels_sha256": "af3b4b5f6bb9c33f47bc4e23dfbc594b871aac94683f1cd3592ebaf4ae19c9b4",
+      "mask": "samples/00000_FrontRight_45_mask.png"
+    },
+    {
+      "id": "00000_Right_90",
+      "image": "samples/00000_Right_90.png",
+      "labels": "samples/00000_Right_90.json",
+      "labels_sha256": "da8a73051e9da105880adf097aa32651a0324e4e654bdd6007cb6b21a056aba0",
+      "mask": "samples/00000_Right_90_mask.png"
+    },
+    {
+      "id": "00000_BackRight_135",
+      "image": "samples/00000_BackRight_135.png",
+      "labels": "samples/00000_BackRight_135.json",
+      "labels_sha256": "cf9fd63c723b543360971e96903241bda87f9f5e01944df33b3de3645ec66f30",
+      "mask": "samples/00000_BackRight_135_mask.png"
+    },
+    {
+      "id": "00000_Back_180",
+      "image": "samples/00000_Back_180.png",
+      "labels": "samples/00000_Back_180.json",
+      "labels_sha256": "595e87668c097a613d41597d3e95c8602c5764e729eac7b84b73504d2bf896f6",
+      "mask": "samples/00000_Back_180_mask.png"
+    },
+    {
+      "id": "00000_BackLeft_225",
+      "image": "samples/00000_BackLeft_225.png",
+      "labels": "samples/00000_BackLeft_225.json",
+      "labels_sha256": "ad667c79bbd538544b5459edd7aba23ff375aee567c19f19de923a0be930ba26",
+      "mask": "samples/00000_BackLeft_225_mask.png"
+    },
+    {
+      "id": "00000_Left_270",
+      "image": "samples/00000_Left_270.png",
+      "labels": "samples/00000_Left_270.json",
+      "labels_sha256": "094e7e868a8725c77cb259b28429446aa058165af8c710bf288389f0e62a803c",
+      "mask": "samples/00000_Left_270_mask.png"
+    },
+    {
+      "id": "00000_FrontLeft_315",
+      "image": "samples/00000_FrontLeft_315.png",
+      "labels": "samples/00000_FrontLeft_315.json",
+      "labels_sha256": "60587f7a2e4a736f8bbe57872304d85300e34d5a7819d17aa200eb91bd7dbde0",
+      "mask": "samples/00000_FrontLeft_315_mask.png"
+    },
+    {
+      "id": "00001_Front_0",
+      "image": "samples/00001_Front_0.png",
+      "labels": "samples/00001_Front_0.json",
+      "labels_sha256": "201032e739c164737960e57dcae81922340a4494f2a8481f068c8a211e906c0f",
+      "mask": "samples/00001_Front_0_mask.png"
+    },
+    {
+      "id": "00001_FrontRight_45",
+      "image": "samples/00001_FrontRight_45.png",
+      "labels": "samples/00001_FrontRight_45.json",
+      "labels_sha256": "35f5f4ee4e2c33216628cbfac08f03dc95725cddba2b7c219df7862346d473f6",
+      "mask": "samples/00001_FrontRight_45_mask.png"
+    },
+    {
+      "id": "00001_Right_90",
+      "image": "samples/00001_Right_90.png",
+      "labels": "samples/00001_Right_90.json",
+      "labels_sha256": "8918f6f3b6acbd9b49f3d2a7b0b1125430212227e2930681d0b7bf6e0c3d6367",
+      "mask": "samples/00001_Right_90_mask.png"
+    },
+    {
+      "id": "00001_BackRight_135",
+      "image": "samples/00001_BackRight_135.png",
+      "labels": "samples/00001_BackRight_135.json",
+      "labels_sha256": "26ee047d40be19a3ff5f6d3ab8611840334591db7aa1d4d8d8e21ccc233fcb10",
+      "mask": "samples/00001_BackRight_135_mask.png"
+    },
+    {
+      "id": "00001_Back_180",
+      "image": "samples/00001_Back_180.png",
+      "labels": "samples/00001_Back_180.json",
+      "labels_sha256": "00570b7af9974f4c6106fce71a9e2a14d4f42103b76039b4f6eb06ab9a25cb7a",
+      "mask": "samples/00001_Back_180_mask.png"
+    },
+    {
+      "id": "00001_BackLeft_225",
+      "image": "samples/00001_BackLeft_225.png",
+      "labels": "samples/00001_BackLeft_225.json",
+      "labels_sha256": "01a8ad2833b4826e9bd9ad6974646fdb3266091f0d7812f6a570dca43d3fb154",
+      "mask": "samples/00001_BackLeft_225_mask.png"
+    },
+    {
+      "id": "00001_Left_270",
+      "image": "samples/00001_Left_270.png",
+      "labels": "samples/00001_Left_270.json",
+      "labels_sha256": "a192e206a8647c658a0ae8de79adf6cfc3eb198ae635d2634caccf4da2de323c",
+      "mask": "samples/00001_Left_270_mask.png"
+    },
+    {
+      "id": "00001_FrontLeft_315",
+      "image": "samples/00001_FrontLeft_315.png",
+      "labels": "samples/00001_FrontLeft_315.json",
+      "labels_sha256": "36d7776bca78f4e3f519018078e77620b0b54b44c3aa0c88004b91414f5f45c5",
+      "mask": "samples/00001_FrontLeft_315_mask.png"
+    }
+  ],
+  "schema_version": 1,
+  "seed": 3,
+  "skeleton": {
+    "joints": [
+      "pelvis",
+      "left_hip",
+      "right_hip",
+      "spine1",
+      "left_knee",
+      "right_knee",
+      "spine2",
+      "left_ankle",
+      "right_ankle",
+      "spine3",
+      "left_foot",
+      "right_foot",
+      "neck",
+      "left_collar",
+      "right_collar",
+      "head",
+      "left_shoulder",
+      "right_shoulder",
+      "left_elbow",
+      "right_elbow",
+      "left_wrist",
+      "right_wrist",
+      "left_hand",
+      "right_hand"
+    ],
+    "name": "smpl24",
+    "parents": [
+      -1,
+      0,
+      0,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      9,
+      9,
+      12,
+      13,
+      14,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+    ]
+  }
+}

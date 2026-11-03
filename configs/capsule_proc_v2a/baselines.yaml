@@ -1,0 +1,19 @@
+# Capsule twin of configs/smpl_proc_v2a/baselines.yaml (spec 013): infrastructure test on the interim capsule body,
+# not SMPL; only dataset / run names, paths and the body file differ (test-enforced).
+# Copy of configs/capsule_proc_v1/baselines.yaml for capsule_proc_v2a (spec 010 FR-010, amended by spec 014): names and
+# paths differ.
+# Mean / PCA baselines on capsule_proc_v2a (spec 003).
+# Run: strike-a-pose-eval baseline --config configs/capsule_proc_v2a/baselines.yaml
+# Fit on train only; val and test are scored (test is never tuned on).
+run_name: baselines-capsule_proc_v2a
+run_root: runs                       # git-ignored
+seed: 0
+dataset_dir: data/generated/capsule_proc_v2a
+split_file: splits/capsule_proc_v2a.json
+eval_splits: [val, test]
+batch_size: 256
+image_pca_ks: [8, 16, 32, 64, 128]   # 64 = AE latent size (004 start); one fit at max k
+pose_pca_ks: [4, 8, 16, 32]          # root-relative joints have 69 free dims
+iou_threshold: 0.075                 # half the render ambient floor (research R3)
+figure_split: val
+figure_samples: 6

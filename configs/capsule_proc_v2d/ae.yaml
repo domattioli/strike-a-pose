@@ -1,0 +1,39 @@
+# Capsule twin of configs/smpl_proc_v2d/ae.yaml (spec 013): infrastructure test on the interim capsule body,
+# not SMPL; only dataset / run names, paths and the body file differ (test-enforced).
+# Copy of configs/capsule_proc_v1/ae.yaml for capsule_proc_v2d (spec 010 FR-010, amended by spec 014): names and
+# paths differ; no PCA context column (spec 010 FR-014).
+# Convolutional autoencoder on capsule_proc_v2d (spec 004; weight selection: spec 008).
+# Run: strike-a-pose-train --config configs/capsule_proc_v2d/ae.yaml   (CPU, ~3 h on 4 vCPU: 2x data)
+# Train split only for fitting; val loss logged per epoch; the weights of the epoch with
+# the lowest val loss (best.pt) are scored on val + test next to the mean image and PCA
+# k=64 (refit on train in the same run).
+run_name: ae-capsule_proc_v2d
+run_root: runs                         # git-ignored
+seed: 0
+dataset_dir: data/generated/capsule_proc_v2d
+split_file: splits/capsule_proc_v2d.json
+latent_dim: 64                         # predecessor latent size
+channels: [16, 32, 64, 128, 256, 256]  # 6 stride-2 blocks: 256x192 -> 4x3 (research R2)
+epochs: 60                             # a priori, fits the ~3 h CPU budget (research R2)
+batch_size: 64
+lr: 0.001
+lr_schedule: cosine                    # per-step decay to 0
+eval_splits: [val, test]
+select_weights: best_val               # scored: best_val (best.pt) | final (last epoch)
+context_pca_k: null                    # no PCA column: memory (spec 010 FR-014)
+iou_threshold: 0.075                   # 003 default
+figure_split: val
+figure_samples: 6                      # same samples as the 003 figure
+# Training variants (spec 011): all at their defaults, the plain AE (as configs/capsule_proc_v1/ae.yaml).
+mask_weight: 0.0                       # alpha of the mask-weighted MSE (0: plain MSE)
+variational: false                     # VAE: logvar head + KL term (needs beta > 0)
+beta: 0.0                              # KL weight on KL / (H*W); > 0 iff variational
+weight_decay: 0.0                      # AdamW decoupled weight decay (every parameter)
+shift_px: 0                            # per-sample integer shifts of the train images
+dropout: 0.0                           # dropout on the latent (training only)
+# Run guards (spec 012; campaign procedure: docs/HANDOFF.md): stop after 10 epochs without a
+# new val minimum, from epoch 20 on (the cosine schedule stays planned for all epochs; the
+# scored weights stay the best-val epoch's), and abort a diverging run (exit 5, aborted.json).
+early_stop: {patience: 10, min_epochs: 20, min_delta: 0.0}
+abort_on_divergence: true              # non-finite losses, or train loss > ratio x epoch 1's
+divergence_ratio: 10.0                 # (the latter from epoch 4 on)

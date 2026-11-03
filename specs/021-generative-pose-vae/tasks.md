@@ -23,7 +23,7 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/trainer.py`
 `tests/test_train_vae_pose.py` (new), `tests/test_train_pose.py`, `tests/test_train_grad.py`,
 `tests/test_train_config.py`.
 
-- [ ] T010 Tests (red first), `tests/test_train_vae_pose.py` (copy the imports, `ROOT`, `CFG`,
+- [X] T010 Tests (red first), `tests/test_train_vae_pose.py` (copy the imports, `ROOT`, `CFG`,
   `FIXTURE`, `SPLIT`, `SMALL`, `_cwd`, `train_images`, `_cfg`, `varied`, `_rows`, `_metrics`
   helpers of `tests/test_train_pose.py` verbatim; `VAE = {"variational": True, "beta": 0.1}`):
   - `_train_epoch_pre_021(model, images, opt, batch_size, gen, sched=None, objective=None,
@@ -75,13 +75,13 @@ Files: `src/strike_a_pose/train/config.py`, `src/strike_a_pose/train/trainer.py`
     `test_pose_run_repeats` / `test_pose_resume_equals_uninterrupted` with `**VAE` added.
   - `test_vae_grad_run_composes(tmp_path)`: `**VAE, gradient_weight=0.5`: per row
     `train_loss ≈ train_recon + 0.5·train_grad + 0.1·train_kl/(H·W)` (rel 1e-6).
-- [ ] T011 Edit `tests/test_train_pose.py`: remove the parametrize case
+- [X] T011 Edit `tests/test_train_pose.py`: remove the parametrize case
   `({"pose_weight": 0.03, "variational": True, "beta": 0.1}, "variational")`;
   `tests/test_train_grad.py`: remove `({"gradient_weight": 0.5, "variational": True, "beta":
   0.1}, "variational")`; `tests/test_train_config.py`: add
   `"smpl_proc_v3/ae_l128_vae_beta0.1_pose_l0.03.yaml"`, `"smpl_proc_v3/ae_l128_vae_beta0.1.yaml"`
   to the `test_shipped_configs_load` parametrize.
-- [ ] T012 Implement per data-model.md: delete the two refusals in `config.py::_check`;
+- [X] T012 Implement per data-model.md: delete the two refusals in `config.py::_check`;
   replace the loss block of `train_epoch` with the data-model.md block (y, recon computed once
   as today); update the `train_epoch` docstring (loss = recon + γ·grad + β·KL/(H·W) + λ·pose,
   each when on; head on μ; spec 021 FR-002). No other change (no history column, no

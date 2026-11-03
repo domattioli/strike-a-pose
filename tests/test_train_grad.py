@@ -94,7 +94,6 @@ def test_gradient_weight_default_and_legacy():
         ({"gradient_weight": "x"}, "finite"),
         ({"gradient_weight": float("nan")}, "finite"),
         ({"gradient_weight": 0.5, "mask_weight": 4.0}, "mask_weight"),
-        ({"gradient_weight": 0.5, "variational": True, "beta": 0.1}, "variational"),
     ],
 )
 def test_gradient_weight_invalid(kw, match):

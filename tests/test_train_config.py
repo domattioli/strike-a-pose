@@ -35,6 +35,8 @@ def test_defaults():
         "smpl_proc_v3/ae_pose_l0.03_mask.yaml",
         "smpl_proc_v3/ae_l128.yaml",
         "smpl_proc_v3/ae_l128_pose_l0.03.yaml",
+        "smpl_proc_v3/ae_l128_vae_beta0.1_pose_l0.03.yaml",
+        "smpl_proc_v3/ae_l128_vae_beta0.1.yaml",
         "smpl_proc_v3/ae_l128_pose_l0.01.yaml",
         "smpl_proc_v3/ae_grad.yaml",
         "smpl_proc_v3/ae_pose_l0.03_grad.yaml",

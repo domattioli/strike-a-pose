@@ -144,13 +144,13 @@ def train_epoch(
     pose: PoseBatch | None = None,
 ) -> dict:
     """One shuffled pass (last batch may be smaller) under ``objective`` (spec 011; None:
-    the plain AE, today's computation). Returns the epoch means of the loss
-    (``train_loss``), of its reconstruction term (``train_recon``) and of the KL term
-    (``train_kl``, None unless variational), of the pose term (``train_pose``, None unless
-    ``pose`` is given: spec 018, loss = recon + ``pose_weight``·pose), of the gradient term
-    (``train_grad``, None unless ``gradient_weight`` > 0: spec 020, loss = recon +
-    ``gradient_weight``·grad [+ pose]) and the last lr used
-    (``lr``)."""
+    the plain AE, today's computation). Loss (spec 021 FR-002), each term only when on, in
+    this order: ``recon + gradient_weight``·grad (spec 020) ``+ beta``·KL/(H·W) (spec 011,
+    variational) ``+ pose_weight``·pose (spec 018; the head reads mu, never z). Returns the
+    epoch means of the loss (``train_loss``), of its reconstruction term (``train_recon``),
+    of the KL term (``train_kl``, None unless variational), of the pose term (``train_pose``,
+    None unless ``pose`` is given), of the gradient term (``train_grad``, None unless
+    ``gradient_weight`` > 0) and the last lr used (``lr``)."""
     obj = objective or Objective()
     model.train()
     if pose is not None:
@@ -172,20 +172,19 @@ def train_epoch(
             z = F.dropout(z, obj.dropout, training=True)
         y = model.decode(z)
         recon = recon_loss(y, x, obj.mask_weight)
-        if logvar is None:
-            loss = recon
-            if obj.gradient_weight:  # spec 020: recon + gamma * gradient term
-                g = gradient_loss(y, x)
-                loss = recon + obj.gradient_weight * g
-                grad_total += float(g.detach()) * len(idx)
-            if pose is not None:  # spec 018: the head reads mu, before dropout
-                pl = pose_loss(pose.head(mu), pose.targets[idx], pose.active)
-                loss = loss + obj.pose_weight * pl
-                pose_total += float(pl.detach()) * len(idx)
-        else:  # KL in per-pixel units: (SSE + beta·KL) / (H·W) per image (spec 011)
+        loss = recon
+        if obj.gradient_weight:  # spec 020: + gamma * gradient term
+            g = gradient_loss(y, x)
+            loss = loss + obj.gradient_weight * g
+            grad_total += float(g.detach()) * len(idx)
+        if logvar is not None:  # spec 011: KL in per-pixel units, (SSE + beta·KL) / (H·W)
             kl = gaussian_kl(mu, logvar)
-            loss = recon + obj.beta * kl / (x.shape[2] * x.shape[3])
+            loss = loss + obj.beta * kl / (x.shape[2] * x.shape[3])
             kl_total = (kl_total or 0.0) + float(kl.detach()) * len(idx)
+        if pose is not None:  # spec 018 / 021 FR-002: the head reads mu (deterministic), never z
+            pl = pose_loss(pose.head(mu), pose.targets[idx], pose.active)
+            loss = loss + obj.pose_weight * pl
+            pose_total += float(pl.detach()) * len(idx)
         loss.backward()
         lr = float(opt.param_groups[0]["lr"])
         opt.step()

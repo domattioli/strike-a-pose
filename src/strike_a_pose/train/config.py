@@ -223,14 +223,10 @@ def _check(cfg: TrainConfig) -> None:
             raise ConfigError(f"{key}: must be >= 0")
     if cfg.pose_weight < 0:
         raise ConfigError("pose_weight: must be >= 0")
-    if cfg.pose_weight > 0 and cfg.variational:
-        raise ConfigError("pose_weight: not with variational: true")
     if cfg.gradient_weight < 0:
         raise ConfigError("gradient_weight: must be >= 0")
     if cfg.gradient_weight > 0 and cfg.mask_weight > 0:
         raise ConfigError("gradient_weight: not with mask_weight")
-    if cfg.gradient_weight > 0 and cfg.variational:
-        raise ConfigError("gradient_weight: not with variational: true")
     if cfg.variational and cfg.beta == 0:
         raise ConfigError("beta: must be > 0 with variational: true")
     if not cfg.variational and cfg.beta != 0:

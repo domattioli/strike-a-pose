@@ -97,7 +97,6 @@ def test_pose_weight_default_and_legacy():
     ("kw", "match"),
     [
         ({"pose_weight": -0.1}, ">= 0"),
-        ({"pose_weight": 0.03, "variational": True, "beta": 0.1}, "variational"),
     ],
 )
 def test_pose_weight_invalid(kw, match):

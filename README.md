@@ -6,39 +6,45 @@ library driven by CLI commands and versioned configs, with reproducible runs.
 
 ## Status
 
-MVP done (2026-10-20): the image autoencoder trains from a config, its loss
-decreases and held-out reconstructions are recognizable (plan:
-[`specs/roadmap.md`](specs/roadmap.md); numbers under [Results](#results)).
-Post-MVP slice 006 (latent probe) done 2026-10-20 under provisional surrogate
-rulings (operator sign-off 2026-10-21). Slice 007 (split content hash) implements the
-operator-approved roadmap question #14, slice 008 (best-val weight selection) the
-operator's choice B for question #13 (both 2026-10-20), and slice 009 (per-region image
-metrics, 2026-10-21) the operator's choice (i) for question #16, and slice 010 (dataset
-realism options, 2026-10-21) the operator's decision on question #15, and slice 011
-(training variants, 2026-10-21) the operator's options (ii)–(iv) for question #16, and slice 012
-(run guards and the campaign procedure, 2026-10-21) the operator's 2026-10-21 decision to run
-the ≈ 20 h campaign with checks (all six approved at surrogate scope, operator sign-off
-pending), and slice 014 (realism ablations, 2026-10-21) the operator's 2026-10-21 decisions
-amending 010; the remaining open questions are listed in the roadmap. Slices 007–014 are verified
-on the committed fixture and the synthetic body model only: no full-dataset run exists for any
-of them yet (the published numbers below predate them; the campaign brings the first).
+**Goal** (operator-approved 2026-11-03): Encode, reconstruct and generate: one latent ≤ 128 numbers whose pose head/probe is ≤ 80 mm MPJPE, whose reconstructions are within +5 % MSE of the 64-d plain-AE seed mean, and whose N(0,I) samples are valid bodies ≥ 59 % of the time.
 
-| Slice | What | State |
-|---|---|---|
-| 001 `dataset-generation` | Synthetic SMPL renders + labels + manifest (`strike-a-pose-data`) | implemented |
-| 002 `data-pipeline` | Dataset loader, transforms, frozen split (`strike_a_pose.data`) | implemented |
-| 005 `repo-foundation` | CI, README, packaging metadata | implemented |
-| 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented |
-| 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented |
-| 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) |
-| 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2); warning on a commit mismatch | implemented (roadmap #14; follow-up F1: rewrite `splits/smpl_proc_v1.json`, needs SMPL) |
-| 008 `best-val-selection` | Training runs score the weights of the epoch with the lowest val loss (`best.pt`) by default (`select_weights`), the final weights when val is empty | implemented (roadmap #13, operator choice B) |
-| 009 `region-metrics` | Every image model also reports its MSE in hands / feet / head regions around the true 2D keypoints (`region_mask`, `masked_mse`) | implemented (roadmap #16, operator choice (i)) |
-| 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera ring jitter with an in-frame check; configs (amended by 014) | implemented (roadmap #15); datasets and runs wait for SMPL |
-| 011 `training-variants` | Config-selectable training variants, the plain AE as default and control: weight decay (AdamW), pixel shifts, latent dropout, mask-weighted MSE, a VAE (`variational`, `beta`); configs `ae_mask` / `ae_vae` / `ae_reg` | implemented (roadmap #16, options (ii)–(iv)); runs wait for SMPL |
-| 012 `run-guards` | Opt-in trainer guards (early stop on a val plateau, divergence abort with exit 5), a run-dir lock, a batched mean image, CPU model + pixel checksums hash in `run_info.json`, `scripts/run_status.py`, the campaign configs and procedure | implemented (operator decision 2026-10-21); the campaign waits for SMPL |
-| 013 `capsule-body` | Interim license-free body: 28 rigid capsules on SMPL's rest skeleton (recovered from the fixture), `strike-a-pose-data make-capsule-body`, twin configs `configs/capsule_proc_*/` | implemented (operator decision 2026-10-21); interim campaign running, results are infrastructure tests |
-| 014 `realism-ablations` | Amends 010: independent single-change datasets `smpl_proc_v2a`–`v2d` (each vs v1), the arms-down table renamed `armsdown-v1`, `scripts/intersection_check.py` (limb–torso intersection count; v2a's split gate at 5 % of poses) | implemented (operator decisions 2026-10-21); datasets wait for SMPL |
+Latent cap 128 through slice 021; 256 only by its own slice with a pre-fixed rule.
+
+**Goal status:** pose met (L2); reconstruction +5.7 % (just misses +5 %); generation not yet combined with pose (slice 021).
+
+Best models so far, all on `smpl_proc_v3` (val / test; seeds = three plain 64-d AEs):
+
+| Model | Run | Result | Results |
+|---|---|---|---|
+| L1 128-d plain AE | `ae-l128-smpl_proc_v3-20261028T022732Z` | MSE 0.00112 (−29 %), IoU 0.930; probe 120.5 / 117.3 mm | [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/) |
+| L2 128-d + pose head λ 0.03 | `ae-l128-pose-l0.03-smpl_proc_v3-20261028T101221Z` (second seed `…seed1-…20261029T055258Z`) | pose head 67.0 / 64.7 mm (second seed 66.8 / 65.0); MSE +5.7 %; IoU 0.896 | [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/) |
+| R2b-v3 64-d VAE β 0.1 | `ae-vae-beta0.1-smpl_proc_v3-20261024T065708Z` | 59 % valid prior samples; MSE +1.7 %; probe 137.3 / 133.0 mm | [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/) |
+| F2 64-d pose head + gradient loss | `ae-pose-l0.03-grad-smpl_proc_v3-20261028T234943Z` | bF1 0.850 (SHARPER); pose head 68.7 / 67.1 mm | [`docs/results/020-sharp-reconstructions/`](docs/results/020-sharp-reconstructions/) |
+
+Slices 001–020 (roadmap: [`specs/roadmap.md`](specs/roadmap.md); older numbers under [Results](#results)):
+
+| Slice | What | State | Spec | Results |
+|---|---|---|---|---|
+| 001 `dataset-generation` | Synthetic SMPL renders + labels + manifest (`strike-a-pose-data`) | implemented | [spec](specs/001-dataset-generation/) | none |
+| 002 `data-pipeline` | Dataset loader, transforms, frozen split (`strike_a_pose.data`) | implemented | [spec](specs/002-data-pipeline/) | none |
+| 003 `baselines-and-metrics` | Metrics, mean / PCA baselines, eval CLI (`strike_a_pose.eval`) | implemented | [spec](specs/003-baselines-and-metrics/) | [`docs/results/003-baselines-smpl_proc_v1/`](docs/results/003-baselines-smpl_proc_v1/) |
+| 004 `autoencoder-mvp` | Config-driven AE train/eval (`strike_a_pose.models`, `strike_a_pose.train`), CI smoke train | implemented | [spec](specs/004-autoencoder-mvp/) | [`docs/results/004-ae-smpl_proc_v1/`](docs/results/004-ae-smpl_proc_v1/) |
+| 005 `repo-foundation` | CI, README, packaging metadata | implemented | [spec](specs/005-repo-foundation/) | none |
+| 006 `latent-probe` | Linear + MLP probes on the frozen AE latent: 3D joints, camera yaw, SMPL pose (`strike-a-pose-eval probe`) | implemented (post-MVP; surrogate-approved, operator signed off 2026-10-21) | [spec](specs/006-latent-probe/) | [`docs/results/006-probe-smpl_proc_v1/`](docs/results/006-probe-smpl_proc_v1/) |
+| 007 `split-content-hash` | Split files pin the manifest content, not the generating commit (`split_version` 2) | implemented, operator signed off 2026-10-28 | [spec](specs/007-split-content-hash/) | [`docs/results/007-f1-baselines-smpl_proc_v1/`](docs/results/007-f1-baselines-smpl_proc_v1/) |
+| 008 `best-val-selection` | Runs score the lowest-val-loss weights (`best.pt`) by default | implemented, operator signed off 2026-10-28 | [spec](specs/008-best-val-selection/) | none |
+| 009 `region-metrics` | Image models also report MSE in hands / feet / head regions | implemented, operator signed off 2026-10-28 | [spec](specs/009-region-metrics/) | none |
+| 010 `dataset-realism` | Opt-in generator options: arms-down table, random body shape, camera jitter | implemented, operator signed off 2026-10-28 | [spec](specs/010-dataset-realism/) | none |
+| 011 `training-variants` | Config-selectable variants: weight decay, shifts, latent dropout, mask-weighted MSE, VAE | implemented, operator signed off 2026-10-28 | [spec](specs/011-training-variants/) | [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/) |
+| 012 `run-guards` | Early stop, divergence abort, run-dir lock, campaign procedure and configs | implemented, operator signed off 2026-10-28 | [spec](specs/012-run-guards/) | [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/) |
+| 013 `capsule-body` | Interim license-free capsule body and twin configs | implemented, operator signed off 2026-10-28 | [spec](specs/013-capsule-body/) | [`docs/results/013-capsule/`](docs/results/013-capsule/) |
+| 014 `realism-ablations` | Independent single-change datasets `smpl_proc_v2a`–`v2d`, intersection check | implemented, operator signed off 2026-10-28 | [spec](specs/014-realism-ablations/) | [`docs/results/smpl-campaign/`](docs/results/smpl-campaign/) |
+| 015 `pose-scale-and-sampling` | 8,000-pose `smpl_proc_v3`, VAE β 0.1, N(0, I) sampling | implemented, operator signed off 2026-10-28 | [spec](specs/015-pose-scale-and-sampling/) | [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/) |
+| 016 `probe-round-trip` | Probe round trip through the VAE (encode, decode, re-probe) | implemented, operator signed off 2026-10-28 | [spec](specs/016-probe-round-trip/) | [`docs/results/smpl-campaign-015/`](docs/results/smpl-campaign-015/) |
+| 017 `intersection-recalibration` | Recalibrated limb–torso intersection check | implemented, operator signed off 2026-10-28 | [spec](specs/017-intersection-recalibration/) | none |
+| 018 `pose-supervised-ae` | AE with a pose head on the latent (λ sweep) | implemented, operator signed off 2026-10-28 | [spec](specs/018-pose-supervised-ae/) | [`docs/results/018-pose-supervised/`](docs/results/018-pose-supervised/) |
+| 019 `latent-capacity` | 128-d latent: plain (L1) and with pose head (L2) | implemented, operator signed off 2026-10-28 | [spec](specs/019-latent-capacity/) | [`docs/results/019-latent-capacity/`](docs/results/019-latent-capacity/) |
+| 020 `sharp-reconstructions` | Gradient (outline) loss for sharper reconstructions | implemented, operator signed off 2026-10-28 | [spec](specs/020-sharp-reconstructions/) | [`docs/results/020-sharp-reconstructions/`](docs/results/020-sharp-reconstructions/) |
 
 ## Install
 

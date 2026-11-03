@@ -3,6 +3,15 @@
 Branch: `claude/charming-wozniak-5ouldf` (all work here; `main` untouched; no PRs —
 operator: "one-shot, no PRs"). CI green on `ubuntu-24.04`, Python 3.11 + 3.13.
 
+## State 2026-11-03
+
+- All 019 / 020 campaign work is recorded (`docs/results/019-latent-capacity/`,
+  `docs/results/020-sharp-reconstructions/`); nothing is queued.
+- Next: slice 021, the generative pose VAE (VAE β 0.1 + pose head λ 0.03 at 128-d, with a plain
+  128-d VAE as control), on branch `021-generative-pose-vae`.
+- Close-out: PR of the whole branch to `main` via a merge commit (not squash), to keep the
+  cited hashes.
+
 ## State
 
 - MVP done and signed off: slices 001–005, plus post-MVP 006 (latent probe).

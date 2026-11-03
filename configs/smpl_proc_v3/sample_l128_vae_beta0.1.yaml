@@ -1,0 +1,14 @@
+# spec 021 FR-006: N(0, I) prior samples of V2 (n 1024), reference L1 (plain 128-d AE).
+# Run: strike-a-pose-eval sample --config configs/smpl_proc_v3/sample_l128_vae_beta0.1.yaml --checkpoint V2/best.pt
+run_name: sample-l128-vae-beta0.1-smpl_proc_v3
+run_root: runs                         # git-ignored
+seed: 0
+dataset_dir: data/generated/smpl_proc_v3
+split_file: splits/smpl_proc_v3.json
+checkpoint: runs/ae-l128-vae-beta0.1-smpl_proc_v3-YYYYmmddTHHMMSSZ/best.pt   # placeholder: --checkpoint
+reference_checkpoint: runs/ae-l128-smpl_proc_v3-20261028T022732Z/best.pt   # L1, plain 128-d AE
+n_samples: 1024
+n_recon: 1024
+batch_size: 256
+iou_threshold: 0.075                   # 003 default (half the render ambient floor)
+figure_samples: 32

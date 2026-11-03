@@ -1,0 +1,11 @@
+# spec 021 FR-006: probe round trip (spec 016) of the V2 sample run, shuffled-pose control on.
+# Run: strike-a-pose-eval round-trip --config configs/smpl_proc_v3/roundtrip_l128_vae_beta0.1.yaml --sample-run SAMPLE --probe-run PROBE
+run_name: roundtrip-l128-vae-beta0.1-smpl_proc_v3
+run_root: runs                         # git-ignored
+seed: 0
+sample_run: runs/sample-l128-vae-beta0.1-smpl_proc_v3-YYYYmmddTHHMMSSZ   # placeholder: --sample-run
+probe_run: runs/probe-smpl_proc_v3-YYYYmmddTHHMMSSZ                           # placeholder: --probe-run (V2's probe)
+smpl_model_path: assets/smpl/SMPL_NEUTRAL.npz
+calibration_percentile: 5.0
+control: true
+figure_samples: 8

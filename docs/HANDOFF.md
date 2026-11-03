@@ -741,3 +741,19 @@ decoder-upsampling run. Q1 (reconstructions vs dataset renderer) is still pendin
   alone is not enough.
 - Capsule baselines `runs/baselines-capsule_proc_v1-20261021T110723Z`: pose baselines equal the
   published SMPL ones to ≤ 1e-4 (013 SC-005).
+
+## 021 generative pose VAE (design in specs/021-generative-pose-vae/)
+
+Goal line (operator 2026-11-03): one latent ≤ 128 numbers, pose head ≤ 80 mm, reconstructions
+within +5 % MSE, N(0,I) samples valid ≥ 59 %. Code (B1–B2, not yet implemented): pose head (and
+gradient term) allowed on a VAE, loss recon + β·KL/(H·W) + λ·pose(head(μ)), pre-021 configs
+bitwise unchanged; `scripts/generative.py report` with the fixed verdict GOAL-MET / PARTIAL /
+INCOMPLETE. Campaign (≈ 15 h, after B1–B2 green, shared lock `data/smpl_queue.lock`):
+
+    cp docs/campaign-scripts/vae021_queue.sh data/vae021_queue.sh
+    LOG=data/vae021_queue.log QUEUE=data/vae021_queue.sh data/watchdog.sh
+
+V1 (128-d VAE β 0.1 + head λ 0.03) → V2 (same, no head) → samples → round trips (V1, V2,
+retroactive R2b-v3). 12 GB gate after V1. Report command: specs/021-generative-pose-vae/plan.md
+"Campaign". Open with the operator: Q1 pixel bar (L2 + 5 % as ruled vs the goal line's 64-d
++ 5 %, which L2 itself misses by 1.1 %).

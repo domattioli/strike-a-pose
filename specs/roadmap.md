@@ -503,3 +503,11 @@ Deferred to the operator (surrogate rulings 2026-10-20 #6; not acted on):
 - 2026-10-28: slice 019 campaign done: L1 (128-d) −29 % MSE, probe 120.5 mm (pixel win + pose track); L2 (128-d + pose 0.03) pose 67.0 / 64.7 mm at +5.7 % MSE (64-d: +36 %). O2 second L2 seed queued after 020. Results: `docs/results/019-latent-capacity/`.
 - 2026-10-29: slice 020 campaign done: F1 (plain + gradient loss) NO-GAIN; F2 (pose 0.03 + gradient loss) SHARPER (bF1 +11 sd, MSE −2 %, pose unchanged). Phase 3 (O2 second L2 seed) running. Results: `docs/results/020-sharp-reconstructions/`.
 - 2026-10-29: O2 second L2 seed done: reproduces L2 within 0.3 mm (pose head 66.8 / 65.0 mm); L2 and P2 tie on pose, L2 wins on pixels. All 019/020 campaign work recorded.
+- 2026-11-03: slice 021 `generative-pose-vae` designed (operator scope 2026-11-03: encode,
+  reconstruct and generate in one ≤ 128-d latent). Pose head on μ (and gradient term, not run)
+  allowed on a VAE: one loss recon + β·KL/(H·W) + λ·pose, pre-021 bitwise unchanged. V1 128-d
+  VAE β 0.1 + λ 0.03, V2 control without head, samples + probe round trips, retroactive R2b-v3
+  round trip (≈ 15 h, `docs/campaign-scripts/vae021_queue.sh`). Fixed verdict (both splits):
+  GOAL-MET iff head ≤ 80 mm, MSE ≤ L2 + 5 %, prior valid ≥ 56 %, round-trip margin ≥ 13 points;
+  else PARTIAL (pose/pixel → β 0.03; generation → head on z). `scripts/generative.py report`.
+  Surrogate rulings Q1–Q10. Tasks B1–B3 for a Sonnet implementer.
